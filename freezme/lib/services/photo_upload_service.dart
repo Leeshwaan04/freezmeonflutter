@@ -61,7 +61,7 @@ class FirebasePhotoUploadService implements PhotoUploadService {
           'Firebase upload failed: ${error.code} ${error.message}\n$stackTrace',
         );
       }
-      throw PhotoUploadException('storage_${error.code ?? 'unknown'}');
+      throw PhotoUploadException('storage_${error.code}');
     } catch (error, stackTrace) {
       if (kDebugMode) {
         debugPrint('Photo upload failed: $error\n$stackTrace');

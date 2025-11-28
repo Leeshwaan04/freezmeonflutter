@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'services/melt_chat_service.dart';
+import 'services/photo_upload_service.dart';
 
 import 'ui/theme.dart';
 
@@ -31,14 +36,16 @@ enum AppStage {
 class VibeProfile {
   const VibeProfile({
     required this.id,
+    String? uid,
     required this.name,
     required this.age,
     required this.imageUrl,
     required this.compatibility,
     required this.bio,
     required this.distance,
-  });
+  }) : uid = uid ?? 'profile_$id';
 
+  final String uid;
   final int id;
   final String name;
   final int age;
@@ -63,24 +70,53 @@ class AppMatch {
 class AppFlowController extends ChangeNotifier {
   static const _kOnboardingCompleteKey = 'onboarding_complete';
 
-  AppFlowController._(this._prefs) : dailyProfiles = _mockProfiles() {
+  AppFlowController._(
+    this._prefs, {
+    PhotoUploadService? photoUploadService,
+    MeltChatService? meltChatService,
+  })  : _photoUploadService = photoUploadService ?? MockPhotoUploadService(),
+        _meltChatService = meltChatService ?? MockMeltChatService(),
+        photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
+        dailyProfiles = _mockProfiles() {
     _hydrate();
   }
 
-  static Future<AppFlowController> create() async {
+  static Future<AppFlowController> create({
+    PhotoUploadService? photoUploadService,
+    MeltChatService? meltChatService,
+  }) async {
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
     } catch (_) {
       // ignore; running in environments where shared_preferences is unavailable
     }
-    return AppFlowController._(prefs);
+    return AppFlowController._(
+      prefs,
+      photoUploadService: photoUploadService,
+      meltChatService: meltChatService,
+    );
+  }
+
+  static AppFlowController test({
+    SharedPreferences? prefs,
+    PhotoUploadService? photoUploadService,
+    MeltChatService? meltChatService,
+  }) {
+    return AppFlowController._(
+      prefs,
+      photoUploadService: photoUploadService,
+      meltChatService: meltChatService,
+    );
   }
 
   final SharedPreferences? _prefs;
+  final PhotoUploadService _photoUploadService;
+  final MeltChatService _meltChatService;
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
   final List<AppMatch> matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
+  final List<PhotoSlot> photoSlots;
   VibeProfile? activeProfile;
   String? _pendingInviteSlot;
   int _poolIndex = 0;
@@ -88,6 +124,7 @@ class AppFlowController extends ChangeNotifier {
   List<AppStage> get stack => List.unmodifiable(_stack);
   AppStage get current => _stack.last;
   int get poolIndex => _poolIndex;
+  List<PhotoSlot> get currentPhotoSlots => List.unmodifiable(photoSlots);
 
   VibeProfile get currentProfile =>
       dailyProfiles[_poolIndex.clamp(0, dailyProfiles.length - 1)];
@@ -246,6 +283,58 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.dailyPool]);
   }
 
+  Future<void> signOut() async {
+    activeProfile = null;
+    _pendingInviteSlot = null;
+    _poolIndex = 0;
+    matches.clear();
+    await _prefs?.remove(_kOnboardingCompleteKey);
+    replaceStack(<AppStage>[AppStage.authGate]);
+  }
+
+  Future<void> uploadPhotoForSlot(int index) async {
+    if (index < 0 || index >= photoSlots.length) {
+      throw RangeError.index(index, photoSlots);
+    }
+    photoSlots[index] =
+        photoSlots[index].copyWith(status: PhotoSlotStatus.uploading);
+    notifyListeners();
+    try {
+      final uploaded =
+          await _photoUploadService.pickAndUpload(slotIndex: index);
+      photoSlots[index] = photoSlots[index].copyWith(
+        status: PhotoSlotStatus.uploaded,
+        imageUrl: uploaded.url,
+        localPath: uploaded.localPath,
+      );
+      notifyListeners();
+    } on PhotoUploadException catch (error) {
+      photoSlots[index] = photoSlots[index].copyWith(
+        status: PhotoSlotStatus.failed,
+        error: error.message,
+      );
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<bool> sendMeltChatInvite(
+    VibeProfile profile,
+    String slotLabel,
+  ) async {
+    try {
+      await _meltChatService.sendInvite(
+        targetUid: profile.uid,
+        slotLabel: slotLabel,
+      );
+      _pendingInviteSlot = slotLabel;
+      pushIfMissing(AppStage.videoDate);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void returnToPool({bool resetIndex = false}) {
     if (resetIndex) {
       restartDailyPool();
@@ -290,15 +379,42 @@ class AppFlowController extends ChangeNotifier {
       ];
 }
 
+enum PhotoSlotStatus { empty, uploading, uploaded, failed }
+
+class PhotoSlot {
+  const PhotoSlot({
+    this.status = PhotoSlotStatus.empty,
+    this.imageUrl,
+    this.localPath,
+    this.error,
+  });
+
+  final PhotoSlotStatus status;
+  final String? imageUrl;
+  final String? localPath;
+  final String? error;
+
+  PhotoSlot copyWith({
+    PhotoSlotStatus? status,
+    String? imageUrl,
+    String? localPath,
+    String? error,
+  }) {
+    return PhotoSlot(
+      status: status ?? this.status,
+      imageUrl: imageUrl ?? this.imageUrl,
+      localPath: localPath ?? this.localPath,
+      error: error ?? this.error,
+    );
+  }
+}
+
 class AppFlowScope extends InheritedNotifier<AppFlowController> {
   const AppFlowScope({
     required AppFlowController controller,
-    required this.child,
+    required super.child,
     super.key,
-  }) : super(notifier: controller, child: child);
-
-  @override
-  final Widget child;
+  }) : super(notifier: controller);
 
   static AppFlowController of(BuildContext context, {bool listen = true}) {
     final scope = listen
@@ -314,7 +430,12 @@ class AppFlowScope extends InheritedNotifier<AppFlowController> {
 }
 
 class FreezmeApp extends StatefulWidget {
-  const FreezmeApp({super.key});
+  const FreezmeApp({
+    super.key,
+    this.controllerBuilder,
+  });
+
+  final Future<AppFlowController> Function()? controllerBuilder;
 
   @override
   State<FreezmeApp> createState() => _FreezmeAppState();
@@ -326,7 +447,8 @@ class _FreezmeAppState extends State<FreezmeApp> {
   @override
   void initState() {
     super.initState();
-    AppFlowController.create().then((controller) {
+    final builder = widget.controllerBuilder ?? AppFlowController.create;
+    builder().then((controller) {
       if (mounted) {
         setState(() {
           _controller = controller;
@@ -383,6 +505,7 @@ class FlowNavigator extends StatelessWidget {
 
         return Navigator(
           pages: pages,
+          // ignore: deprecated_member_use
           onPopPage: (route, result) {
             if (!route.didPop(result)) {
               return false;
@@ -1051,6 +1174,10 @@ class OnboardingFlowPage extends StatefulWidget {
 class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   int _step = 1;
   String? _selectedIntent;
+  final ImagePicker _picker = ImagePicker();
+  final List<_PhotoSlot> _photoSlots =
+      List.generate(6, (_) => const _PhotoSlot.empty());
+  String? _photoError;
 
   final List<({String id, String label, String emoji})> _intents = const [
     (id: 'meaningful', label: 'Meaningful connection', emoji: '💜'),
@@ -1058,7 +1185,16 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
     (id: 'see', label: 'Let\'s see where it goes', emoji: '🌟'),
   ];
 
+  int get _readyCount =>
+      _photoSlots.where((slot) => slot.status == _PhotoStatus.ready).length;
+
   void _handleNext(AppFlowController flow) {
+    if (_step == 2 && _readyCount < 3) {
+      setState(() {
+        _photoError = 'Add at least 3 photos to continue.';
+      });
+      return;
+    }
     if (_step < 3) {
       setState(() => _step++);
       return;
@@ -1131,17 +1267,22 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 child: Row(
                   children: [
                     if (_step > 1)
-                      OutlinedButton(
-                        onPressed: () => setState(() => _step--),
-                        style: FreezmeButtons.secondaryOutlined,
-                        child: const Icon(Icons.chevron_left),
+                      SizedBox(
+                        height: 52,
+                        width: 52,
+                        child: OutlinedButton(
+                          onPressed: () => setState(() => _step--),
+                          style: FreezmeButtons.secondaryOutlined,
+                          child: const Icon(Icons.chevron_left),
+                        ),
                       )
                     else
                       const SizedBox(width: 0, height: 0),
                     const SizedBox(width: FreezmeInsets.elementSpacing / 1.5),
                     Expanded(
                       child: FilledButton(
-                        onPressed: _step == 1 && _selectedIntent == null
+                        onPressed: (_step == 1 && _selectedIntent == null) ||
+                                (_step == 2 && _readyCount < 3)
                             ? null
                             : () => _handleNext(flow),
                         style: FreezmeButtons.primaryFilled,
@@ -1247,39 +1388,67 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                     ),
                   ),
                   const SizedBox(height: FreezmeInsets.elementSpacing / 2),
-                  const Text(
-                    'Add at least 3 photos 📸',
+                  Text(
+                    'Add at least 3 photos 📸 • $_readyCount/6 uploaded',
                     style: FreezmeTypography.bodyMuted,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: FreezmeInsets.sectionSpacing),
+            const SizedBox(height: FreezmeInsets.elementSpacing),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(FreezmeInsets.elementSpacing),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(FreezmeInsets.cardRadius),
+                border: Border.all(color: FreezmeColors.border),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.lightbulb_outline,
+                      color: FreezmeColors.primary),
+                  const SizedBox(width: FreezmeInsets.elementSpacing / 1.5),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'Photo tips',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: FreezmeColors.neutral,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Use natural light, no heavy filters, and keep yourself centered so matches see the real you.',
+                          style: FreezmeTypography.bodyMuted,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_photoError != null) ...[
+              const SizedBox(height: FreezmeInsets.elementSpacing / 2),
+              Text(
+                _photoError!,
+                style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            const SizedBox(height: FreezmeInsets.sectionSpacing / 1.5),
             Expanded(
               child: GridView.count(
                 crossAxisCount: 3,
                 crossAxisSpacing: FreezmeInsets.elementSpacing,
                 mainAxisSpacing: FreezmeInsets.elementSpacing,
-                children: List.generate(
-                  6,
-                  (index) => Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(FreezmeInsets.cardRadius),
-                      border: Border.all(
-                        color: FreezmeColors.border,
-                        width: 2,
-                        style: BorderStyle.solid,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt_outlined,
-                      color: FreezmeColors.muted,
-                      size: 32,
-                    ),
-                  ),
-                ),
+                children: List.generate(6, _buildPhotoTile),
               ),
             ),
           ],
@@ -1446,6 +1615,257 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
           ),
         );
     }
+  }
+
+  Widget _buildPhotoTile(int index) {
+    final slot = _photoSlots[index];
+    final borderColor = () {
+      switch (slot.status) {
+        case _PhotoStatus.error:
+          return Colors.redAccent;
+        case _PhotoStatus.ready:
+          return FreezmeColors.primary;
+        default:
+          return FreezmeColors.border;
+      }
+    }();
+
+    return GestureDetector(
+      key: ValueKey('photo-slot-$index'),
+      onTap: () {
+        if (slot.status == _PhotoStatus.ready && slot.file != null) {
+          _previewPhoto(slot);
+        } else {
+          _pickPhoto(index);
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(FreezmeInsets.cardRadius),
+          border: Border.all(color: borderColor, width: 2),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0F000000),
+              blurRadius: 6,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(FreezmeInsets.cardRadius),
+                child: slot.file != null
+                    ? Image.file(slot.file!, fit: BoxFit.cover)
+                    : const SizedBox.shrink(),
+              ),
+            ),
+            if (slot.status == _PhotoStatus.uploading)
+              const Center(
+                child: SizedBox(
+                  height: 28,
+                  width: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: FreezmeColors.primary,
+                  ),
+                ),
+              )
+            else if (slot.status == _PhotoStatus.ready)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _chip(
+                  label: 'Ready',
+                  color: Colors.green.shade600,
+                  icon: Icons.check,
+                ),
+              )
+            else if (slot.status == _PhotoStatus.error)
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.error_outline, color: Colors.redAccent),
+                    SizedBox(height: 6),
+                    Text(
+                      'Tap to retry',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
+                  ],
+                ),
+              )
+            else
+              const Center(
+                child: Icon(
+                  Icons.camera_alt_outlined,
+                  color: FreezmeColors.muted,
+                  size: 32,
+                ),
+              ),
+            if (slot.status == _PhotoStatus.ready)
+              Positioned(
+                top: 8,
+                left: 8,
+                child: _iconCircle(
+                  icon: Icons.open_in_full,
+                  onTap: () => _previewPhoto(slot),
+                ),
+              ),
+            if (slot.status == _PhotoStatus.ready ||
+                slot.status == _PhotoStatus.error)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _iconCircle(
+                  icon: Icons.close,
+                  onTap: () => _removePhoto(index),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _iconCircle({required IconData icon, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: const BoxDecoration(
+          color: Colors.white70,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 16, color: FreezmeColors.neutral),
+      ),
+    );
+  }
+
+  Widget _chip({required String label, required Color color, IconData? icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        // ignore: deprecated_member_use
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickPhoto(int index) async {
+    setState(() {
+      _photoError = null;
+      _photoSlots[index] =
+          _photoSlots[index].copyWith(status: _PhotoStatus.uploading, error: null);
+    });
+    try {
+      final picked =
+          await _picker.pickImage(source: ImageSource.gallery, imageQuality: 82);
+      if (picked == null) {
+        setState(() {
+          _photoSlots[index] = const _PhotoSlot.empty();
+        });
+        return;
+      }
+      final file = File(picked.path);
+      setState(() {
+        _photoSlots[index] = _photoSlots[index].copyWith(
+          status: _PhotoStatus.ready,
+          file: file,
+        );
+      });
+    } catch (_) {
+      setState(() {
+        _photoSlots[index] = _photoSlots[index].copyWith(
+          status: _PhotoStatus.error,
+          error: 'Could not add photo',
+        );
+      });
+    }
+  }
+
+  void _removePhoto(int index) {
+    setState(() {
+      _photoSlots[index] = const _PhotoSlot.empty();
+      _photoError = null;
+    });
+  }
+
+  void _previewPhoto(_PhotoSlot slot) {
+    if (slot.file == null) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              child: Image.file(slot.file!, fit: BoxFit.contain),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: _iconCircle(
+                icon: Icons.close,
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _PhotoStatus { empty, uploading, ready, error }
+
+class _PhotoSlot {
+  final File? file;
+  final _PhotoStatus status;
+  final String? error;
+
+  const _PhotoSlot({
+    required this.file,
+    required this.status,
+    required this.error,
+  });
+
+  const _PhotoSlot.empty()
+      : file = null,
+        status = _PhotoStatus.empty,
+        error = null;
+
+  _PhotoSlot copyWith({
+    File? file,
+    _PhotoStatus? status,
+    String? error,
+  }) {
+    return _PhotoSlot(
+      file: file ?? this.file,
+      status: status ?? this.status,
+      error: error ?? this.error,
+    );
   }
 }
 
@@ -2580,7 +3000,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                           shape: const StadiumBorder(),
                           side: const BorderSide(color: FreezmeColors.border),
                         ),
-                        onPressed: flow.finishMatchSuccessToPool,
+                        onPressed: flow.signOut,
                         icon: const Icon(Icons.logout),
                         label: const Text('Sign Out'),
                       ),

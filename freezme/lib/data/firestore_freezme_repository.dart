@@ -36,9 +36,82 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
       // fall through to fallback
     }
 
-    if (_fallback != null) {
-      return _fallback.fetchDailyProfiles();
+    final fallback = _fallback;
+    if (fallback != null) {
+      return fallback.fetchDailyProfiles();
     }
-    return const [];
+    return const <VibeProfile>[];
+  }
+
+  @override
+  Future<void> createProfile(VibeProfile profile) async {
+    try {
+      await _firestore
+          .collection('profiles')
+          .doc(profile.uid)
+          .set(profile.toJson(), SetOptions(merge: true));
+      return;
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.createProfile(profile);
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> likeProfile(String targetUid) async {
+    try {
+      await _firestore
+          .collection('likes')
+          .add(<String, dynamic>{'targetUid': targetUid, 'ts': DateTime.now()});
+      return;
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.likeProfile(targetUid);
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> skipProfile(String targetUid) async {
+    try {
+      await _firestore
+          .collection('skips')
+          .add(<String, dynamic>{'targetUid': targetUid, 'ts': DateTime.now()});
+      return;
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.skipProfile(targetUid);
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> fetchMatches() async {
+    try {
+      final snapshot = await _firestore
+          .collection('matches')
+          .orderBy('ts', descending: true)
+          .limit(50)
+          .get();
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs
+            .map((doc) => <String, dynamic>{'id': doc.id, ...doc.data()})
+            .toList();
+      }
+    } catch (_) {
+      // fall through
+    }
+    final fallback = _fallback;
+    if (fallback != null) {
+      return fallback.fetchMatches();
+    }
+    return <Map<String, dynamic>>[];
   }
 }

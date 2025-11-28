@@ -48,7 +48,7 @@ void main() {
         await file.create(recursive: true);
         await file.writeAsBytes(bytes, flush: true);
         // ignore: avoid_print
-        print('Wrote ' + file.path);
+        print('Wrote ${file.path}');
       }
     },
     skip: true,
