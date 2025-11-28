@@ -74,10 +74,10 @@ class AppFlowController extends ChangeNotifier {
     this._prefs, {
     PhotoUploadService? photoUploadService,
     MeltChatService? meltChatService,
-  })  : _photoUploadService = photoUploadService ?? MockPhotoUploadService(),
-        _meltChatService = meltChatService ?? MockMeltChatService(),
-        photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
-        dailyProfiles = _mockProfiles() {
+  }) : _photoUploadService = photoUploadService ?? MockPhotoUploadService(),
+       _meltChatService = meltChatService ?? MockMeltChatService(),
+       photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
+       dailyProfiles = _mockProfiles() {
     _hydrate();
   }
 
@@ -133,8 +133,7 @@ class AppFlowController extends ChangeNotifier {
       math.max(0, dailyProfiles.length - _poolIndex - 1);
 
   void _hydrate() {
-    final completed =
-        _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+    final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
     _stack
       ..clear()
       ..add(completed ? AppStage.dailyPool : AppStage.splash);
@@ -296,12 +295,14 @@ class AppFlowController extends ChangeNotifier {
     if (index < 0 || index >= photoSlots.length) {
       throw RangeError.index(index, photoSlots);
     }
-    photoSlots[index] =
-        photoSlots[index].copyWith(status: PhotoSlotStatus.uploading);
+    photoSlots[index] = photoSlots[index].copyWith(
+      status: PhotoSlotStatus.uploading,
+    );
     notifyListeners();
     try {
-      final uploaded =
-          await _photoUploadService.pickAndUpload(slotIndex: index);
+      final uploaded = await _photoUploadService.pickAndUpload(
+        slotIndex: index,
+      );
       photoSlots[index] = photoSlots[index].copyWith(
         status: PhotoSlotStatus.uploaded,
         imageUrl: uploaded.url,
@@ -318,10 +319,7 @@ class AppFlowController extends ChangeNotifier {
     }
   }
 
-  Future<bool> sendMeltChatInvite(
-    VibeProfile profile,
-    String slotLabel,
-  ) async {
+  Future<bool> sendMeltChatInvite(VibeProfile profile, String slotLabel) async {
     try {
       await _meltChatService.sendInvite(
         targetUid: profile.uid,
@@ -343,40 +341,40 @@ class AppFlowController extends ChangeNotifier {
   }
 
   static List<VibeProfile> _mockProfiles() => const <VibeProfile>[
-        VibeProfile(
-          id: 1,
-          name: 'Emma',
-          age: 24,
-          imageUrl:
-              'https://images.unsplash.com/photo-1546961329-78bef0414d7c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYwOTQ2MDQ5fDA&ixlib=rb-4.1.0&q=80&w=1080',
-          compatibility: 92,
-          bio:
-              'Adventure seeker | Coffee addict | Let\'s explore the city together ☕',
-          distance: '2 km away',
-        ),
-        VibeProfile(
-          id: 2,
-          name: 'Alex',
-          age: 27,
-          imageUrl:
-              'https://images.unsplash.com/flagged/photo-1596479042555-9265a7fa7983?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbiUyMHBvcnRyYWl0fGVufDF8fHx8MTc2MDkzNjI2MHww&ixlib=rb-4.1.0&q=80&w=1080',
-          compatibility: 88,
-          bio:
-              'Fitness enthusiast | Foodie | Looking for meaningful connections 💪',
-          distance: '5 km away',
-        ),
-        VibeProfile(
-          id: 3,
-          name: 'Sophie',
-          age: 26,
-          imageUrl:
-              'https://images.unsplash.com/photo-1591969851586-adbbd4accf81?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb21hbnRpYyUyMGNvdXBsZXxlbnwxfHx8fDE3NjA5Nzg1Nzh8MA&ixlib=rb-4.1.0&q=80&w=1080',
-          compatibility: 85,
-          bio:
-              'Artist at heart | Music lover | Deep conversations over small talk 🎨',
-          distance: '3 km away',
-        ),
-      ];
+    VibeProfile(
+      id: 1,
+      name: 'Emma',
+      age: 24,
+      imageUrl:
+          'https://images.unsplash.com/photo-1546961329-78bef0414d7c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYwOTQ2MDQ5fDA&ixlib=rb-4.1.0&q=80&w=1080',
+      compatibility: 92,
+      bio:
+          'Adventure seeker | Coffee addict | Let\'s explore the city together ☕',
+      distance: '2 km away',
+    ),
+    VibeProfile(
+      id: 2,
+      name: 'Alex',
+      age: 27,
+      imageUrl:
+          'https://images.unsplash.com/flagged/photo-1596479042555-9265a7fa7983?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbiUyMHBvcnRyYWl0fGVufDF8fHx8MTc2MDkzNjI2MHww&ixlib=rb-4.1.0&q=80&w=1080',
+      compatibility: 88,
+      bio:
+          'Fitness enthusiast | Foodie | Looking for meaningful connections 💪',
+      distance: '5 km away',
+    ),
+    VibeProfile(
+      id: 3,
+      name: 'Sophie',
+      age: 26,
+      imageUrl:
+          'https://images.unsplash.com/photo-1591969851586-adbbd4accf81?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb21hbnRpYyUyMGNvdXBsZXxlbnwxfHx8fDE3NjA5Nzg1Nzh8MA&ixlib=rb-4.1.0&q=80&w=1080',
+      compatibility: 85,
+      bio:
+          'Artist at heart | Music lover | Deep conversations over small talk 🎨',
+      distance: '3 km away',
+    ),
+  ];
 }
 
 enum PhotoSlotStatus { empty, uploading, uploaded, failed }
@@ -430,10 +428,7 @@ class AppFlowScope extends InheritedNotifier<AppFlowController> {
 }
 
 class FreezmeApp extends StatefulWidget {
-  const FreezmeApp({
-    super.key,
-    this.controllerBuilder,
-  });
+  const FreezmeApp({super.key, this.controllerBuilder});
 
   final Future<AppFlowController> Function()? controllerBuilder;
 
@@ -468,9 +463,7 @@ class _FreezmeAppState extends State<FreezmeApp> {
     if (_controller == null) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
 
@@ -613,36 +606,33 @@ class _SplashScreenState extends State<SplashScreen>
     _textOffsetAnimation = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _textController,
-        curve: Curves.easeOut,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _textController, curve: Curves.easeOut));
 
     _introController.forward();
     _rotationController.repeat();
     _backgroundController.repeat(reverse: true);
 
-    _gradientStart = ColorTween(
-      begin: FreezmeColors.surface,
-      end: FreezmeColors.surfaceAlt,
-    ).animate(
-      CurvedAnimation(
-        parent: _backgroundController,
-        curve: Curves.easeInOut,
-      ),
-    );
+    _gradientStart =
+        ColorTween(
+          begin: FreezmeColors.surface,
+          end: FreezmeColors.surfaceAlt,
+        ).animate(
+          CurvedAnimation(
+            parent: _backgroundController,
+            curve: Curves.easeInOut,
+          ),
+        );
 
-    _gradientEnd = ColorTween(
-      begin: FreezmeColors.surfaceAlt,
-      end: FreezmeColors.surface,
-    ).animate(
-      CurvedAnimation(
-        parent: _backgroundController,
-        curve: Curves.easeInOut,
-      ),
-    );
+    _gradientEnd =
+        ColorTween(
+          begin: FreezmeColors.surfaceAlt,
+          end: FreezmeColors.surface,
+        ).animate(
+          CurvedAnimation(
+            parent: _backgroundController,
+            curve: Curves.easeInOut,
+          ),
+        );
 
     Future<void>.delayed(const Duration(milliseconds: 500), () {
       if (mounted) {
@@ -836,25 +826,15 @@ class _GlowingOrb extends StatelessWidget {
 class AuthGatePage extends StatelessWidget {
   const AuthGatePage({super.key});
 
-  static const _highlights = [
-    (icon: Icons.favorite_outline, label: 'Curated daily matches'),
-    (icon: Icons.videocam_outlined, label: '1:1 video vibes'),
-    (icon: Icons.spa_outlined, label: 'Mindful prompts & check-ins'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
-    final cardShadow = FreezmeColors.primary.withValues(alpha: 0.08);
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: FreezmeGradients.backgroundSoft,
-        ),
+        color: Colors.white,
         child: SafeArea(
           child: Stack(
             children: [
-              const _AuthBackgroundDecor(),
               Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
@@ -875,24 +855,6 @@ class AuthGatePage extends StatelessWidget {
                             borderRadius: BorderRadius.circular(
                               FreezmeInsets.cardRadius,
                             ),
-                            gradient: const LinearGradient(
-                              colors: [
-                                Colors.white,
-                                FreezmeColors.surface,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            border: Border.all(
-                              color: FreezmeColors.border,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: cardShadow,
-                                blurRadius: 36,
-                                offset: const Offset(0, 18),
-                              ),
-                            ],
                           ),
                           child: Column(
                             children: [
@@ -907,43 +869,12 @@ class AuthGatePage extends StatelessWidget {
                                   variant: LogoVariant.white,
                                 ),
                               ),
-                              const SizedBox(
-                                height: FreezmeInsets.sectionSpacing,
-                              ),
-                              Text(
-                                'Intentional dating for soulful matches',
-                                textAlign: TextAlign.center,
-                                style: FreezmeTypography.title.copyWith(
-                                  color: FreezmeColors.neutral,
-                                ),
-                              ),
-                              const SizedBox(
-                                height: FreezmeInsets.elementSpacing,
-                              ),
-                              const Text(
-                                'Freezme pairs thoughtful prompts, science-backed compatibility, and mindful pacing so every connection feels like it’s meant to be.',
-                                textAlign: TextAlign.center,
-                                style: FreezmeTypography.bodyMuted,
-                              ),
-                              const SizedBox(
-                                height: FreezmeInsets.sectionSpacing,
-                              ),
-                              Wrap(
-                                alignment: WrapAlignment.center,
-                                spacing: FreezmeInsets.elementSpacing,
-                                runSpacing: FreezmeInsets.elementSpacing,
-                                children: [
-                                  for (final item in _highlights)
-                                    _AuthHighlightBadge(
-                                      icon: item.icon,
-                                      label: item.label,
-                                    ),
-                                ],
-                              ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: FreezmeInsets.sectionSpacing * 1.2),
+                        const SizedBox(
+                          height: FreezmeInsets.sectionSpacing * 1.2,
+                        ),
                         _AuthButton(
                           label: 'Continue with Apple',
                           icon: Icons.apple,
@@ -1024,88 +955,6 @@ class AuthGatePage extends StatelessWidget {
   }
 }
 
-class _AuthHighlightBadge extends StatelessWidget {
-  const _AuthHighlightBadge({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: FreezmeInsets.elementSpacing,
-        vertical: 12,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: Colors.white,
-        border: Border.all(color: FreezmeColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: FreezmeColors.primary.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: FreezmeColors.primary),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: FreezmeTypography.body.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AuthBackgroundDecor extends StatelessWidget {
-  const _AuthBackgroundDecor();
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Stack(
-          children: [
-            Positioned(
-              top: -120,
-              left: -80,
-              child: Container(
-                width: 240,
-                height: 240,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: FreezmeGradients.primary,
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -140,
-              right: -60,
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: FreezmeGradients.accent,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _AuthButton extends StatelessWidget {
   const _AuthButton({
     required this.label,
@@ -1140,7 +989,9 @@ class _AuthButton extends StatelessWidget {
             gradient: gradient,
             color: gradient == null ? background : null,
             borderRadius: BorderRadius.circular(999),
-            border: borderSide != null ? Border.fromBorderSide(borderSide) : null,
+            border: borderSide != null
+                ? Border.fromBorderSide(borderSide)
+                : null,
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: FreezmeInsets.elementSpacing,
@@ -1175,8 +1026,10 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   int _step = 1;
   String? _selectedIntent;
   final ImagePicker _picker = ImagePicker();
-  final List<_PhotoSlot> _photoSlots =
-      List.generate(6, (_) => const _PhotoSlot.empty());
+  final List<_PhotoSlot> _photoSlots = List.generate(
+    6,
+    (_) => const _PhotoSlot.empty(),
+  );
   String? _photoError;
 
   final List<({String id, String label, String emoji})> _intents = const [
@@ -1281,7 +1134,8 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                     const SizedBox(width: FreezmeInsets.elementSpacing / 1.5),
                     Expanded(
                       child: FilledButton(
-                        onPressed: (_step == 1 && _selectedIntent == null) ||
+                        onPressed:
+                            (_step == 1 && _selectedIntent == null) ||
                                 (_step == 2 && _readyCount < 3)
                             ? null
                             : () => _handleNext(flow),
@@ -1340,8 +1194,9 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                     color: _selectedIntent == intent.id
                         ? FreezmeColors.primary
                         : Colors.white,
-                    borderRadius:
-                        BorderRadius.circular(FreezmeInsets.cardRadius),
+                    borderRadius: BorderRadius.circular(
+                      FreezmeInsets.cardRadius,
+                    ),
                     border: Border.all(
                       color: _selectedIntent == intent.id
                           ? FreezmeColors.primary
@@ -1407,8 +1262,10 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.lightbulb_outline,
-                      color: FreezmeColors.primary),
+                  const Icon(
+                    Icons.lightbulb_outline,
+                    color: FreezmeColors.primary,
+                  ),
                   const SizedBox(width: FreezmeInsets.elementSpacing / 1.5),
                   Expanded(
                     child: Column(
@@ -1494,13 +1351,15 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(FreezmeInsets.cardRadius),
+                    borderRadius: BorderRadius.circular(
+                      FreezmeInsets.cardRadius,
+                    ),
                     borderSide: const BorderSide(color: FreezmeColors.border),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(FreezmeInsets.cardRadius),
+                    borderRadius: BorderRadius.circular(
+                      FreezmeInsets.cardRadius,
+                    ),
                     borderSide: const BorderSide(color: FreezmeColors.border),
                   ),
                 ),
@@ -1532,15 +1391,17 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                               borderRadius: BorderRadius.circular(
                                 FreezmeInsets.cardRadius,
                               ),
-                              borderSide:
-                                  const BorderSide(color: FreezmeColors.border),
+                              borderSide: const BorderSide(
+                                color: FreezmeColors.border,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(
                                 FreezmeInsets.cardRadius,
                               ),
-                              borderSide:
-                                  const BorderSide(color: FreezmeColors.border),
+                              borderSide: const BorderSide(
+                                color: FreezmeColors.border,
+                              ),
                             ),
                           ),
                         ),
@@ -1572,15 +1433,17 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                               borderRadius: BorderRadius.circular(
                                 FreezmeInsets.cardRadius,
                               ),
-                              borderSide:
-                                  const BorderSide(color: FreezmeColors.border),
+                              borderSide: const BorderSide(
+                                color: FreezmeColors.border,
+                              ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(
                                 FreezmeInsets.cardRadius,
                               ),
-                              borderSide:
-                                  const BorderSide(color: FreezmeColors.border),
+                              borderSide: const BorderSide(
+                                color: FreezmeColors.border,
+                              ),
                             ),
                           ),
                         ),
@@ -1775,12 +1638,16 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   Future<void> _pickPhoto(int index) async {
     setState(() {
       _photoError = null;
-      _photoSlots[index] =
-          _photoSlots[index].copyWith(status: _PhotoStatus.uploading, error: null);
+      _photoSlots[index] = _photoSlots[index].copyWith(
+        status: _PhotoStatus.uploading,
+        error: null,
+      );
     });
     try {
-      final picked =
-          await _picker.pickImage(source: ImageSource.gallery, imageQuality: 82);
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 82,
+      );
       if (picked == null) {
         setState(() {
           _photoSlots[index] = const _PhotoSlot.empty();
@@ -1852,15 +1719,11 @@ class _PhotoSlot {
   });
 
   const _PhotoSlot.empty()
-      : file = null,
-        status = _PhotoStatus.empty,
-        error = null;
+    : file = null,
+      status = _PhotoStatus.empty,
+      error = null;
 
-  _PhotoSlot copyWith({
-    File? file,
-    _PhotoStatus? status,
-    String? error,
-  }) {
+  _PhotoSlot copyWith({File? file, _PhotoStatus? status, String? error}) {
     return _PhotoSlot(
       file: file ?? this.file,
       status: status ?? this.status,
@@ -1922,21 +1785,25 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
       context: context,
       builder: (dialogContext) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
           child: StatefulBuilder(
             builder: (context, setStateDialog) {
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       'Invite for a Vibe Date?',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: FreezmeColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        color: FreezmeColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
@@ -2013,10 +1880,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
           body: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  FreezmeColors.surface,
-                  FreezmeColors.surfaceAlt,
-                ],
+                colors: [FreezmeColors.surface, FreezmeColors.surfaceAlt],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -2034,7 +1898,10 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                       children: [
                         Row(
                           children: [
-                            const FreezmeLogo(size: LogoSize.sm, showText: true),
+                            const FreezmeLogo(
+                              size: LogoSize.sm,
+                              showText: true,
+                            ),
                             const Spacer(),
                             IconButton.outlined(
                               onPressed: flow.openDailyRecap,
@@ -2064,8 +1931,11 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                               Expanded(
                                 child: Container(
                                   height: 4,
-                                  margin:
-                                      EdgeInsets.only(right: i == flow.dailyProfiles.length - 1 ? 0 : 8),
+                                  margin: EdgeInsets.only(
+                                    right: i == flow.dailyProfiles.length - 1
+                                        ? 0
+                                        : 8,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: i <= flow.poolIndex
                                         ? FreezmeColors.primary
@@ -2106,9 +1976,9 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   const ColoredBox(
-                                color: FreezmeColors.border,
-                                child: Icon(Icons.person, size: 48),
-                              ),
+                                    color: FreezmeColors.border,
+                                    child: Icon(Icons.person, size: 48),
+                                  ),
                             ),
                             Positioned(
                               top: 20,
@@ -2128,7 +1998,9 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                                   borderRadius: BorderRadius.circular(999),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.2),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.2,
+                                      ),
                                       blurRadius: 12,
                                       offset: const Offset(0, 6),
                                     ),
@@ -2321,7 +2193,11 @@ class _VideoDatePageState extends State<VideoDatePage>
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [FreezmeColors.neutral, Color(0xFF3D2D4D), Color(0xFF4D2D3D)],
+            colors: [
+              FreezmeColors.neutral,
+              Color(0xFF3D2D4D),
+              Color(0xFF4D2D3D),
+            ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -2331,8 +2207,10 @@ class _VideoDatePageState extends State<VideoDatePage>
             children: [
               Expanded(
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   child: Column(
                     children: [
                       Expanded(
@@ -2370,8 +2248,7 @@ class _VideoDatePageState extends State<VideoDatePage>
                                 Center(
                                   child: AnimatedScale(
                                     scale: 1.4,
-                                    duration:
-                                        const Duration(milliseconds: 600),
+                                    duration: const Duration(milliseconds: 600),
                                     child: Text(
                                       _reaction!,
                                       style: const TextStyle(fontSize: 72),
@@ -2424,8 +2301,10 @@ class _VideoDatePageState extends State<VideoDatePage>
                 ),
               ),
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
                 child: Column(
                   children: [
                     Container(
@@ -2522,8 +2401,10 @@ class _VideoDatePageState extends State<VideoDatePage>
                         const SizedBox(width: 24),
                         GestureDetector(
                           onTap: () {
-                            AppFlowScope.of(context, listen: false)
-                                .completeVideoDate();
+                            AppFlowScope.of(
+                              context,
+                              listen: false,
+                            ).completeVideoDate();
                           },
                           child: Container(
                             height: 72,
@@ -2601,9 +2482,9 @@ class MatchSuccessPage extends StatelessWidget {
                   Text(
                     'It\'s a Vibe! 💜',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
@@ -2611,10 +2492,7 @@ class MatchSuccessPage extends StatelessWidget {
                     profile != null
                         ? 'You and ${profile.name} both felt the connection'
                         : 'Your match is excited to chat',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 18,
-                    ),
+                    style: const TextStyle(color: Colors.white70, fontSize: 18),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
@@ -2630,7 +2508,8 @@ class MatchSuccessPage extends StatelessWidget {
                       const Text('💜', style: TextStyle(fontSize: 48)),
                       const SizedBox(width: 24),
                       _MatchAvatar(
-                        imageUrl: profile?.imageUrl ??
+                        imageUrl:
+                            profile?.imageUrl ??
                             'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=320',
                         label: profile?.name ?? 'Match',
                       ),
@@ -2702,10 +2581,7 @@ class _MatchAvatar extends StatelessWidget {
           child: Image.network(imageUrl, fit: BoxFit.cover),
         ),
         const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white70)),
       ],
     );
   }
@@ -2763,13 +2639,13 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      FreezmeColors.primary,
-                      FreezmeColors.secondary,
-                    ],
+                    colors: [FreezmeColors.primary, FreezmeColors.secondary],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
@@ -2799,7 +2675,8 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                         const SizedBox(width: 12),
                         Text(
                           'Profile & Settings',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -2921,9 +2798,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                               alignment: Alignment.centerLeft,
                               child: Text(
                                 'Quick Settings',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
+                                style: Theme.of(context).textTheme.titleMedium
                                     ?.copyWith(
                                       color: FreezmeColors.primary,
                                       fontWeight: FontWeight.w600,
@@ -3185,9 +3060,9 @@ class ProfilePreviewPage extends StatelessWidget {
                 Text(
                   'Your Vibe Profile',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: FreezmeColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: FreezmeColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -3249,9 +3124,7 @@ class ProfilePreviewPage extends StatelessWidget {
                           children: [
                             Text(
                               'About Me',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: FreezmeColors.primary,
                                     fontWeight: FontWeight.w600,
@@ -3268,9 +3141,7 @@ class ProfilePreviewPage extends StatelessWidget {
                             const SizedBox(height: 24),
                             Text(
                               'Personality Type',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: FreezmeColors.primary,
                                     fontWeight: FontWeight.w600,
@@ -3299,9 +3170,7 @@ class ProfilePreviewPage extends StatelessWidget {
                             const SizedBox(height: 24),
                             Text(
                               'Interests',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: FreezmeColors.primary,
                                     fontWeight: FontWeight.w600,
@@ -3347,10 +3216,7 @@ class _ProfileDetailRow extends StatelessWidget {
       children: [
         Icon(icon, color: FreezmeColors.muted),
         const SizedBox(width: 12),
-        Text(
-          label,
-          style: const TextStyle(color: FreezmeColors.neutral),
-        ),
+        Text(label, style: const TextStyle(color: FreezmeColors.neutral)),
       ],
     );
   }
@@ -3370,10 +3236,7 @@ class _ChipLabel extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: FreezmeColors.border),
       ),
-      child: Text(
-        label,
-        style: const TextStyle(color: FreezmeColors.primary),
-      ),
+      child: Text(label, style: const TextStyle(color: FreezmeColors.primary)),
     );
   }
 }
@@ -3389,10 +3252,7 @@ class _GradientChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            FreezmeColors.secondary,
-            FreezmeColors.accent,
-          ],
+          colors: [FreezmeColors.secondary, FreezmeColors.accent],
         ),
         borderRadius: BorderRadius.all(Radius.circular(999)),
       ),
@@ -3426,7 +3286,7 @@ class DailyRecapPage extends StatelessWidget {
         value: '$newVibes',
         gradient: const LinearGradient(
           colors: [FreezmeColors.secondary, FreezmeColors.accent],
-        )
+        ),
       ),
       (
         icon: Icons.videocam,
@@ -3434,7 +3294,7 @@ class DailyRecapPage extends StatelessWidget {
         value: '$videoDates',
         gradient: const LinearGradient(
           colors: [FreezmeColors.primary, FreezmeColors.secondary],
-        )
+        ),
       ),
       (
         icon: Icons.message_outlined,
@@ -3442,7 +3302,7 @@ class DailyRecapPage extends StatelessWidget {
         value: '$messages',
         gradient: const LinearGradient(
           colors: [FreezmeColors.accent, FreezmeColors.success],
-        )
+        ),
       ),
       (
         icon: Icons.trending_up,
@@ -3450,7 +3310,7 @@ class DailyRecapPage extends StatelessWidget {
         value: '$profileViews',
         gradient: const LinearGradient(
           colors: [Color(0xFF8B5FBF), FreezmeColors.primary],
-        )
+        ),
       ),
     ];
 
@@ -3476,7 +3336,8 @@ class DailyRecapPage extends StatelessWidget {
                       const SizedBox(height: 12),
                       Text(
                         'Your Daily Recap',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
                               color: FreezmeColors.primary,
                               fontWeight: FontWeight.w600,
                             ),
@@ -3492,10 +3353,10 @@ class DailyRecapPage extends StatelessWidget {
                         physics: const NeverScrollableScrollPhysics(),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                        ),
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
                         itemCount: stats.length,
                         itemBuilder: (context, index) {
                           final stat = stats[index];
@@ -3569,9 +3430,7 @@ class DailyRecapPage extends StatelessWidget {
                           children: [
                             Text(
                               'Today\'s Highlights',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: FreezmeColors.primary,
                                     fontWeight: FontWeight.w600,
@@ -3639,7 +3498,10 @@ class DailyRecapPage extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: FreezmeColors.primary,
@@ -3714,8 +3576,11 @@ class _CompatibilityQuizPageState extends State<CompatibilityQuizPage> {
   ];
 
   int _currentQuestion = 0;
-  final List<double> _answers =
-      List<double>.filled(_questions.length, 50.0, growable: false);
+  final List<double> _answers = List<double>.filled(
+    _questions.length,
+    50.0,
+    growable: false,
+  );
 
   void _handleNext(AppFlowController flow) {
     if (_currentQuestion < _questions.length - 1) {
@@ -3753,7 +3618,10 @@ class _CompatibilityQuizPageState extends State<CompatibilityQuizPage> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -3797,13 +3665,14 @@ class _CompatibilityQuizPageState extends State<CompatibilityQuizPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(question.emoji, style: const TextStyle(fontSize: 60)),
+                        Text(
+                          question.emoji,
+                          style: const TextStyle(fontSize: 60),
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           question.text,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: FreezmeColors.neutral,
                                 fontWeight: FontWeight.w600,
@@ -3850,7 +3719,10 @@ class _CompatibilityQuizPageState extends State<CompatibilityQuizPage> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: Row(
                   children: [
                     OutlinedButton(
@@ -3969,14 +3841,17 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
           child: Column(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [FreezmeColors.primary, FreezmeColors.secondary],
                   ),
-                  borderRadius:
-                      BorderRadius.vertical(bottom: Radius.circular(24)),
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(24),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -4034,8 +3909,9 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                     final message = _messages[index];
                     final bool isMe = message['sender'] == 'me';
                     return Align(
-                      alignment:
-                          isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: isMe
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
                         padding: const EdgeInsets.symmetric(
@@ -4048,16 +3924,21 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                         decoration: BoxDecoration(
                           gradient: isMe
                               ? const LinearGradient(
-                                  colors: [FreezmeColors.primary, FreezmeColors.secondary],
+                                  colors: [
+                                    FreezmeColors.primary,
+                                    FreezmeColors.secondary,
+                                  ],
                                 )
                               : null,
                           color: isMe ? null : Colors.white,
                           borderRadius: BorderRadius.only(
                             topLeft: const Radius.circular(24),
-                            topRight:
-                                isMe ? const Radius.circular(8) : const Radius.circular(24),
-                            bottomLeft:
-                                isMe ? const Radius.circular(24) : const Radius.circular(8),
+                            topRight: isMe
+                                ? const Radius.circular(8)
+                                : const Radius.circular(24),
+                            bottomLeft: isMe
+                                ? const Radius.circular(24)
+                                : const Radius.circular(8),
                             bottomRight: const Radius.circular(24),
                           ),
                           boxShadow: isMe
@@ -4099,12 +3980,13 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                   boxShadow: [
                     BoxShadow(
                       color: Color(0x1F000000),
@@ -4177,7 +4059,7 @@ class FreezeMePlusPage extends StatelessWidget {
             'Pause your profile for up to 7 days without losing matches',
         gradient: const LinearGradient(
           colors: [FreezmeColors.primary, FreezmeColors.secondary],
-        )
+        ),
       ),
       (
         icon: Icons.favorite,
@@ -4185,7 +4067,7 @@ class FreezeMePlusPage extends StatelessWidget {
         description: 'Get 6 daily matches instead of 3 for more connections',
         gradient: const LinearGradient(
           colors: [FreezmeColors.secondary, FreezmeColors.accent],
-        )
+        ),
       ),
       (
         icon: Icons.public,
@@ -4193,7 +4075,7 @@ class FreezeMePlusPage extends StatelessWidget {
         description: 'Connect with people beyond your local area',
         gradient: const LinearGradient(
           colors: [FreezmeColors.accent, FreezmeColors.success],
-        )
+        ),
       ),
       (
         icon: Icons.auto_awesome,
@@ -4201,7 +4083,7 @@ class FreezeMePlusPage extends StatelessWidget {
         description: 'Your profile gets shown first to your top matches',
         gradient: const LinearGradient(
           colors: [FreezmeColors.primary, Color(0xFF8B5FBF)],
-        )
+        ),
       ),
     ];
 
@@ -4229,9 +4111,9 @@ class FreezeMePlusPage extends StatelessWidget {
                 Text(
                   'Level up your vibe',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: FreezmeColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: FreezmeColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -4265,7 +4147,11 @@ class FreezeMePlusPage extends StatelessWidget {
                             gradient: feature.gradient,
                             borderRadius: BorderRadius.circular(18),
                           ),
-                          child: Icon(feature.icon, color: Colors.white, size: 28),
+                          child: Icon(
+                            feature.icon,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -4393,9 +4279,9 @@ class DeveloperPreviewScreen extends StatelessWidget {
       (
         label: 'Compatibility Quiz',
         action: () => flow.replaceStack(<AppStage>[
-              AppStage.onboarding,
-              AppStage.compatibilityQuiz,
-            ]),
+          AppStage.onboarding,
+          AppStage.compatibilityQuiz,
+        ]),
       ),
       (
         label: 'Daily Vibe Pool',
@@ -4460,10 +4346,7 @@ class DeveloperPreviewScreen extends StatelessWidget {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              FreezmeColors.background,
-              Color(0xFFE7E9FF),
-            ],
+            colors: [FreezmeColors.background, Color(0xFFE7E9FF)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -4550,7 +4433,11 @@ class FreezmeLogo extends StatelessWidget {
             alignment: Alignment.center,
             children: [
               Icon(Icons.favorite, size: metrics.heart, color: colors.heart),
-              Icon(Icons.ac_unit, size: metrics.snowflake, color: colors.snowflake),
+              Icon(
+                Icons.ac_unit,
+                size: metrics.snowflake,
+                color: colors.snowflake,
+              ),
             ],
           ),
         ),
@@ -4700,7 +4587,10 @@ class FreezeModalContent extends StatelessWidget {
                             width: 48,
                             decoration: const BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [FreezmeColors.primary, FreezmeColors.secondary],
+                                colors: [
+                                  FreezmeColors.primary,
+                                  FreezmeColors.secondary,
+                                ],
                               ),
                               shape: BoxShape.circle,
                             ),
@@ -4783,10 +4673,7 @@ class FreezeModalContent extends StatelessWidget {
               child: const Text(
                 'Taking breaks is healthy 💜 Your connections will be here when you\'re ready',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: FreezmeColors.primary,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: FreezmeColors.primary, fontSize: 13),
               ),
             ),
           ),
