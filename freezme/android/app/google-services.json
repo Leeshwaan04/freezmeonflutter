@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "542457497074",
+    "project_id": "freezme-844cc",
+    "storage_bucket": "freezme-844cc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:542457497074:android:d59651be8bf231e01e576b",
+        "android_client_info": {
+          "package_name": "com.freezme.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "542457497074-884f5m0gmeug7uknahfc8egk0ikj25e4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.freezme.app",
+            "certificate_hash": "e691e67523671a24a47da8fa1709152a74588e09"
+          }
+        },
+        {
+          "client_id": "542457497074-jc7lls1an8o744luukg9sssc9ra4hd8f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDq2ynEOOmRJfLAIzikV8u2XdipdBjq_zQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "542457497074-jc7lls1an8o744luukg9sssc9ra4hd8f.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "542457497074-3uq4cfeimroq5v6d711ip0r52gdle7jn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.freezme.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

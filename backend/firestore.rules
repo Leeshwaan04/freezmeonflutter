@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isSessionParticipant(sessionId) {
+      return exists(/databases/$(database)/documents/melt_sessions/$(sessionId)) &&
+        (
+          get(/databases/$(database)/documents/melt_sessions/$(sessionId)).data.hostUid == request.auth.uid ||
+          get(/databases/$(database)/documents/melt_sessions/$(sessionId)).data.targetUid == request.auth.uid
+        );
+    }
+
+    match /users/{userId} {
+      allow read, write: if isUser(userId);
+
+      match /photos/{photoId} {
+        allow read, write: if isUser(userId);
+      }
+    }
+
+    match /profiles/{userId} {
+      allow read: if true;
+      allow write: if isUser(userId);
+    }
+
+    match /likes/{userId}/targets/{targetId} {
+      allow read, write: if isUser(userId);
+    }
+
+    match /skips/{userId}/targets/{targetId} {
+      allow read, write: if isUser(userId);
+    }
+
+    match /melt_sessions/{sessionId} {
+      allow create: if isSignedIn() && request.resource.data.hostUid == request.auth.uid;
+      allow read, update, delete: if isSignedIn() &&
+        (resource.data.hostUid == request.auth.uid ||
+         resource.data.targetUid == request.auth.uid);
+    }
+
+    match /chats/{sessionId} {
+      allow read, write: if isSignedIn() && isSessionParticipant(sessionId);
+
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn() && isSessionParticipant(sessionId);
+      }
+    }
+
+    match /matches/{matchId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.members;
+      allow write: if false;
+    }
+  }
+}

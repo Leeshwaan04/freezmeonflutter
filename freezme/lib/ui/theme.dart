@@ -14,13 +14,14 @@ class FreezmeColors {
   static const Color surfaceAlt = Color(0xFFF5E6F0);
   static const Color background = Color(0xFFF6F0FF);
   static const Color success = Color(0xFFFF9A56);
+  static const Color error = Color(0xFFD93F5B);
 }
 
 class FreezmeGradients {
   FreezmeGradients._();
 
   static const LinearGradient primary = LinearGradient(
-    colors: [FreezmeColors.primary, FreezmeColors.secondary],
+    colors: [Color(0xFF8B50FF), Color(0xFFB084FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -77,6 +78,12 @@ class FreezmeTypography {
     color: FreezmeColors.muted,
   );
 
+  static const TextStyle caption = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    color: FreezmeColors.muted,
+  );
+
   static const TextStyle button = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
@@ -103,9 +110,7 @@ class FreezmeButtons {
     textStyle: FreezmeTypography.button,
     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     minimumSize: const Size.fromHeight(52),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(999),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
   );
 
   static final ButtonStyle secondaryOutlined = OutlinedButton.styleFrom(
@@ -114,9 +119,7 @@ class FreezmeButtons {
     side: const BorderSide(color: FreezmeColors.border),
     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     minimumSize: const Size.fromHeight(52),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(999),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
   );
 }
 
@@ -148,9 +151,7 @@ class FreezmeTheme {
         backgroundColor: FreezmeColors.surface,
         labelStyle: FreezmeTypography.body,
         side: const BorderSide(color: FreezmeColors.border),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
       appBarTheme: base.appBarTheme.copyWith(
         backgroundColor: Colors.transparent,

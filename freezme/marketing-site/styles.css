@@ -1,0 +1,137 @@
+:root {
+  --primary: #6c4b9c;
+  --secondary: #f64f59;
+  --dark: #1b132d;
+  --light: #f7f5ff;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #2b2340;
+  background: var(--light);
+}
+header {
+  padding: 24px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+header img {
+  height: 48px;
+}
+nav a {
+  margin-left: 24px;
+  text-decoration: none;
+  color: #2b2340;
+  font-weight: 600;
+}
+.hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: center;
+  padding: 64px 10vw 40px;
+  gap: 40px;
+}
+.hero h1 {
+  font-size: clamp(2.2rem, 4vw, 3.5rem);
+  margin-bottom: 16px;
+}
+.hero p {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  color: #4e4568;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 28px;
+  border-radius: 999px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 16px;
+}
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 10px 30px rgba(108, 75, 156, 0.25);
+}
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 2px solid rgba(108, 75, 156, 0.4);
+}
+.mockup {
+  width: 100%;
+  max-width: 380px;
+  justify-self: center;
+  border-radius: 32px;
+  box-shadow: 0 30px 80px rgba(16, 7, 41, 0.25);
+}
+section {
+  padding: 48px 10vw;
+}
+section h2 {
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  margin-bottom: 12px;
+}
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+}
+.card {
+  background: white;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(23, 10, 47, 0.08);
+}
+.card h3 {
+  margin-top: 0;
+}
+.steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  counter-reset: step;
+}
+.step {
+  background: rgba(108, 75, 156, 0.08);
+  padding: 24px;
+  border-radius: 20px;
+  line-height: 1.5;
+}
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: white;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+footer {
+  background: var(--dark);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 32px 10vw 48px;
+}
+footer a {
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  header {
+    flex-direction: column;
+    gap: 12px;
+  }
+}

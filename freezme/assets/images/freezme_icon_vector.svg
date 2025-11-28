@@ -1,0 +1,42 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FAF0FF" />
+      <stop offset="100%" stop-color="#F0E1FF" />
+    </linearGradient>
+    <linearGradient id="heartGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8A33D9" />
+      <stop offset="100%" stop-color="#6C1FB8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)" />
+
+  <path
+    d="M512.5 910.5C512.5 910.5 150 701 150 387.5C150 257.789 256.289 151.5 386 151.5C453.165 151.5 516.744 182.338 555.5 232.447C594.256 182.338 657.835 151.5 725 151.5C854.711 151.5 961 257.789 961 387.5C961 701 598.5 910.5 598.5 910.5H512.5Z"
+    fill="url(#heartGradient)"
+  />
+
+  <g transform="translate(512 480)">
+    <g fill="none" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="32">
+      <path d="M0 -210V210" />
+      <path d="M-210 0H210" />
+      <path d="M-148 -148L148 148" />
+      <path d="M-148 148L148 -148" />
+    </g>
+
+    <g fill="white" opacity="0.95">
+      <path d="M0 -254 28 -186 0 -160 -28 -186Z" />
+      <path d="M0 254 -28 186 0 160 28 186Z" />
+      <path d="M-254 0 -186 -28 -160 0 -186 28Z" />
+      <path d="M254 0 186 28 160 0 186 -28Z" />
+      <path d="M-188 -188 -140 -160 -118 -188 -140 -216Z" />
+      <path d="M188 188 140 160 118 188 140 216Z" />
+      <path d="M-188 188 -140 216 -118 188 -140 160Z" />
+      <path d="M188 -188 140 -216 118 -188 140 -160Z" />
+    </g>
+
+    <circle r="48" fill="white" opacity="0.9" />
+    <circle r="24" fill="#7B2AC6" opacity="0.9" />
+  </g>
+</svg>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Freezme is the intentional dating app that focuses on one mindful vibe at a time." />
+  <title>Freezme | Slow Dating, Real Connections</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="freezme-logo.png" />
+</head>
+<body>
+  <header>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <img src="freezme-logo.png" alt="Freezme logo" height="56" />
+      <strong>Freezme</strong>
+    </div>
+    <nav>
+      <a href="#features">Why Freezme</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#safety">Safety</a>
+      <a href="#contact">Contact</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <span style="color:#f64f59;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;">Mindful dating</span>
+        <h1>Freeze the noise. Feel each vibe.</h1>
+        <p>Freezme curates a single intentional connection at a time so you can slow down, listen to your intuition, and meet people who align with your energy.</p>
+        <div style="margin-top:24px;">
+          <a class="btn btn-primary" href="#contact">Join the waitlist</a>
+          <a class="btn btn-outline" href="privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>
+        </div>
+      </div>
+      <img src="freezme-logo.png" class="mockup" alt="Freezme interface" />
+    </section>
+
+    <section id="features">
+      <h2>Designed for slow, quality dating</h2>
+      <p>Every part of Freezme is built to encourage presence, not swipes.</p>
+      <div class="features">
+        <article class="card">
+          <h3>Intent-first onboarding</h3>
+          <p>Share your dating intention, energy, and vibe. We match you with people moving at the same pace.</p>
+        </article>
+        <article class="card">
+          <h3>Daily pool</h3>
+          <p>Receive one curated vibe per day. Take a moment to read their story before taking action.</p>
+        </article>
+        <article class="card">
+          <h3>Invite to vibe</h3>
+          <p>Send a 20-minute video date invitation to break the ice without pressure.</p>
+        </article>
+        <article class="card">
+          <h3>Safety & accountability</h3>
+          <p>Identity is verified and all data travels through encrypted Firebase services.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="how-it-works">
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step">Answer mindful prompts, add three photos, and craft a bio rooted in intention.</div>
+        <div class="step">Receive your daily pool. Freeze the noise, skip politely, or like with a purpose.</div>
+        <div class="step">Schedule a mini video date or chat once there’s a mutual vibe.</div>
+      </div>
+    </section>
+
+    <section id="safety">
+      <h2>Privacy & safety</h2>
+      <p>Freezme is powered by Firebase Authentication, Firestore, and Cloud Functions. All traffic is encrypted in transit. You can request account deletion anytime and we’ll remove your profile, photos, and matches from our systems.</p>
+      <p><a href="privacy-policy.html" target="_blank" rel="noopener">Read the full Privacy Policy</a></p>
+    </section>
+  </main>
+
+  <footer id="contact">
+    <p>Freezme • Slow dating for intentional humans.</p>
+    <p>Contact us: <a href="mailto:support@freezme.app">support@freezme.app</a></p>
+    <p style="margin-top:12px;font-size:0.9rem;">© <span id="year"></span> Freezme. All rights reserved.</p>
+  </footer>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
