@@ -24,6 +24,8 @@ enum AppStage {
   compatibilityQuiz,
   dailyPool,
   chatList,
+  paths,
+  blinds,
   videoDate,
   matchSuccess,
   chat,
@@ -295,11 +297,22 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.chat]);
   }
 
+  void openPaths() {
+    replaceStack(<AppStage>[AppStage.paths]);
+  }
+
+  void openBlinds() {
+    replaceStack(<AppStage>[AppStage.blinds]);
+  }
+
   Future<void> signOut() async {
     activeProfile = null;
     _pendingInviteSlot = null;
     _poolIndex = 0;
     matches.clear();
+    for (var i = 0; i < photoSlots.length; i++) {
+      photoSlots[i] = const PhotoSlot();
+    }
     await _prefs?.remove(_kOnboardingCompleteKey);
     replaceStack(<AppStage>[AppStage.authGate]);
   }
@@ -538,6 +551,10 @@ class FlowNavigator extends StatelessWidget {
         return const DailyVibePoolPage();
       case AppStage.chatList:
         return const ChatListPage();
+      case AppStage.paths:
+        return const PathsPage();
+      case AppStage.blinds:
+        return const BlindsPage();
       case AppStage.videoDate:
         return const VideoDatePage();
       case AppStage.matchSuccess:
@@ -2065,7 +2082,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                   flow.replaceStack(<AppStage>[AppStage.dailyPool]);
                   break;
                 case 2:
-                  flow.openFreezmePlus();
+                  flow.openBlinds();
                   break;
                 case 3:
                   flow.openProfileSettings();
@@ -3971,47 +3988,95 @@ class ChatScreenPage extends StatefulWidget {
   State<ChatScreenPage> createState() => _ChatScreenPageState();
 }
 
+enum _MessageStatus { pending, sent, delivered, read, failed }
+
+class _ChatMessage {
+  _ChatMessage({
+    required this.text,
+    required this.isMe,
+    required this.timestamp,
+    this.status = _MessageStatus.sent,
+  });
+
+  final String text;
+  final bool isMe;
+  final String timestamp;
+  _MessageStatus status;
+}
+
+IconData _statusIcon(_MessageStatus status) {
+  switch (status) {
+    case _MessageStatus.pending:
+      return Icons.access_time;
+    case _MessageStatus.sent:
+      return Icons.check;
+    case _MessageStatus.delivered:
+      return Icons.done_all;
+    case _MessageStatus.read:
+      return Icons.done_all;
+    case _MessageStatus.failed:
+      return Icons.error_outline;
+  }
+}
+
 class _ChatScreenPageState extends State<ChatScreenPage> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<Map<String, dynamic>> _messages = List<Map<String, dynamic>>.from(
-    const [
-      {
-        'text': 'Hey! That was such a great vibe date! 💜',
-        'sender': 'them',
-        'timestamp': '2:30 PM',
-      },
-      {
-        'text': 'I know right! I loved our conversation about art 🎨',
-        'sender': 'me',
-        'timestamp': '2:31 PM',
-      },
-      {
-        'text': 'Same! We should definitely check out that gallery together',
-        'sender': 'them',
-        'timestamp': '2:32 PM',
-      },
-      {
-        'text': 'Absolutely! How about this weekend?',
-        'sender': 'me',
-        'timestamp': '2:33 PM',
-      },
-    ],
-  );
+  final List<_ChatMessage> _messages = <_ChatMessage>[
+    _ChatMessage(
+      text: 'Hey! That was such a great vibe date! 💜',
+      isMe: false,
+      timestamp: '2:30 PM',
+      status: _MessageStatus.read,
+    ),
+    _ChatMessage(
+      text: 'I know right! I loved our conversation about art 🎨',
+      isMe: true,
+      timestamp: '2:31 PM',
+      status: _MessageStatus.read,
+    ),
+    _ChatMessage(
+      text: 'Same! We should definitely check out that gallery together',
+      isMe: false,
+      timestamp: '2:32 PM',
+      status: _MessageStatus.read,
+    ),
+    _ChatMessage(
+      text: 'Absolutely! How about this weekend?',
+      isMe: true,
+      timestamp: '2:33 PM',
+      status: _MessageStatus.delivered,
+    ),
+  ];
 
   void _handleSend() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     final now = TimeOfDay.now();
+    final message = _ChatMessage(
+      text: text,
+      isMe: true,
+      timestamp:
+          '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}',
+      status: _MessageStatus.pending,
+    );
     setState(() {
-      _messages.add({
-        'text': text,
-        'sender': 'me',
-        'timestamp':
-            '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}',
-      });
+      _messages.add(message);
     });
     _controller.clear();
+    Future<void>.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      setState(() {
+        message.status = _MessageStatus.delivered;
+      });
+      Future<void>.delayed(const Duration(milliseconds: 700), () {
+        if (mounted) {
+          setState(() {
+            message.status = _MessageStatus.read;
+          });
+        }
+      });
+    });
     Future<void>.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -4102,8 +4167,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                   ),
                   itemCount: _messages.length,
                   itemBuilder: (context, index) {
-                    final message = _messages[index];
-                    final bool isMe = message['sender'] == 'me';
+                    final msg = _messages[index];
+                    final bool isMe = msg.isMe;
                     return Align(
                       alignment: isMe
                           ? Alignment.centerRight
@@ -4151,7 +4216,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              message['text'] as String,
+                              msg.text,
                               style: TextStyle(
                                 color: isMe
                                     ? Colors.white
@@ -4159,14 +4224,27 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            Text(
-                              message['timestamp'] as String,
-                              style: TextStyle(
-                                color: isMe
-                                    ? Colors.white70
-                                    : FreezmeColors.muted,
-                                fontSize: 11,
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  msg.timestamp,
+                                  style: TextStyle(
+                                    color: isMe
+                                        ? Colors.white70
+                                        : FreezmeColors.muted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                if (isMe) ...[
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    _statusIcon(msg.status),
+                                    size: 14,
+                                    color: Colors.white70,
+                                  ),
+                                ],
+                              ],
                             ),
                           ],
                         ),
@@ -4239,17 +4317,64 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 }
 
-class ChatListPage extends StatelessWidget {
+class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
+
+  @override
+  State<ChatListPage> createState() => _ChatListPageState();
+}
+
+class _Conversation {
+  _Conversation({
+    required this.profile,
+    required this.lastMessage,
+    required this.time,
+    this.unread = 0,
+    this.status = _MessageStatus.delivered,
+  });
+
+  final VibeProfile profile;
+  String lastMessage;
+  String time;
+  int unread;
+  _MessageStatus status;
+}
+
+class _ChatListPageState extends State<ChatListPage> {
+  late List<_Conversation> _conversations;
+
+  @override
+  void initState() {
+    super.initState();
+    final flow = AppFlowScope.of(context, listen: false);
+    final List<VibeProfile> sources = flow.matches.isNotEmpty
+        ? flow.matches.map((m) => m.profile).toList()
+        : flow.dailyProfiles;
+    _conversations = sources
+        .map(
+          (p) => _Conversation(
+            profile: p,
+            lastMessage: 'Tap to open chat',
+            time: '2:${(p.id % 50).toString().padLeft(2, '0')} PM',
+            unread: p.id % 2,
+            status: _MessageStatus.delivered,
+          ),
+        )
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: true);
-    final List<VibeProfile> sources = flow.matches.isNotEmpty
-        ? flow.matches.map((m) => m.profile).toList()
-        : flow.dailyProfiles;
 
     return Scaffold(
       body: Container(
@@ -4273,7 +4398,7 @@ class ChatListPage extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: sources.isEmpty
+                child: _conversations.isEmpty
                     ? const Center(
                         child: Text(
                           'No conversations yet.\nInvite a vibe to start chatting.',
@@ -4287,35 +4412,84 @@ class ChatListPage extends StatelessWidget {
                           vertical: 12,
                         ),
                         itemBuilder: (context, index) {
-                          final profile = sources[index];
+                          final convo = _conversations[index];
                           return ListTile(
-                            leading: CircleAvatar(
-                              backgroundImage: NetworkImage(profile.imageUrl),
-                              radius: 26,
+                            onTap: () {
+                              setState(() {
+                                convo.unread = 0;
+                                convo.status = _MessageStatus.read;
+                              });
+                              flow.openChatDetail(convo.profile);
+                            },
+                            leading: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                CircleAvatar(
+                                  backgroundImage: NetworkImage(
+                                    convo.profile.imageUrl,
+                                  ),
+                                  radius: 26,
+                                ),
+                                if (convo.unread > 0)
+                                  Positioned(
+                                    right: -2,
+                                    top: -2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.redAccent,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        '${convo.unread}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                             title: Text(
-                              profile.name,
+                              convo.profile.name,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: FreezmeColors.neutral,
                               ),
                             ),
-                            subtitle: const Text(
-                              'Tap to open chat',
+                            subtitle: Text(
+                              convo.lastMessage,
                               style: FreezmeTypography.bodyMuted,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            trailing: const Icon(
-                              Icons.chevron_right,
-                              color: FreezmeColors.muted,
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  convo.time,
+                                  style: const TextStyle(
+                                    color: FreezmeColors.muted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Icon(
+                                  _statusIcon(convo.status),
+                                  size: 14,
+                                  color: FreezmeColors.muted,
+                                ),
+                              ],
                             ),
-                            onTap: () => flow.openChatDetail(profile),
                           );
                         },
                         separatorBuilder: (_, __) => const Divider(
                           height: 1,
                           color: FreezmeColors.border,
                         ),
-                        itemCount: sources.length,
+                        itemCount: _conversations.length,
                       ),
               ),
             ],
@@ -4329,10 +4503,94 @@ class ChatListPage extends StatelessWidget {
             case 0:
               break;
             case 1:
-              flow.replaceStack(<AppStage>[AppStage.dailyPool]);
+              flow.openPaths();
               break;
             case 2:
-              flow.openFreezmePlus();
+              flow.openBlinds();
+              break;
+            case 3:
+              flow.openProfileSettings();
+              break;
+          }
+        },
+      ),
+    );
+  }
+}
+
+class PathsPage extends StatelessWidget {
+  const PathsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final flow = AppFlowScope.of(context);
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: FreezmeGradients.backgroundSoft,
+        ),
+        child: const SafeArea(
+          child: Center(
+            child: Text(
+              'Paths coming soon',
+              style: FreezmeTypography.bodyMuted,
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: _BottomNavBar(
+        currentIndex: 1,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              flow.openChatList();
+              break;
+            case 1:
+              break;
+            case 2:
+              flow.openBlinds();
+              break;
+            case 3:
+              flow.openProfileSettings();
+              break;
+          }
+        },
+      ),
+    );
+  }
+}
+
+class BlindsPage extends StatelessWidget {
+  const BlindsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final flow = AppFlowScope.of(context);
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: FreezmeGradients.backgroundSoft,
+        ),
+        child: const SafeArea(
+          child: Center(
+            child: Text(
+              'Blinds feature coming soon',
+              style: FreezmeTypography.bodyMuted,
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: _BottomNavBar(
+        currentIndex: 2,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              flow.openChatList();
+              break;
+            case 1:
+              flow.openPaths();
+              break;
+            case 2:
               break;
             case 3:
               flow.openProfileSettings();
