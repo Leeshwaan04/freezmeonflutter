@@ -103,9 +103,7 @@ class FreezmeButtons {
     textStyle: FreezmeTypography.button,
     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     minimumSize: const Size.fromHeight(52),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(999),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
   );
 
   static final ButtonStyle secondaryOutlined = OutlinedButton.styleFrom(
@@ -114,9 +112,7 @@ class FreezmeButtons {
     side: const BorderSide(color: FreezmeColors.border),
     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     minimumSize: const Size.fromHeight(52),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(999),
-    ),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
   );
 }
 
@@ -148,9 +144,7 @@ class FreezmeTheme {
         backgroundColor: FreezmeColors.surface,
         labelStyle: FreezmeTypography.body,
         side: const BorderSide(color: FreezmeColors.border),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
       ),
       appBarTheme: base.appBarTheme.copyWith(
         backgroundColor: Colors.transparent,

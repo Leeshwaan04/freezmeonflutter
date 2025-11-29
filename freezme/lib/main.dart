@@ -1027,6 +1027,11 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
     (_) => const _PhotoSlot.empty(),
   );
   String? _photoError;
+  final TextEditingController _bioController = TextEditingController();
+  int _age = 25;
+  int _distanceKm = 50;
+  String? _profileError;
+  final Set<String> _selectedInterests = <String>{};
 
   final List<({String id, String label, String emoji})> _intents = const [
     (id: 'meaningful', label: 'Meaningful connection', emoji: '💜'),
@@ -1048,7 +1053,28 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
       setState(() => _step++);
       return;
     }
+    if (!_validateProfile()) return;
     flow.beginCompatibilityQuiz();
+  }
+
+  bool _validateProfile() {
+    final bio = _bioController.text.trim();
+    if (bio.length < 10) {
+      setState(() => _profileError = 'Tell us a bit more (min 10 characters).');
+      return false;
+    }
+    if (_selectedInterests.length < 2) {
+      setState(() => _profileError = 'Pick at least 2 interests.');
+      return false;
+    }
+    setState(() => _profileError = null);
+    return true;
+  }
+
+  @override
+  void dispose() {
+    _bioController.dispose();
+    super.dispose();
   }
 
   @override
@@ -1332,31 +1358,39 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 ),
               ),
               const SizedBox(height: FreezmeInsets.sectionSpacing),
-              const Text(
-                'Bio',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: FreezmeColors.neutral,
-                ),
+              const _SectionLabel(
+                title: 'Bio',
+                helper: 'Share a quick intro (10–180 characters).',
               ),
               const SizedBox(height: FreezmeInsets.elementSpacing / 2),
-              TextField(
-                maxLines: 5,
-                decoration: InputDecoration(
-                  hintText: 'What makes you, you?',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(
-                      FreezmeInsets.cardRadius,
-                    ),
-                    borderSide: const BorderSide(color: FreezmeColors.border),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(FreezmeInsets.cardRadius),
+                  border: Border.all(color: FreezmeColors.border),
+                ),
+                child: TextField(
+                  controller: _bioController,
+                  maxLines: 5,
+                  maxLength: 180,
+                  decoration: const InputDecoration(
+                    counterText: '',
+                    hintText: 'What makes you, you?',
+                    contentPadding: EdgeInsets.all(16),
+                    border: InputBorder.none,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(
-                      FreezmeInsets.cardRadius,
-                    ),
-                    borderSide: const BorderSide(color: FreezmeColors.border),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(
+                  top: FreezmeInsets.elementSpacing / 3,
+                  right: 4,
+                ),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${_bioController.text.trim().length}/180',
+                    style: FreezmeTypography.caption,
                   ),
                 ),
               ),
@@ -1367,40 +1401,18 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Age',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: FreezmeColors.neutral,
-                          ),
+                        const _SectionLabel(title: 'Age'),
+                        Slider(
+                          value: _age.toDouble(),
+                          min: 18,
+                          max: 60,
+                          divisions: 42,
+                          activeColor: FreezmeColors.primary,
+                          label: '$_age',
+                          onChanged: (value) =>
+                              setState(() => _age = value.round()),
                         ),
-                        const SizedBox(
-                          height: FreezmeInsets.elementSpacing / 2,
-                        ),
-                        TextField(
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            hintText: '25',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                FreezmeInsets.cardRadius,
-                              ),
-                              borderSide: const BorderSide(
-                                color: FreezmeColors.border,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                FreezmeInsets.cardRadius,
-                              ),
-                              borderSide: const BorderSide(
-                                color: FreezmeColors.border,
-                              ),
-                            ),
-                          ),
-                        ),
+                        Text('$_age yrs', style: FreezmeTypography.bodyMuted),
                       ],
                     ),
                   ),
@@ -1409,39 +1421,20 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Distance (km)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: FreezmeColors.neutral,
-                          ),
+                        const _SectionLabel(title: 'Distance (km)'),
+                        Slider(
+                          value: _distanceKm.toDouble(),
+                          min: 5,
+                          max: 200,
+                          divisions: 39,
+                          activeColor: FreezmeColors.primary,
+                          label: '$_distanceKm km',
+                          onChanged: (value) =>
+                              setState(() => _distanceKm = value.round()),
                         ),
-                        const SizedBox(
-                          height: FreezmeInsets.elementSpacing / 2,
-                        ),
-                        TextField(
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            hintText: '50',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                FreezmeInsets.cardRadius,
-                              ),
-                              borderSide: const BorderSide(
-                                color: FreezmeColors.border,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                FreezmeInsets.cardRadius,
-                              ),
-                              borderSide: const BorderSide(
-                                color: FreezmeColors.border,
-                              ),
-                            ),
-                          ),
+                        Text(
+                          '$_distanceKm km max',
+                          style: FreezmeTypography.bodyMuted,
                         ),
                       ],
                     ),
@@ -1449,26 +1442,52 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 ],
               ),
               const SizedBox(height: FreezmeInsets.sectionSpacing),
-              const Text(
-                'Interests',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: FreezmeColors.neutral,
-                ),
+              const _SectionLabel(
+                title: 'Interests',
+                helper: 'Pick at least 2 so we can tailor prompts.',
               ),
               const SizedBox(height: FreezmeInsets.elementSpacing),
               Wrap(
                 spacing: FreezmeInsets.elementSpacing,
                 runSpacing: FreezmeInsets.elementSpacing,
-                children: const [
-                  _InterestChip(label: 'Music'),
-                  _InterestChip(label: 'Travel'),
-                  _InterestChip(label: 'Art'),
-                  _InterestChip(label: 'Fitness'),
-                  _InterestChip(label: 'Food'),
-                  _InterestChip(label: 'Books'),
+                children: [
+                  for (final interest in const [
+                    'Music',
+                    'Travel',
+                    'Art',
+                    'Fitness',
+                    'Food',
+                    'Books',
+                    'Outdoors',
+                    'Movies',
+                    'Pets',
+                  ])
+                    _SelectableChip(
+                      label: interest,
+                      selected: _selectedInterests.contains(interest),
+                      onTap: () {
+                        setState(() {
+                          if (_selectedInterests.contains(interest)) {
+                            _selectedInterests.remove(interest);
+                          } else {
+                            _selectedInterests.add(interest);
+                          }
+                          _profileError = null;
+                        });
+                      },
+                    ),
                 ],
               ),
+              if (_profileError != null) ...[
+                const SizedBox(height: FreezmeInsets.elementSpacing),
+                Text(
+                  _profileError!,
+                  style: const TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const SizedBox(height: 80),
             ],
           ),
@@ -1728,22 +1747,80 @@ class _PhotoSlot {
   }
 }
 
-class _InterestChip extends StatelessWidget {
-  const _InterestChip({required this.label});
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel({required this.title, this.helper});
 
-  final String label;
+  final String title;
+  final String? helper;
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      label: Text(label),
-      backgroundColor: Colors.white,
-      shape: const StadiumBorder(),
-      labelStyle: FreezmeTypography.body.copyWith(
-        fontWeight: FontWeight.w500,
-        color: FreezmeColors.neutral,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: FreezmeColors.neutral,
+          ),
+        ),
+        if (helper != null)
+          Padding(
+            padding: const EdgeInsets.only(
+              top: FreezmeInsets.elementSpacing / 3,
+            ),
+            child: Text(helper!, style: FreezmeTypography.bodyMuted),
+          ),
+      ],
+    );
+  }
+}
+
+class _SelectableChip extends StatelessWidget {
+  const _SelectableChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: FreezmeInsets.elementSpacing,
+          vertical: FreezmeInsets.elementSpacing / 1.5,
+        ),
+        decoration: BoxDecoration(
+          color: selected ? FreezmeColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(FreezmeInsets.cardRadius),
+          border: Border.all(
+            color: selected ? FreezmeColors.primary : FreezmeColors.border,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: FreezmeColors.primary.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : FreezmeColors.neutral,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
-      side: const BorderSide(color: FreezmeColors.border),
     );
   }
 }
