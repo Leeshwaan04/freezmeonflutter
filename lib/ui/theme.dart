@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 class FreezmeColors {
   FreezmeColors._();
 
-  static const Color primary = Color(0xFF6C4B9C);
-  static const Color secondary = Color(0xFFC471ED);
-  static const Color accent = Color(0xFFF64F59);
+  static const Color primary = Color(0xFF7B3CD6);
+  static const Color secondary = Color(0xFFB07BFF);
+  static const Color accent = Color(0xFF8E4AFB);
   static const Color neutral = Color(0xFF2D2D2D);
   static const Color muted = Color(0xFF8B7A9A);
   static const Color border = Color(0xFFE5D9ED);

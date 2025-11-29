@@ -186,7 +186,10 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.onboarding]);
   }
 
-  void beginCompatibilityQuiz() => pushIfMissing(AppStage.compatibilityQuiz);
+  void beginCompatibilityQuiz() {
+    // Skip compatibility quiz and go straight to the daily pool.
+    finishCompatibilityQuiz();
+  }
 
   Future<void> finishCompatibilityQuiz() async {
     if (_stack.isNotEmpty && _stack.last == AppStage.compatibilityQuiz) {
@@ -858,16 +861,9 @@ class AuthGatePage extends StatelessWidget {
                           ),
                           child: Column(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(18),
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: FreezmeGradients.primary,
-                                ),
-                                child: const FreezmeLogo(
-                                  size: LogoSize.md,
-                                  variant: LogoVariant.white,
-                                ),
+                              const FreezmeLogo(
+                                size: LogoSize.lg,
+                                variant: LogoVariant.primary,
                               ),
                             ],
                           ),
@@ -878,7 +874,7 @@ class AuthGatePage extends StatelessWidget {
                         _AuthButton(
                           label: 'Continue with Apple',
                           icon: Icons.apple,
-                          background: Colors.black,
+                          gradient: FreezmeGradients.primary,
                           foreground: Colors.white,
                           onTap: flow.startOnboarding,
                         ),
@@ -886,10 +882,10 @@ class AuthGatePage extends StatelessWidget {
                         _AuthButton(
                           label: 'Continue with Google',
                           icon: Icons.g_mobiledata,
-                          foreground: FreezmeColors.neutral,
+                          foreground: FreezmeColors.primary,
                           background: Colors.white,
                           border: const BorderSide(
-                            color: FreezmeColors.border,
+                            color: FreezmeColors.primary,
                             width: 2,
                           ),
                           onTap: flow.startOnboarding,
@@ -1679,7 +1675,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   }
 
   void _previewPhoto(_PhotoSlot slot) {
-    if (slot.file == null) return;
+    if (slot.file == null || !mounted) return;
     showDialog<void>(
       context: context,
       builder: (_) => Dialog(
