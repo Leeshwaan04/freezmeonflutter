@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'services/melt_chat_service.dart';
 import 'services/photo_upload_service.dart';
@@ -24,6 +25,7 @@ enum AppStage {
   compatibilityQuiz,
   dailyPool,
   chatList,
+  feed,
   paths,
   blinds,
   videoDate,
@@ -297,6 +299,10 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.chat]);
   }
 
+  void openFeed() {
+    replaceStack(<AppStage>[AppStage.feed]);
+  }
+
   void openPaths() {
     replaceStack(<AppStage>[AppStage.paths]);
   }
@@ -551,6 +557,8 @@ class FlowNavigator extends StatelessWidget {
         return const DailyVibePoolPage();
       case AppStage.chatList:
         return const ChatListPage();
+      case AppStage.feed:
+        return const DailyVibePoolPage();
       case AppStage.paths:
         return const PathsPage();
       case AppStage.blinds:
@@ -852,123 +860,255 @@ class _GlowingOrb extends StatelessWidget {
   }
 }
 
-class AuthGatePage extends StatelessWidget {
+class AuthGatePage extends StatefulWidget {
   const AuthGatePage({super.key});
+
+  @override
+  State<AuthGatePage> createState() => _AuthGatePageState();
+}
+
+class _AuthGatePageState extends State<AuthGatePage> {
+  bool _busy = false;
+  String? _authError;
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      setState(() {
+        _authError = 'Could not open link. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _start(AppFlowController flow) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    setState(() => _authError = null);
+    try {
+      flow.startOnboarding();
+    } catch (_) {
+      setState(() {
+        _authError = 'Sign-in failed. Please try again.';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
     return Scaffold(
       body: Container(
-        color: Colors.white,
+        decoration: const BoxDecoration(
+          gradient: FreezmeGradients.backgroundSoft,
+        ),
         child: SafeArea(
-          child: Stack(
-            children: [
-              Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FreezmeInsets.pageGutter,
-                    vertical: FreezmeInsets.sectionSpacing,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: FreezmeInsets.elementSpacing * 1.5,
-                            vertical: FreezmeInsets.sectionSpacing * 1.4,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(
-                              FreezmeInsets.cardRadius,
-                            ),
-                          ),
-                          child: const FreezmeLogo(
-                            size: LogoSize.lg,
-                            variant: LogoVariant.gradient,
-                          ),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: FreezmeInsets.pageGutter,
+                vertical: FreezmeInsets.sectionSpacing,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const FreezmeLogo(
+                      size: LogoSize.lg,
+                      variant: LogoVariant.gradient,
+                    ),
+                    const SizedBox(height: FreezmeInsets.sectionSpacing * 1.2),
+                    const Text(
+                      'Intentional dating for soulful matches',
+                      style: FreezmeTypography.display,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Daily pools, mindful pacing, and video vibes that keep connections real.',
+                      style: FreezmeTypography.bodyMuted,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: FreezmeInsets.sectionSpacing),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: const [
+                        _HighlightPill(
+                          icon: Icons.favorite_border,
+                          label: 'Curated daily matches',
                         ),
-                        const SizedBox(
-                          height: FreezmeInsets.sectionSpacing * 1.2,
+                        _HighlightPill(
+                          icon: Icons.videocam_outlined,
+                          label: '1:1 video vibes',
                         ),
-                        _AuthButton(
-                          label: 'Continue with Apple',
-                          icon: Icons.apple,
-                          gradient: FreezmeGradients.primary,
-                          foreground: Colors.white,
-                          onTap: flow.startOnboarding,
+                        _HighlightPill(
+                          icon: Icons.health_and_safety_outlined,
+                          label: 'Accountability-first safety',
                         ),
-                        const SizedBox(height: FreezmeInsets.elementSpacing),
-                        _AuthButton(
-                          label: 'Continue with Google',
-                          icon: Icons.g_mobiledata,
-                          foreground: FreezmeColors.primary,
-                          background: Colors.white,
-                          border: const BorderSide(
-                            color: FreezmeColors.primary,
-                            width: 2,
-                          ),
-                          onTap: flow.startOnboarding,
-                        ),
-                        const SizedBox(height: FreezmeInsets.elementSpacing),
-                        _AuthButton(
-                          label: 'Continue with Email',
-                          icon: Icons.mail_outline,
-                          gradient: FreezmeGradients.primary,
-                          foreground: Colors.white,
-                          onTap: flow.startOnboarding,
-                        ),
-                        const SizedBox(height: FreezmeInsets.sectionSpacing),
-                        const Text(
-                          'Your vibe begins with one tap 💫',
-                          style: FreezmeTypography.bodyMuted,
-                        ),
-                        const SizedBox(height: FreezmeInsets.elementSpacing),
-                        Text.rich(
-                          TextSpan(
-                            text: 'By continuing you agree to our ',
-                            style: FreezmeTypography.bodyMuted.copyWith(
-                              fontSize: 13,
-                            ),
-                            children: const [
-                              TextSpan(
-                                text: 'Terms',
-                                style: TextStyle(
-                                  color: FreezmeColors.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextSpan(text: ' and '),
-                              TextSpan(
-                                text: 'Privacy Policy',
-                                style: TextStyle(
-                                  color: FreezmeColors.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextSpan(text: '.'),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        if (kDebugMode) ...[
-                          const SizedBox(height: FreezmeInsets.sectionSpacing),
-                          TextButton(
-                            onPressed: flow.openDeveloperMenu,
-                            child: const Text('Open Developer Preview'),
-                          ),
-                        ],
                       ],
                     ),
-                  ),
+                    const SizedBox(height: FreezmeInsets.sectionSpacing * 1.2),
+                    _AuthButton(
+                      label: _busy ? 'Please wait…' : 'Continue with Apple',
+                      icon: Icons.apple,
+                      gradient: FreezmeGradients.primary,
+                      foreground: Colors.white,
+                      enabled: !_busy,
+                      onTap: () => _start(flow),
+                    ),
+                    const SizedBox(height: FreezmeInsets.elementSpacing),
+                    _AuthButton(
+                      label: _busy ? 'Loading…' : 'Continue with Google',
+                      icon: Icons.g_mobiledata,
+                      foreground: FreezmeColors.primary,
+                      background: Colors.white,
+                      border: const BorderSide(
+                        color: FreezmeColors.primary,
+                        width: 2,
+                      ),
+                      enabled: !_busy,
+                      onTap: () => _start(flow),
+                    ),
+                    const SizedBox(height: FreezmeInsets.elementSpacing),
+                    _AuthButton(
+                      label: _busy ? 'Loading…' : 'Continue with Email',
+                      icon: Icons.mail_outline,
+                      gradient: FreezmeGradients.primary,
+                      foreground: Colors.white,
+                      enabled: !_busy,
+                      onTap: () => _start(flow),
+                    ),
+                    const SizedBox(height: FreezmeInsets.sectionSpacing),
+                    if (_authError != null) ...[
+                      Text(
+                        _authError!,
+                        style: const TextStyle(
+                          color: FreezmeColors.error,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: FreezmeInsets.elementSpacing / 2),
+                    ],
+                    const Text(
+                      'Your vibe begins with one tap 💫',
+                      style: FreezmeTypography.bodyMuted,
+                    ),
+                    const SizedBox(height: FreezmeInsets.elementSpacing),
+                    _TermsRow(
+                      onTerms: () => _launchUrl('https://freezme.app/terms'),
+                      onPrivacy: () =>
+                          _launchUrl('https://freezme.app/privacy'),
+                    ),
+                    if (kDebugMode) ...[
+                      const SizedBox(height: FreezmeInsets.sectionSpacing),
+                      TextButton(
+                        onPressed: flow.openDeveloperMenu,
+                        child: const Text('Open Developer Preview'),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HighlightPill extends StatelessWidget {
+  const _HighlightPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: FreezmeColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: FreezmeColors.primary.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: FreezmeColors.primary),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: FreezmeTypography.body.copyWith(
+              color: FreezmeColors.neutral,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TermsRow extends StatelessWidget {
+  const _TermsRow({required this.onTerms, required this.onPrivacy});
+
+  final VoidCallback onTerms;
+  final VoidCallback onPrivacy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        text: 'By continuing you agree to our ',
+        style: FreezmeTypography.bodyMuted.copyWith(fontSize: 13),
+        children: [
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: GestureDetector(
+              onTap: onTerms,
+              child: const Text(
+                'Terms',
+                style: TextStyle(
+                  color: FreezmeColors.primary,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
+          const TextSpan(text: ' and '),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: GestureDetector(
+              onTap: onPrivacy,
+              child: const Text(
+                'Privacy Policy',
+                style: TextStyle(
+                  color: FreezmeColors.primary,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
+          const TextSpan(text: '.'),
+        ],
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }
@@ -982,6 +1122,7 @@ class _AuthButton extends StatelessWidget {
     this.foreground,
     this.gradient,
     this.border,
+    this.enabled = true,
   });
 
   final String label;
@@ -991,6 +1132,7 @@ class _AuthButton extends StatelessWidget {
   final Color? foreground;
   final Gradient? gradient;
   final BorderSide? border;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -1000,12 +1142,14 @@ class _AuthButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(999),
         child: Ink(
           decoration: BoxDecoration(
-            gradient: gradient,
-            color: gradient == null ? background : null,
+            gradient: enabled ? gradient : null,
+            color: gradient == null
+                ? (enabled ? background : background?.withValues(alpha: 0.5))
+                : null,
             borderRadius: BorderRadius.circular(999),
             border: borderSide != null
                 ? Border.fromBorderSide(borderSide)
@@ -1019,11 +1163,16 @@ class _AuthButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: textColor),
+              Icon(
+                icon,
+                color: enabled ? textColor : textColor.withValues(alpha: 0.5),
+              ),
               const SizedBox(width: 12),
               Text(
                 label,
-                style: FreezmeTypography.button.copyWith(color: textColor),
+                style: FreezmeTypography.button.copyWith(
+                  color: enabled ? textColor : textColor.withValues(alpha: 0.5),
+                ),
               ),
             ],
           ),
@@ -1066,21 +1215,27 @@ class _BottomNavBar extends StatelessWidget {
             ),
             _BottomNavItem(
               icon: Icons.favorite_border,
-              label: 'Paths',
+              label: 'Feed',
               active: currentIndex == 1,
               onTap: () => onTap(1),
             ),
             _BottomNavItem(
-              icon: Icons.bolt_outlined,
-              label: 'Blinds',
+              icon: Icons.route_outlined,
+              label: 'Paths',
               active: currentIndex == 2,
               onTap: () => onTap(2),
             ),
             _BottomNavItem(
-              icon: Icons.person_outline,
-              label: 'Profile',
+              icon: Icons.bolt_outlined,
+              label: 'Blinds',
               active: currentIndex == 3,
               onTap: () => onTap(3),
+            ),
+            _BottomNavItem(
+              icon: Icons.person_outline,
+              label: 'Profile',
+              active: currentIndex == 4,
+              onTap: () => onTap(4),
             ),
           ],
         ),
@@ -1130,6 +1285,26 @@ class _BottomNavItem extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _surfaceCard({required Widget child}) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.04),
+          blurRadius: 12,
+          offset: const Offset(0, 6),
+        ),
+      ],
+      border: Border.all(color: FreezmeColors.border),
+    ),
+    child: child,
+  );
 }
 
 class OnboardingFlowPage extends StatefulWidget {
@@ -2079,12 +2254,15 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                   flow.openChatList();
                   break;
                 case 1:
-                  flow.replaceStack(<AppStage>[AppStage.dailyPool]);
+                  flow.openFeed();
                   break;
                 case 2:
-                  flow.openBlinds();
+                  flow.openPaths();
                   break;
                 case 3:
+                  flow.openBlinds();
+                  break;
+                case 4:
                   flow.openProfileSettings();
                   break;
               }
@@ -4503,12 +4681,15 @@ class _ChatListPageState extends State<ChatListPage> {
             case 0:
               break;
             case 1:
-              flow.openPaths();
+              flow.openFeed();
               break;
             case 2:
-              flow.openBlinds();
+              flow.openPaths();
               break;
             case 3:
+              flow.openBlinds();
+              break;
+            case 4:
               flow.openProfileSettings();
               break;
           }
@@ -4518,50 +4699,112 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 }
 
-class PathsPage extends StatelessWidget {
+class PathsPage extends StatefulWidget {
   const PathsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context);
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: FreezmeGradients.backgroundSoft,
+  State<PathsPage> createState() => _PathsPageState();
+}
+
+class _PathsPageState extends State<PathsPage> {
+  bool visible = true;
+  double radius = 10;
+  final Set<String> intents = {'Friends', 'Dates'};
+  bool todayOnly = true;
+  int wavesLeft = 5;
+
+  final List<Map<String, String>> mockPeople = [
+    {
+      'name': 'Maya, 26',
+      'intent': 'Friends',
+      'distance': '2.1 km',
+      'tagline': 'Weekend hikes + matcha fan',
+      'photo':
+          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400'
+    },
+    {
+      'name': 'Sam, 28',
+      'intent': 'Dates',
+      'distance': '3.4 km',
+      'tagline': 'Coffee > cocktails, books > bars',
+      'photo':
+          'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=400'
+    },
+  ];
+
+  void _openChat(AppFlowController flow) {
+    final targetProfile = flow.activeProfile ??
+        (flow.matches.isNotEmpty
+            ? flow.matches.first.profile
+            : flow.dailyProfiles.isNotEmpty
+                ? flow.dailyProfiles.first
+                : null);
+    if (targetProfile != null) {
+      flow.openChatDetail(targetProfile);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No one nearby right now. Try again soon.'),
         ),
-        child: const SafeArea(
-          child: Center(
-            child: Text(
-              'Paths coming soon',
-              style: FreezmeTypography.bodyMuted,
-            ),
-          ),
+      );
+    }
+  }
+
+  void _useWave(BuildContext context) {
+    if (wavesLeft <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Daily waves used up. Check back tomorrow.'),
         ),
-      ),
-      bottomNavigationBar: _BottomNavBar(
-        currentIndex: 1,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              flow.openChatList();
-              break;
-            case 1:
-              break;
-            case 2:
-              flow.openBlinds();
-              break;
-            case 3:
-              flow.openProfileSettings();
-              break;
-          }
-        },
+      );
+      return;
+    }
+    setState(() => wavesLeft -= 1);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Wave sent. $wavesLeft left today.'),
       ),
     );
   }
-}
 
-class BlindsPage extends StatelessWidget {
-  const BlindsPage({super.key});
+  Widget _emptyNearby() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'No one nearby yet.',
+          style: TextStyle(
+            color: FreezmeColors.neutral,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Try expanding your radius or check back in a bit.',
+          style: FreezmeTypography.bodyMuted,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            ElevatedButton(
+              onPressed: () => setState(() => radius = (radius + 5).clamp(1, 50)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FreezmeColors.primary,
+                foregroundColor: Colors.white,
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Expand radius +5 km'),
+            ),
+            const SizedBox(width: 12),
+            TextButton(
+              onPressed: () => setState(() => todayOnly = false),
+              child: const Text('Keep me visible longer'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -4571,12 +4814,210 @@ class BlindsPage extends StatelessWidget {
         decoration: const BoxDecoration(
           gradient: FreezmeGradients.backgroundSoft,
         ),
-        child: const SafeArea(
-          child: Center(
-            child: Text(
-              'Blinds feature coming soon',
-              style: FreezmeTypography.bodyMuted,
-            ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: constraints.maxWidth,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: const [
+                          FreezmeLogo(size: LogoSize.sm, showText: true),
+                          Spacer(),
+                          Text('Paths', style: FreezmeTypography.title),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _surfaceCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Visibility', style: FreezmeTypography.title),
+                            const SizedBox(height: 8),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              value: visible,
+                              thumbColor:
+                                  WidgetStateProperty.all(FreezmeColors.primary),
+                              trackColor: WidgetStateProperty.all(
+                                FreezmeColors.primary.withValues(alpha: 0.15),
+                              ),
+                              onChanged: (v) => setState(() => visible = v),
+                              title: const Text(
+                                'Show me on Paths',
+                                style: TextStyle(color: FreezmeColors.neutral),
+                              ),
+                              subtitle: const Text(
+                                'Opt in to be discoverable nearby.',
+                                style: FreezmeTypography.bodyMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Distance: ${radius.round()} km',
+                              style: const TextStyle(color: FreezmeColors.neutral),
+                            ),
+                            Slider(
+                              value: radius,
+                              min: 1,
+                              max: 50,
+                              divisions: 49,
+                              activeColor: FreezmeColors.primary,
+                              onChanged: (v) => setState(() => radius = v),
+                            ),
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              value: todayOnly,
+                              onChanged: (v) => setState(() => todayOnly = v ?? true),
+                              title: const Text(
+                                'Visible today only',
+                                style: TextStyle(color: FreezmeColors.neutral),
+                              ),
+                              subtitle: const Text(
+                                'Auto-disables in 24h to keep you private.',
+                                style: FreezmeTypography.bodyMuted,
+                              ),
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: ['Friends', 'Dates', 'Either'].map((label) {
+                                final selected = intents.contains(label);
+                                return ChoiceChip(
+                                  label: Text(label),
+                                  selected: selected,
+                                  selectedColor:
+                                      FreezmeColors.primary.withValues(alpha: 0.12),
+                                  labelStyle: TextStyle(
+                                    color: selected
+                                        ? FreezmeColors.primary
+                                        : FreezmeColors.neutral,
+                                  ),
+                                  onSelected: (_) {
+                                    setState(() {
+                                      if (selected) {
+                                        intents.remove(label);
+                                      } else {
+                                        intents.add(label);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('Nearby', style: FreezmeTypography.title),
+                      const SizedBox(height: 8),
+                      if (!visible)
+                        const Text(
+                          'Turn on visibility to see people nearby.',
+                          style: FreezmeTypography.bodyMuted,
+                        )
+                      else if (mockPeople.isEmpty)
+                        _emptyNearby()
+                      else
+                        Column(
+                          children: [
+                            for (final person in mockPeople) ...[
+                              _surfaceCard(
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Image.network(
+                                        person['photo']!,
+                                        width: 72,
+                                        height: 72,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${person['name']} • ${person['distance']}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              color: FreezmeColors.neutral,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            person['tagline']!,
+                                            style: FreezmeTypography.bodyMuted,
+                                          ),
+                                          const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: FreezmeColors.primary
+                                                .withValues(alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            person['intent']!,
+                                            style: const TextStyle(
+                                              color: FreezmeColors.primary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            _useWave(context);
+                                            _openChat(flow);
+                                          },
+                                          child: const Text('Wave'),
+                                        ),
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                FreezmeColors.primary,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(96, 44),
+                                            shape: const StadiumBorder(),
+                                          ),
+                                          onPressed: () => _openChat(flow),
+                                          child: const Text('Invite'),
+                                        ),
+                                      ],
+                                    ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -4588,11 +5029,268 @@ class BlindsPage extends StatelessWidget {
               flow.openChatList();
               break;
             case 1:
-              flow.openPaths();
+              flow.openFeed();
               break;
             case 2:
               break;
             case 3:
+              flow.openBlinds();
+              break;
+            case 4:
+              flow.openProfileSettings();
+              break;
+          }
+        },
+      ),
+    );
+  }
+}
+
+class BlindsPage extends StatefulWidget {
+  const BlindsPage({super.key});
+
+  @override
+  State<BlindsPage> createState() => _BlindsPageState();
+}
+
+class _BlindsPageState extends State<BlindsPage> {
+  bool consented = false;
+  bool revealAllowed = false;
+  bool isSearching = false;
+  double sessionProgress = 1.0;
+  final List<String> prompts = const [
+    'What made you smile today?',
+    'Share a small win from this week.',
+    'Describe your ideal slow Sunday.',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final flow = AppFlowScope.of(context);
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: FreezmeGradients.backgroundSoft,
+        ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                Row(
+                  children: const [
+                    FreezmeLogo(size: LogoSize.sm, showText: true),
+                    Spacer(),
+                    Text('Blinds', style: FreezmeTypography.title),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _surfaceCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Ground rules', style: FreezmeTypography.title),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'No sharing contacts, be kind, timed chats auto-end. You can report or block anytime.',
+                        style: FreezmeTypography.bodyMuted,
+                      ),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: consented,
+                        activeColor: FreezmeColors.primary,
+                        onChanged: (v) => setState(() => consented = v ?? false),
+                        title: const Text('I agree to chat respectfully'),
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: revealAllowed,
+                        thumbColor:
+                            WidgetStateProperty.all(FreezmeColors.primary),
+                        trackColor: WidgetStateProperty.all(
+                          FreezmeColors.primary.withValues(alpha: 0.15),
+                        ),
+                        onChanged: (v) => setState(() => revealAllowed = v),
+                        title: const Text('Allow reveal after mutual thumbs up'),
+                        subtitle: const Text(
+                          'We only show photos/profile after both agree.',
+                          style: FreezmeTypography.bodyMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (isSearching) ...[
+                        const LinearProgressIndicator(
+                          minHeight: 6,
+                          color: FreezmeColors.primary,
+                          backgroundColor: FreezmeColors.border,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Finding someone ready to chat…',
+                          style: FreezmeTypography.bodyMuted,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: consented
+                              ? FreezmeColors.primary
+                              : FreezmeColors.muted,
+                          foregroundColor: Colors.white,
+                          shape: const StadiumBorder(),
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        onPressed: consented
+                            ? () {
+                                setState(() => isSearching = true);
+                                final messenger = ScaffoldMessenger.of(context);
+                                Future<void>.delayed(
+                                  const Duration(seconds: 1),
+                                  () {
+                                    if (!mounted) return;
+                                    final targetProfile = flow.activeProfile ??
+                                        (flow.matches.isNotEmpty
+                                            ? flow.matches.first.profile
+                                            : flow.dailyProfiles.isNotEmpty
+                                                ? flow.dailyProfiles.first
+                                                : null);
+                                    if (targetProfile != null) {
+                                      flow.openChatDetail(targetProfile);
+                                    } else {
+                                      if (!mounted) return;
+                                      messenger.showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'No partners available right now. We\'ll keep you in queue.',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    if (!mounted) return;
+                                    setState(() => isSearching = false);
+                                  },
+                                );
+                              }
+                            : null,
+                        icon: const Icon(Icons.casino),
+                        label: const Text('Roll the dice'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (consented) ...[
+                  _surfaceCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Current session', style: FreezmeTypography.title),
+                        const SizedBox(height: 8),
+                        LinearProgressIndicator(
+                          value: sessionProgress,
+                          minHeight: 8,
+                          color: FreezmeColors.primary,
+                          backgroundColor: FreezmeColors.border,
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Blind chats auto-end to keep it fresh. Mutual thumbs up can extend and reveal.',
+                          style: FreezmeTypography.bodyMuted,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: FreezmeColors.primary,
+                                foregroundColor: Colors.white,
+                                shape: const StadiumBorder(),
+                              ),
+                              onPressed: () {
+                                if (sessionProgress > 0.2) {
+                                  setState(() {
+                                    sessionProgress -= 0.2;
+                                  });
+                                }
+                              },
+                              child: const Text('Thumbs up'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () {
+                                setState(() => sessionProgress = 0);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Session ended. Roll again when ready.'),
+                                  ),
+                                );
+                              },
+                              child: const Text('End & roll again'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                const Text('Icebreakers', style: FreezmeTypography.title),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: prompts
+                      .map(
+                        (p) => Chip(
+                          backgroundColor:
+                              FreezmeColors.surface.withValues(alpha: 0.8),
+                          label: Text(
+                            p,
+                            style: const TextStyle(color: FreezmeColors.neutral),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 24),
+                TextButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.report_gmailerrorred,
+                      color: FreezmeColors.accent),
+                  label: const Text(
+                    'How we keep Blinds safe',
+                    style: TextStyle(color: FreezmeColors.accent),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+        ),
+      ),
+      bottomNavigationBar: _BottomNavBar(
+        currentIndex: 3,
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              flow.openChatList();
+              break;
+            case 1:
+              flow.openFeed();
+              break;
+            case 2:
+              flow.openPaths();
+              break;
+            case 3:
+              break;
+            case 4:
               flow.openProfileSettings();
               break;
           }
