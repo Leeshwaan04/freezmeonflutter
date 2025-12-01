@@ -4529,6 +4529,9 @@ class _Conversation {
 
 class _ChatListPageState extends State<ChatListPage> {
   late List<_Conversation> _conversations;
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+  bool _showUnreadOnly = false;
 
   @override
   void initState() {
@@ -4551,6 +4554,22 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<_Conversation> get _visibleConversations {
+    return _conversations.where((c) {
+      final matchesQuery = _query.isEmpty ||
+          c.profile.name.toLowerCase().contains(_query.toLowerCase()) ||
+          c.lastMessage.toLowerCase().contains(_query.toLowerCase());
+      final matchesUnread = !_showUnreadOnly || c.unread > 0;
+      return matchesQuery && matchesUnread;
+    }).toList();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: true);
 
@@ -4567,16 +4586,88 @@ class _ChatListPageState extends State<ChatListPage> {
                   horizontal: 16,
                   vertical: 12,
                 ),
-                child: Row(
-                  children: const [
-                    FreezmeLogo(size: LogoSize.sm, showText: true),
-                    Spacer(),
-                    Text('Chats', style: FreezmeTypography.title),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        FreezmeLogo(size: LogoSize.sm, showText: true),
+                        Spacer(),
+                        Text('Chats', style: FreezmeTypography.title),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _searchController,
+                      onChanged: (value) => setState(() => _query = value),
+                      decoration: InputDecoration(
+                        hintText: 'Search chats or messages',
+                        prefixIcon:
+                            const Icon(Icons.search, color: FreezmeColors.muted),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(color: FreezmeColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(color: FreezmeColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(color: FreezmeColors.primary),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        FilterChip(
+                          selected: !_showUnreadOnly,
+                          onSelected: (_) => setState(() => _showUnreadOnly = false),
+                          label: const Text('All'),
+                          selectedColor:
+                              FreezmeColors.primary.withValues(alpha: 0.15),
+                          labelStyle: TextStyle(
+                            color: !_showUnreadOnly
+                                ? FreezmeColors.primary
+                                : FreezmeColors.neutral,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          selected: _showUnreadOnly,
+                          onSelected: (_) => setState(() => _showUnreadOnly = true),
+                          label: const Text('Unread'),
+                          selectedColor:
+                              FreezmeColors.primary.withValues(alpha: 0.15),
+                          labelStyle: TextStyle(
+                            color: _showUnreadOnly
+                                ? FreezmeColors.primary
+                                : FreezmeColors.neutral,
+                          ),
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: const [
+                            Icon(Icons.done_all,
+                                size: 16, color: FreezmeColors.muted),
+                            SizedBox(width: 4),
+                            Text('Read', style: FreezmeTypography.bodyMuted),
+                          ],
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
               Expanded(
-                child: _conversations.isEmpty
+                child: _visibleConversations.isEmpty
                     ? const Center(
                         child: Text(
                           'No conversations yet.\nInvite a vibe to start chatting.',
@@ -4590,7 +4681,7 @@ class _ChatListPageState extends State<ChatListPage> {
                           vertical: 12,
                         ),
                         itemBuilder: (context, index) {
-                          final convo = _conversations[index];
+                          final convo = _visibleConversations[index];
                           return ListTile(
                             onTap: () {
                               setState(() {
@@ -4667,7 +4758,7 @@ class _ChatListPageState extends State<ChatListPage> {
                           height: 1,
                           color: FreezmeColors.border,
                         ),
-                        itemCount: _conversations.length,
+                        itemCount: _visibleConversations.length,
                       ),
               ),
             ],
@@ -4712,6 +4803,10 @@ class _PathsPageState extends State<PathsPage> {
   final Set<String> intents = {'Friends', 'Dates'};
   bool todayOnly = true;
   int wavesLeft = 5;
+  bool notifyWhenNearby = true;
+  final Set<int> pendingInvites = {};
+  final Set<int> declinedInvites = {};
+  final Set<int> acceptedInvites = {};
 
   final List<Map<String, String>> mockPeople = [
     {
@@ -4720,7 +4815,10 @@ class _PathsPageState extends State<PathsPage> {
       'distance': '2.1 km',
       'tagline': 'Weekend hikes + matcha fan',
       'photo':
-          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400'
+          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400',
+      'active': 'Active 12m ago',
+      'availability': 'Free tonight',
+      'interests': 'Hikes · Matcha · Films',
     },
     {
       'name': 'Sam, 28',
@@ -4728,7 +4826,10 @@ class _PathsPageState extends State<PathsPage> {
       'distance': '3.4 km',
       'tagline': 'Coffee > cocktails, books > bars',
       'photo':
-          'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=400'
+          'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=400',
+      'active': 'Active now',
+      'availability': 'Free this weekend',
+      'interests': 'Coffee · Books · Travel',
     },
   ];
 
@@ -4767,6 +4868,43 @@ class _PathsPageState extends State<PathsPage> {
     );
   }
 
+  void _sendInvite(AppFlowController flow, int id) {
+    if (pendingInvites.contains(id)) return;
+    if (wavesLeft <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Out of invites for today.')),
+      );
+      return;
+    }
+    setState(() {
+      wavesLeft = (wavesLeft - 1).clamp(0, 99);
+      pendingInvites.add(id);
+      declinedInvites.remove(id);
+      acceptedInvites.remove(id);
+    });
+    // Simulate backend response
+    Future<void>.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      final accepted = id % 2 == 0; // mock outcome
+      setState(() {
+        pendingInvites.remove(id);
+        if (accepted) {
+          acceptedInvites.add(id);
+          flow.openChatDetail(
+            flow.dailyProfiles.isNotEmpty ? flow.dailyProfiles.first : flow.activeProfile ?? flow.matches.first.profile,
+          );
+        } else {
+          declinedInvites.add(id);
+        }
+      });
+      if (!accepted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No response yet. Try again later.')),
+        );
+      }
+    });
+  }
+
   Widget _emptyNearby() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4801,6 +4939,17 @@ class _PathsPageState extends State<PathsPage> {
               child: const Text('Keep me visible longer'),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: notifyWhenNearby,
+          onChanged: (v) => setState(() => notifyWhenNearby = v),
+          title: const Text('Notify me when someone is nearby'),
+          subtitle: const Text(
+            'We’ll send a gentle alert once we find a good match.',
+            style: FreezmeTypography.bodyMuted,
+          ),
         ),
       ],
     );
@@ -4884,6 +5033,26 @@ class _PathsPageState extends State<PathsPage> {
                                 style: FreezmeTypography.bodyMuted,
                               ),
                             ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Chip(
+                                  label: Text(
+                                    '$wavesLeft waves left today',
+                                    style: const TextStyle(
+                                      color: FreezmeColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  backgroundColor: FreezmeColors.primary
+                                      .withValues(alpha: 0.12),
+                                ),
+                                const Spacer(),
+                                if (notifyWhenNearby)
+                                  const Icon(Icons.notifications_active,
+                                      size: 16, color: FreezmeColors.primary),
+                              ],
+                            ),
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -4953,56 +5122,140 @@ class _PathsPageState extends State<PathsPage> {
                                             ),
                                           ),
                                           const SizedBox(height: 4),
+                                          if (person['active'] != null)
+                                            Text(
+                                              person['active']!,
+                                              style: const TextStyle(
+                                                color: FreezmeColors.primary,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          const SizedBox(height: 2),
                                           Text(
                                             person['tagline']!,
                                             style: FreezmeTypography.bodyMuted,
                                           ),
                                           const SizedBox(height: 6),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      crossAxisAlignment: WrapCrossAlignment.center,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 6,
+                                          if (person['availability'] != null)
+                                            Container(
+                                              margin: const EdgeInsets.only(bottom: 6),
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 6,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: FreezmeColors.accent
+                                                    .withValues(alpha: 0.12),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.access_time,
+                                                      size: 14,
+                                                      color: FreezmeColors.accent),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          person['availability']!,
+                                          style: const TextStyle(
+                                            color: FreezmeColors.accent,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: FreezmeColors.primary
-                                                .withValues(alpha: 0.12),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            person['intent']!,
-                                            style: const TextStyle(
-                                              color: FreezmeColors.primary,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        TextButton(
-                                          onPressed: () {
-                                            _useWave(context);
-                                            _openChat(flow);
-                                          },
-                                          child: const Text('Wave'),
-                                        ),
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                FreezmeColors.primary,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(96, 44),
-                                            shape: const StadiumBorder(),
-                                          ),
-                                          onPressed: () => _openChat(flow),
-                                          child: const Text('Invite'),
                                         ),
                                       ],
                                     ),
+                                  ),
+                                          if (person['interests'] != null)
+                                            Wrap(
+                                              spacing: 6,
+                                              runSpacing: 6,
+                                              children: person['interests']!
+                                                  .split('·')
+                                                  .map(
+                                                    (chip) => Chip(
+                                                      label: Text(
+                                                        chip.trim(),
+                                                        style: const TextStyle(
+                                                          color: FreezmeColors.neutral,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                      backgroundColor: FreezmeColors.surface,
+                                                      shape: StadiumBorder(
+                                                        side: BorderSide(
+                                                          color: FreezmeColors.border,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  )
+                                                  .toList(),
+                                            ),
+                                          const SizedBox(height: 6),
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 10,
+                                                  vertical: 6,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: FreezmeColors.primary
+                                                      .withValues(alpha: 0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  person['intent']!,
+                                                  style: const TextStyle(
+                                                    color: FreezmeColors.primary,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                              TextButton(
+                                                onPressed: () {
+                                                  _useWave(context);
+                                                  _openChat(flow);
+                                                },
+                                                child: const Text('Wave'),
+                                              ),
+                                              ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      pendingInvites.contains(
+                                                              person.hashCode)
+                                                          ? FreezmeColors.muted
+                                                          : FreezmeColors.primary,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(110, 44),
+                                                  shape: const StadiumBorder(),
+                                                ),
+                                                onPressed: pendingInvites
+                                                        .contains(person.hashCode)
+                                                    ? null
+                                                    : () => _sendInvite(
+                                                          flow,
+                                                          person.hashCode,
+                                                        ),
+                                                child: pendingInvites
+                                                        .contains(person.hashCode)
+                                                    ? const Text('Pending…')
+                                                    : acceptedInvites.contains(
+                                                            person.hashCode)
+                                                        ? const Text('Chat')
+                                                        : declinedInvites.contains(
+                                                                person.hashCode)
+                                                            ? const Text('Retry')
+                                                            : const Text('Invite'),
+                                              ),
+                                            ],
+                                          ),
                                         ],
                                       ),
                                     ),
