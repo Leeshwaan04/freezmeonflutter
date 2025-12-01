@@ -1,5 +1,8 @@
 import '../models/vibe_profile.dart';
 import 'freezme_repository.dart';
+import '../models/chat_message.dart';
+import '../models/paths.dart';
+import '../models/blinds.dart';
 
 /// Local-only repository that provides deterministic data for demos and tests.
 class MockFreezmeRepository implements FreezmeRepository {
@@ -29,6 +32,46 @@ class MockFreezmeRepository implements FreezmeRepository {
   Future<List<Map<String, dynamic>>> fetchMatches() async {
     return const [];
   }
+
+  // Messaging (mock no-ops)
+  @override
+  Future<void> sendMessage(ChatMessage message) async {}
+  @override
+  Stream<List<ChatMessage>> messagesForChat(String chatId) =>
+      const Stream.empty();
+  @override
+  Future<void> updateOnlineStatus(String userId, bool isOnline) async {}
+  @override
+  Future<void> signOut() async {}
+
+  // Paths (mock)
+  @override
+  Future<void> upsertPathsPresence(PathsPresence presence) async {}
+  @override
+  Stream<List<PathsPresence>> fetchNearbyPaths({
+    required double radiusKm,
+    required Set<String> intents,
+  }) =>
+      const Stream.empty();
+  @override
+  Future<void> sendPathsInvite(PathsInvite invite) async {}
+  @override
+  Stream<PathsInvite> inviteStatus(String inviteId) => const Stream.empty();
+  @override
+  Future<void> cancelPathsInvite(String inviteId) async {}
+
+  // Blinds (mock)
+  @override
+  Future<void> enqueueBlind(BlindQueueEntry entry) async {}
+  @override
+  Future<void> dequeueBlind(String userId) async {}
+  @override
+  Future<void> createBlindSession(BlindSession session) async {}
+  @override
+  Stream<BlindSession> blindSessionUpdates(String sessionId) =>
+      const Stream.empty();
+  @override
+  Future<void> reportBlindSession(String sessionId, String reason) async {}
 
   static const List<VibeProfile> _profiles = [
     VibeProfile(

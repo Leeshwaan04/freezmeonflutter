@@ -1,6 +1,9 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
 import '../models/vibe_profile.dart';
+import '../models/chat_message.dart';
+import '../models/paths.dart';
+import '../models/blinds.dart';
 import 'freezme_repository.dart';
 import 'mock_freezme_repository.dart';
 
@@ -118,4 +121,49 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
   }
 
   static ProfileJson _defaultSerializer(VibeProfile profile) => profile.toJson();
+
+  // Unimplemented stubs for interface completeness; delegate to fallback
+  @override
+  Future<void> sendMessage(ChatMessage message) =>
+      _fallback.sendMessage(message);
+  @override
+  Stream<List<ChatMessage>> messagesForChat(String chatId) =>
+      _fallback.messagesForChat(chatId);
+  @override
+  Future<void> updateOnlineStatus(String userId, bool isOnline) =>
+      _fallback.updateOnlineStatus(userId, isOnline);
+  @override
+  Future<void> signOut() => _fallback.signOut();
+  @override
+  Future<void> upsertPathsPresence(PathsPresence presence) =>
+      _fallback.upsertPathsPresence(presence);
+  @override
+  Stream<List<PathsPresence>> fetchNearbyPaths({
+    required double radiusKm,
+    required Set<String> intents,
+  }) =>
+      _fallback.fetchNearbyPaths(radiusKm: radiusKm, intents: intents);
+  @override
+  Future<void> sendPathsInvite(PathsInvite invite) =>
+      _fallback.sendPathsInvite(invite);
+  @override
+  Stream<PathsInvite> inviteStatus(String inviteId) =>
+      _fallback.inviteStatus(inviteId);
+  @override
+  Future<void> cancelPathsInvite(String inviteId) =>
+      _fallback.cancelPathsInvite(inviteId);
+  @override
+  Future<void> enqueueBlind(BlindQueueEntry entry) =>
+      _fallback.enqueueBlind(entry);
+  @override
+  Future<void> dequeueBlind(String userId) => _fallback.dequeueBlind(userId);
+  @override
+  Future<void> createBlindSession(BlindSession session) =>
+      _fallback.createBlindSession(session);
+  @override
+  Stream<BlindSession> blindSessionUpdates(String sessionId) =>
+      _fallback.blindSessionUpdates(sessionId);
+  @override
+  Future<void> reportBlindSession(String sessionId, String reason) =>
+      _fallback.reportBlindSession(sessionId, reason);
 }

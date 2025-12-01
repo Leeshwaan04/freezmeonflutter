@@ -1,0 +1,38 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "paths_presence",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "intents", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "last_active_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "path_invites",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "receiver_uid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "path_invites",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sender_uid", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "blinds_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "intent", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

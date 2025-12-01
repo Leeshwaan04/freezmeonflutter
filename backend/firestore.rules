@@ -5,57 +5,81 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isUser(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+    // Profiles: users can read any, write only their own document.
+    match /profiles/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == uid;
     }
 
-    function isSessionParticipant(sessionId) {
-      return exists(/databases/$(database)/documents/melt_sessions/$(sessionId)) &&
-        (
-          get(/databases/$(database)/documents/melt_sessions/$(sessionId)).data.hostUid == request.auth.uid ||
-          get(/databases/$(database)/documents/melt_sessions/$(sessionId)).data.targetUid == request.auth.uid
-        );
+    // Likes/Skips: child collections under user documents.
+    match /likes/{uid}/targets/{targetId} {
+      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow read: if isSignedIn() && request.auth.uid == uid;
+    }
+    match /skips/{uid}/targets/{targetId} {
+      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow read: if isSignedIn() && request.auth.uid == uid;
     }
 
-    match /users/{userId} {
-      allow read, write: if isUser(userId);
-
-      match /photos/{photoId} {
-        allow read, write: if isUser(userId);
-      }
-    }
-
-    match /profiles/{userId} {
-      allow read: if true;
-      allow write: if isUser(userId);
-    }
-
-    match /likes/{userId}/targets/{targetId} {
-      allow read, write: if isUser(userId);
-    }
-
-    match /skips/{userId}/targets/{targetId} {
-      allow read, write: if isUser(userId);
-    }
-
-    match /melt_sessions/{sessionId} {
-      allow create: if isSignedIn() && request.resource.data.hostUid == request.auth.uid;
-      allow read, update, delete: if isSignedIn() &&
-        (resource.data.hostUid == request.auth.uid ||
-         resource.data.targetUid == request.auth.uid);
-    }
-
-    match /chats/{sessionId} {
-      allow read, write: if isSignedIn() && isSessionParticipant(sessionId);
-
-      match /messages/{messageId} {
-        allow read, write: if isSignedIn() && isSessionParticipant(sessionId);
-      }
-    }
-
+    // Matches: readable to participants.
     match /matches/{matchId} {
       allow read: if isSignedIn() && request.auth.uid in resource.data.members;
-      allow write: if false;
+      allow write: if false; // created via functions
+    }
+
+    // Presence (online/offline)
+    match /presence/{uid} {
+      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow read: if isSignedIn();
+    }
+
+    // Chats and messages
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow write: if isSignedIn() && request.resource.data.participants == resource.data.participants;
+
+      match /messages/{msgId} {
+        allow create: if isSignedIn()
+          && exists(/databases/$(database)/documents/chats/$(chatId))
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow read: if isSignedIn()
+          && exists(/databases/$(database)/documents/chats/$(chatId))
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow update, delete: if false;
+      }
+    }
+
+    // Paths presence and invites
+    match /paths_presence/{uid} {
+      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow read: if isSignedIn();
+    }
+
+    match /path_invites/{inviteId} {
+      allow create: if isSignedIn() && request.resource.data.sender_uid == request.auth.uid;
+      allow read, update: if isSignedIn() &&
+        (resource.data.sender_uid == request.auth.uid ||
+         resource.data.receiver_uid == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // Blinds queue: only user can write their own queue doc
+    match /blinds_queue/{uid} {
+      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow read: if false;
+    }
+
+    // Blinds sessions: participants can read/update
+    match /blinds_sessions/{sessionId} {
+      allow read, update: if isSignedIn() &&
+        (resource.data.user_a == request.auth.uid ||
+         resource.data.user_b == request.auth.uid);
+      allow create, delete: if false;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -1,7 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../models/vibe_profile.dart';
 import 'freezme_repository.dart';
+import '../models/chat_message.dart';
+import '../models/paths.dart';
+import '../models/blinds.dart';
 
 /// Fetches data from Cloud Firestore.
 ///
@@ -11,9 +15,11 @@ import 'freezme_repository.dart';
 class FirestoreFreezmeRepository implements FreezmeRepository {
   FirestoreFreezmeRepository({FreezmeRepository? fallback})
       : _firestore = FirebaseFirestore.instance,
+        _functions = FirebaseFunctions.instance,
         _fallback = fallback;
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
   final FreezmeRepository? _fallback;
 
   @override
@@ -113,5 +119,221 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
       return fallback.fetchMatches();
     }
     return <Map<String, dynamic>>[];
+  }
+
+  // Messaging
+  @override
+  Future<void> sendMessage(ChatMessage message) async {
+    try {
+      await _firestore
+          .collection('chats')
+          .doc(message.chatId)
+          .collection('messages')
+          .add(message.toJson());
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.sendMessage(message);
+      rethrow;
+    }
+  }
+
+  @override
+  Stream<List<ChatMessage>> messagesForChat(String chatId) {
+    return _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('sentAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ChatMessage.fromJson(doc.data(), documentId: doc.id))
+            .toList());
+  }
+
+  @override
+  Future<void> updateOnlineStatus(String userId, bool isOnline) async {
+    try {
+      await _firestore.collection('presence').doc(userId).set(
+        {
+          'online': isOnline,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.updateOnlineStatus(userId, isOnline);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> signOut() async {
+    final fallback = _fallback;
+    if (fallback != null) return fallback.signOut();
+  }
+
+  // Paths
+  @override
+  Future<void> upsertPathsPresence(PathsPresence presence) async {
+    try {
+      await _functions.httpsCallable('upsertPathsPresence').call({
+        'intents': presence.intents,
+        'radiusKm': presence.radiusKm,
+        'visibleUntil': presence.visibleUntil.toIso8601String(),
+        'lat': presence.lat,
+        'lng': presence.lng,
+        'geohash': presence.geohash,
+        'availability': presence.availability,
+        'interestsSummary': presence.interestsSummary,
+      });
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.upsertPathsPresence(presence);
+      rethrow;
+    }
+  }
+
+  @override
+  Stream<List<PathsPresence>> fetchNearbyPaths({
+    required double radiusKm,
+    required Set<String> intents,
+  }) {
+    Future<List<PathsPresence>> load() async {
+      try {
+        final result = await _functions.httpsCallable('getNearbyPaths').call({
+          'radiusKm': radiusKm,
+          'intents': intents.toList(),
+        });
+        final data = result.data;
+        if (data is Map && data['profiles'] is List) {
+          return (data['profiles'] as List<dynamic>)
+              .whereType<Map<dynamic, dynamic>>()
+              .map(
+                (m) => PathsPresence.fromJson(
+                  m.map((key, value) => MapEntry(key.toString(), value)),
+                  documentId: m['id']?.toString(),
+                ),
+              )
+              .toList();
+        }
+      } catch (_) {
+        // fall through to fallback
+      }
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.fetchNearbyPaths(
+          radiusKm: radiusKm,
+          intents: intents,
+        ).first;
+      }
+      return <PathsPresence>[];
+    }
+
+    return Stream.fromFuture(load());
+  }
+
+  @override
+  Future<void> sendPathsInvite(PathsInvite invite) async {
+    try {
+      await _functions.httpsCallable('sendPathsInvite').call({
+        'receiverUid': invite.receiverUid,
+        'intent': invite.intent,
+      });
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.sendPathsInvite(invite);
+      rethrow;
+    }
+  }
+
+  @override
+  Stream<PathsInvite> inviteStatus(String inviteId) {
+    return _firestore
+        .collection('path_invites')
+        .doc(inviteId)
+        .snapshots()
+        .where((doc) => doc.exists)
+        .map((doc) => PathsInvite.fromJson(doc.data()!, documentId: doc.id));
+  }
+
+  @override
+  Future<void> cancelPathsInvite(String inviteId) async {
+    try {
+      await _functions.httpsCallable('respondPathsInvite').call({
+        'inviteId': inviteId,
+        'action': 'cancel',
+      });
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.cancelPathsInvite(inviteId);
+      rethrow;
+    }
+  }
+
+  // Blinds
+  @override
+  Future<void> enqueueBlind(BlindQueueEntry entry) async {
+    try {
+      await _functions.httpsCallable('enqueueBlind').call({
+        'intent': entry.intent,
+        'distanceBucket': entry.distanceBucket,
+        'interests': entry.interests,
+        'availableUntil': entry.availableUntil?.toIso8601String(),
+      });
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.enqueueBlind(entry);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> dequeueBlind(String userId) async {
+    try {
+      await _functions.httpsCallable('dequeueBlind').call();
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.dequeueBlind(userId);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> createBlindSession(BlindSession session) async {
+    try {
+      await _functions.httpsCallable('createBlindSession').call({
+        'partnerUid': session.userB,
+      });
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.createBlindSession(session);
+      rethrow;
+    }
+  }
+
+  @override
+  Stream<BlindSession> blindSessionUpdates(String sessionId) {
+    return _firestore
+        .collection('blinds_sessions')
+        .doc(sessionId)
+        .snapshots()
+        .where((doc) => doc.exists)
+        .map((doc) => BlindSession.fromJson(doc.data()!, documentId: doc.id));
+  }
+
+  @override
+  Future<void> reportBlindSession(String sessionId, String reason) async {
+    try {
+      await _functions.httpsCallable('reportBlindSession').call({
+        'sessionId': sessionId,
+        'reason': reason,
+      });
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.reportBlindSession(sessionId, reason);
+      rethrow;
+    }
   }
 }

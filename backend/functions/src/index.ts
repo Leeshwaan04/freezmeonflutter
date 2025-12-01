@@ -24,6 +24,29 @@ const MATCHES_COLLECTION = "matches";
 const MEMBERSHIPS_COLLECTION = "memberships";
 const MELT_SESSIONS_COLLECTION = "melt_sessions";
 const CHATS_COLLECTION = "chats";
+const PATHS_PRESENCE_COLLECTION = "paths_presence";
+const PATH_INVITES_COLLECTION = "path_invites";
+const BLINDS_QUEUE_COLLECTION = "blinds_queue";
+const BLINDS_SESSIONS_COLLECTION = "blinds_sessions";
+
+const haversineKm = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number => {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return 6371 * c; // Earth radius km
+};
 
 type Nullable<T> = T | null | undefined;
 
@@ -438,4 +461,243 @@ export const sendMeltChatInvite = onCall(async (data, context) => {
   });
 
   return {sessionId: sessionRef.id, resumed: false};
+});
+
+// -------------------- Paths (Nearby) --------------------
+export const upsertPathsPresence = onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const intents = Array.isArray(data?.intents) ?
+    data.intents.filter((v: unknown) => typeof v === "string") :
+    [];
+  const radiusKm = typeof data?.radiusKm === "number" ? data.radiusKm : 10;
+  const visibleUntil = typeof data?.visibleUntil === "string" ?
+    new Date(data.visibleUntil) :
+    new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  const payload: Record<string, unknown> = {
+    intents,
+    radius_km: radiusKm,
+    visible_until: admin.firestore.Timestamp.fromDate(visibleUntil),
+    last_active_at: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  if (typeof data?.lat === "number" && typeof data?.lng === "number") {
+    payload.lat = data.lat;
+    payload.lng = data.lng;
+  }
+  if (typeof data?.geohash === "string") {
+    payload.geohash = data.geohash;
+  }
+  if (typeof data?.availability === "string") {
+    payload.availability = data.availability;
+  }
+  if (typeof data?.interestsSummary === "string") {
+    payload.interests = data.interestsSummary;
+  }
+
+  await db.collection(PATHS_PRESENCE_COLLECTION)
+    .doc(uid)
+    .set(payload, {merge: true});
+  return {ok: true};
+});
+
+export const getNearbyPaths = onCall(async (data, context) => {
+  requireAuth(context);
+  const intents = Array.isArray(data?.intents) ?
+    data.intents.filter((v: unknown) => typeof v === "string") :
+    [];
+  const originLat = typeof data?.lat === "number" ? data.lat : null;
+  const originLng = typeof data?.lng === "number" ? data.lng : null;
+  const maxRadius = typeof data?.radiusKm === "number" && data.radiusKm > 0 ?
+    data.radiusKm :
+    50;
+  // NOTE: Replace with real geohash/radius filtering in production.
+  let ref = db.collection(PATHS_PRESENCE_COLLECTION)
+    .orderBy("last_active_at", "desc")
+    .limit(50);
+  if (intents.length > 0) {
+    ref = ref.where("intents", "array-contains-any", intents);
+  }
+  const snapshot = await ref.get();
+  const now = Date.now();
+  const profiles = snapshot.docs
+    .map((doc) => ({
+      id: doc.id,
+      data: doc.data() as Record<string, unknown>,
+    }))
+    .filter(({data}) => {
+      const vu = (data.visible_until as admin.firestore.Timestamp |
+        undefined)?.toMillis?.();
+      if (vu && vu <= now) return false;
+      if (originLat !== null && originLng !== null &&
+        typeof data.lat === "number" &&
+        typeof data.lng === "number") {
+        const distance = haversineKm(
+          originLat,
+          originLng,
+          data.lat as number,
+          data.lng as number,
+        );
+        return distance <= maxRadius;
+      }
+      return true;
+    })
+    .map(({id, data}) => ({id, ...data}));
+  return {profiles};
+});
+
+export const sendPathsInvite = onCall(async (data, context) => {
+  const senderUid = requireAuth(context);
+  const receiverUid = typeof data?.receiverUid === "string" ?
+    data.receiverUid :
+    null;
+  const intent = typeof data?.intent === "string" ? data.intent : "either";
+  if (!receiverUid) {
+    throw new HttpsError("invalid-argument", "receiverUid is required");
+  }
+  const invite = {
+    sender_uid: senderUid,
+    receiver_uid: receiverUid,
+    intent,
+    status: "pending",
+    created_at: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  const doc = await db.collection(PATH_INVITES_COLLECTION).add(invite);
+  return {id: doc.id, status: "pending"};
+});
+
+export const respondPathsInvite = onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const inviteId = typeof data?.inviteId === "string" ? data.inviteId : null;
+  // accept/decline/cancel
+  const action = typeof data?.action === "string" ? data.action : null;
+  if (!inviteId || !action) {
+    throw new HttpsError(
+      "invalid-argument",
+      "inviteId and action are required",
+    );
+  }
+  const snap = await db
+    .collection(PATH_INVITES_COLLECTION)
+    .doc(inviteId)
+    .get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "Invite not found");
+  }
+  const invite = snap.data() as Record<string, unknown>;
+  const sender = invite.sender_uid as string | undefined;
+  const receiver = invite.receiver_uid as string | undefined;
+  if (uid !== sender && uid !== receiver) {
+    throw new HttpsError("permission-denied", "Not a participant");
+  }
+  const status = action === "accept" ? "accepted" :
+    action === "decline" ? "declined" :
+      action === "cancel" ? "cancelled" : "pending";
+  await snap.ref.set({
+    status,
+    responded_at: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+  if (status === "accepted" && sender && receiver) {
+    const chatId = [sender, receiver].sort().join("_");
+    await db.collection(CHATS_COLLECTION).doc(chatId).set({
+      participants: [sender, receiver],
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    }, {merge: true});
+  }
+  return {status};
+});
+
+// -------------------- Blinds (anonymous chat) --------------------
+export const enqueueBlind = onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const intent = typeof data?.intent === "string" ? data.intent : "either";
+  const distanceBucket = typeof data?.distanceBucket === "string" ?
+    data.distanceBucket :
+    "0-20km";
+  const interests = Array.isArray(data?.interests) ?
+    data.interests.filter((v: unknown) => typeof v === "string") :
+    [];
+  const availableUntil = typeof data?.availableUntil === "string" ?
+    admin.firestore.Timestamp.fromDate(new Date(data.availableUntil)) :
+    admin.firestore.Timestamp.fromDate(new Date(Date.now() + 15 * 60 * 1000));
+
+  await db.collection(BLINDS_QUEUE_COLLECTION).doc(uid).set({
+    intent,
+    distance_bucket: distanceBucket,
+    interests,
+    available_until: availableUntil,
+    created_at: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return {ok: true};
+});
+
+export const dequeueBlind = onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  await db.collection(BLINDS_QUEUE_COLLECTION).doc(uid).delete().catch(() => {
+    // ignore missing doc
+  });
+  return {ok: true};
+});
+
+export const createBlindSession = onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const partnerUid = typeof data?.partnerUid === "string" ?
+    data.partnerUid :
+    null;
+  if (!partnerUid) {
+    throw new HttpsError("invalid-argument", "partnerUid required");
+  }
+  const expiresAt = admin.firestore.Timestamp.fromDate(
+    new Date(Date.now() + 12 * 60 * 1000),
+  );
+  const sessionRef = db.collection(BLINDS_SESSIONS_COLLECTION).doc();
+  await sessionRef.set({
+    user_a: uid,
+    user_b: partnerUid,
+    phase: "anonymous",
+    expires_at: expiresAt,
+    reveal_a: false,
+    reveal_b: false,
+    reported: false,
+  });
+  await db.collection(BLINDS_QUEUE_COLLECTION).doc(uid).delete().catch(() => {
+    // ignore
+  });
+  await db
+    .collection(BLINDS_QUEUE_COLLECTION)
+    .doc(partnerUid)
+    .delete()
+    .catch(() => {
+      // ignore
+    });
+  return {sessionId: sessionRef.id};
+});
+
+export const reportBlindSession = onCall(async (data, context) => {
+  const uid = requireAuth(context);
+  const sessionId = typeof data?.sessionId === "string" ?
+    data.sessionId :
+    null;
+  const reason = typeof data?.reason === "string" ?
+    data.reason :
+    "unspecified";
+  if (!sessionId) {
+    throw new HttpsError("invalid-argument", "sessionId required");
+  }
+  const snap = await db
+    .collection(BLINDS_SESSIONS_COLLECTION)
+    .doc(sessionId)
+    .get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "Session not found");
+  }
+  const session = snap.data() as Record<string, unknown>;
+  if (session.user_a !== uid && session.user_b !== uid) {
+    throw new HttpsError("permission-denied", "Not a participant");
+  }
+  await snap.ref.set({
+    reported: true,
+    report_reason: reason,
+    reported_at: admin.firestore.FieldValue.serverTimestamp(),
+  }, {merge: true});
+  return {ok: true};
 });
