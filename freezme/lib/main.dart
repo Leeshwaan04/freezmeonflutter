@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -144,6 +145,7 @@ class AppFlowController extends ChangeNotifier {
   final List<VibeProfile> dailyProfiles;
   final List<PhotoSlot> photoSlots;
   VibeProfile? activeProfile;
+  String? activeChatId;
   String? _pendingInviteSlot;
   int _poolIndex = 0;
   int superVibesRemaining = 1;
@@ -370,8 +372,9 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.chatList]);
   }
 
-  void openChatDetail(VibeProfile profile) {
+  void openChatDetail(VibeProfile profile, {String? chatId}) {
     activeProfile = profile;
+    activeChatId = chatId ?? activeChatId ?? profile.uid;
     replaceStack(<AppStage>[AppStage.chat]);
   }
 
@@ -397,6 +400,7 @@ class AppFlowController extends ChangeNotifier {
 
   Future<void> signOut() async {
     activeProfile = null;
+    activeChatId = null;
     _pendingInviteSlot = null;
     _poolIndex = 0;
     matches.clear();
@@ -2576,118 +2580,131 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                         horizontal: 24,
                         vertical: 12,
                       ),
-                      child: AspectRatio(
-                        aspectRatio: 3 / 4,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(32),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 24,
-                                offset: const Offset(0, 12),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final dpr = MediaQuery.of(context).devicePixelRatio;
+                          final memCacheWidth =
+                              (constraints.maxWidth * dpr).round();
+                          return AspectRatio(
+                            aspectRatio: 3 / 4,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(32),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.08),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 12),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.network(
-                                profile.imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const ColoredBox(
+                              clipBehavior: Clip.antiAlias,
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  CachedNetworkImage(
+                                    imageUrl: profile.imageUrl,
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: memCacheWidth,
+                                    placeholder: (context, url) =>
+                                        const ColoredBox(
+                                      color: FreezmeColors.border,
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        const ColoredBox(
                                       color: FreezmeColors.border,
                                       child: Icon(Icons.person, size: 48),
                                     ),
-                              ),
-                              Positioned(
-                                top: 20,
-                                right: 20,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
                                   ),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        FreezmeColors.primary,
-                                        FreezmeColors.secondary,
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(999),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                          alpha: 0.2,
-                                        ),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 6),
+                                  Positioned(
+                                    top: 20,
+                                    right: 20,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 8,
                                       ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    '${profile.compatibility}% Match',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                left: 0,
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(24),
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.bottomCenter,
-                                      end: Alignment.topCenter,
-                                      colors: [
-                                        Colors.black87,
-                                        Colors.transparent,
-                                      ],
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        '${profile.name}, ${profile.age}',
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            FreezmeColors.primary,
+                                            FreezmeColors.secondary,
+                                          ],
+                                        ),
+                                        borderRadius: BorderRadius.circular(999),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.2,
+                                            ),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        '${profile.compatibility}% Match',
                                         style: const TextStyle(
                                           color: Colors.white,
-                                          fontSize: 24,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        profile.distance,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        profile.bio,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(24),
+                                      decoration: const BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.bottomCenter,
+                                          end: Alignment.topCenter,
+                                          colors: [
+                                            Colors.black87,
+                                            Colors.transparent,
+                                          ],
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '${profile.name}, ${profile.age}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            profile.distance,
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            profile.bio,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -2716,7 +2733,21 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                                 ),
                                 onPressed: flow.isSendingAction
                                     ? null
-                                    : () => _handleInvite(context, flow, profile),
+                                    : () async {
+                                        try {
+                                          await _handleInvite(
+                                              context, flow, profile);
+                                        } catch (_) {
+                                          if (!context.mounted) return;
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'Could not send invite. Please retry.'),
+                                            ),
+                                          );
+                                        }
+                                      },
                                 icon: const Icon(Icons.favorite),
                                 label: const Text('Invite to Vibe'),
                               ),
@@ -3899,36 +3930,56 @@ class ProfilePreviewPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(
-                          height: 320,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                            Image.network(primaryPhoto, fit: BoxFit.cover),
-                            Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                  colors: [Colors.black54, Colors.transparent],
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final dpr = MediaQuery.of(context).devicePixelRatio;
+                          final memCacheWidth =
+                              (constraints.maxWidth * dpr).round();
+                          return SizedBox(
+                            height: 320,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                CachedNetworkImage(
+                                  imageUrl: primaryPhoto,
+                                  fit: BoxFit.cover,
+                                  memCacheWidth: memCacheWidth,
+                                  placeholder: (context, url) =>
+                                      const ColoredBox(
+                                    color: FreezmeColors.border,
+                                  ),
+                                  errorWidget: (context, url, error) =>
+                                      const ColoredBox(
+                                    color: FreezmeColors.border,
+                                    child: Icon(Icons.person, size: 48),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const Positioned(
-                              left: 24,
-                              right: 24,
-                              bottom: 24,
-                              child: Text(
-                                'Your vibe',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
+                                Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                      colors: [Colors.black54, Colors.transparent],
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                const Positioned(
+                                  left: 24,
+                                  right: 24,
+                                  bottom: 24,
+                                  child: Text(
+                                    'Your vibe',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
                       Padding(
                         padding: const EdgeInsets.all(24),
@@ -4956,22 +5007,30 @@ class ChatListPage extends StatefulWidget {
 
 class _Conversation {
   _Conversation({
-    required this.profile,
+    required this.chatId,
+    required this.displayName,
+    required this.photoUrl,
     required this.lastMessage,
     required this.time,
     this.unread = 0,
     this.status = _MessageStatus.delivered,
+    this.isGroup = false,
   });
 
-  final VibeProfile profile;
+  final String chatId;
+  final String displayName;
+  final String photoUrl;
   String lastMessage;
   String time;
   int unread;
   _MessageStatus status;
+  bool isGroup;
 }
 
 class _ChatListPageState extends State<ChatListPage> {
-  late List<_Conversation> _conversations;
+  List<_Conversation> _conversations = const [];
+  bool _loading = true;
+  String? _error;
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   bool _showUnreadOnly = false;
@@ -4979,21 +5038,7 @@ class _ChatListPageState extends State<ChatListPage> {
   @override
   void initState() {
     super.initState();
-    final flow = AppFlowScope.of(context, listen: false);
-    final List<VibeProfile> sources = flow.matches.isNotEmpty
-        ? flow.matches.map((m) => m.profile).toList()
-        : flow.dailyProfiles;
-    _conversations = sources
-        .map(
-          (p) => _Conversation(
-            profile: p,
-            lastMessage: 'Tap to open chat',
-            time: '2:${(p.id % 50).toString().padLeft(2, '0')} PM',
-            unread: p.id % 2,
-            status: _MessageStatus.delivered,
-          ),
-        )
-        .toList();
+    _loadConversations();
   }
 
   @override
@@ -5005,11 +5050,58 @@ class _ChatListPageState extends State<ChatListPage> {
   List<_Conversation> get _visibleConversations {
     return _conversations.where((c) {
       final matchesQuery = _query.isEmpty ||
-          c.profile.name.toLowerCase().contains(_query.toLowerCase()) ||
+          c.displayName.toLowerCase().contains(_query.toLowerCase()) ||
           c.lastMessage.toLowerCase().contains(_query.toLowerCase());
       final matchesUnread = !_showUnreadOnly || c.unread > 0;
       return matchesQuery && matchesUnread;
     }).toList();
+  }
+
+  Future<void> _loadConversations() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final flow = AppFlowScope.of(context, listen: false);
+      final matches = await flow._repository.fetchMatches();
+      final mapped = matches.map((m) {
+        final id = m['id']?.toString() ?? '';
+        final displayName = m['name']?.toString() ??
+            (m['otherUserName']?.toString() ?? 'Freezme Match');
+        final photo = m['photoUrl']?.toString() ?? '';
+        final lastMsg = m['lastMessage']?.toString() ?? 'Tap to open chat';
+        final ts = m['updatedAt']?.toString() ??
+            m['ts']?.toString() ??
+            DateTime.now().toIso8601String();
+        final unread = (m['unread'] as num?)?.toInt() ?? 0;
+        final statusString = m['status']?.toString();
+        final status = switch (statusString) {
+          'read' => _MessageStatus.read,
+          'sent' => _MessageStatus.sent,
+          _ => _MessageStatus.delivered,
+        };
+        return _Conversation(
+          chatId: id,
+          displayName: displayName,
+          photoUrl: photo,
+          lastMessage: lastMsg,
+          time: ts,
+          unread: unread,
+          status: status,
+          isGroup: (m['isGroup'] as bool?) ?? false,
+        );
+      }).toList();
+      setState(() {
+        _conversations = mapped;
+        _loading = false;
+      });
+    } catch (_) {
+      setState(() {
+        _loading = false;
+        _error = 'Could not load chats';
+      });
+    }
   }
 
   @override
@@ -5777,16 +5869,39 @@ class BlindsPage extends StatefulWidget {
   State<BlindsPage> createState() => _BlindsPageState();
 }
 
-class _BlindsPageState extends State<BlindsPage> {
+class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
   bool consented = false;
   bool revealAllowed = false;
   bool isSearching = false;
   double sessionProgress = 1.0;
-  final List<String> prompts = const [
-    'What made you smile today?',
-    'Share a small win from this week.',
-    'Describe your ideal slow Sunday.',
+  final List<(String, IconData)> prompts = const [
+    ('What made you smile today?', Icons.sentiment_satisfied_alt),
+    ('Share a small win from this week.', Icons.celebration),
+    ('Describe your ideal slow Sunday.', Icons.weekend),
   ];
+
+  late AnimationController _diceController;
+  late AnimationController _cardController;
+
+  @override
+  void initState() {
+    super.initState();
+    _diceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _cardController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _diceController.dispose();
+    _cardController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -5860,49 +5975,90 @@ class _BlindsPageState extends State<BlindsPage> {
                         ),
                         const SizedBox(height: 12),
                       ],
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: consented
-                              ? FreezmeColors.primary
-                              : FreezmeColors.muted,
-                          foregroundColor: Colors.white,
-                          shape: const StadiumBorder(),
-                          minimumSize: const Size.fromHeight(48),
+                      AnimatedBuilder(
+                        animation: _diceController,
+                        builder: (context, child) {
+                          return Transform.rotate(
+                            angle: _diceController.value * 6.28, // Full rotation
+                            child: child,
+                          );
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: consented
+                                ? const LinearGradient(
+                                    colors: [
+                                      FreezmeColors.primary,
+                                      FreezmeColors.secondary,
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  )
+                                : null,
+                            color: consented ? null : FreezmeColors.muted,
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: consented
+                                ? [
+                                    BoxShadow(
+                                      color: FreezmeColors.primary.withValues(alpha: 0.4),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              shape: const StadiumBorder(),
+                              minimumSize: const Size.fromHeight(56),
+                            ),
+                            onPressed: consented
+                                ? () {
+                                    _diceController.forward(from: 0);
+                                    setState(() => isSearching = true);
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    Future<void>.delayed(
+                                      const Duration(seconds: 1),
+                                      () {
+                                        if (!mounted) return;
+                                        final targetProfile = flow.activeProfile ??
+                                            (flow.matches.isNotEmpty
+                                                ? flow.matches.first.profile
+                                                : flow.dailyProfiles.isNotEmpty
+                                                    ? flow.dailyProfiles.first
+                                                    : null);
+                                        if (targetProfile != null) {
+                                          flow.openChatDetail(targetProfile);
+                                        } else {
+                                          if (!mounted) return;
+                                          messenger.showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'No partners available right now. We\'ll keep you in queue.',
+                                              ),
+                                              backgroundColor: FreezmeColors.primary,
+                                            ),
+                                          );
+                                        }
+                                        if (!mounted) return;
+                                        setState(() => isSearching = false);
+                                      },
+                                    );
+                                  }
+                                : null,
+                            icon: const Icon(Icons.casino, size: 24),
+                            label: const Text(
+                              'Roll the dice',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ),
-                        onPressed: consented
-                            ? () {
-                                setState(() => isSearching = true);
-                                final messenger = ScaffoldMessenger.of(context);
-                                Future<void>.delayed(
-                                  const Duration(seconds: 1),
-                                  () {
-                                    if (!mounted) return;
-                                    final targetProfile = flow.activeProfile ??
-                                        (flow.matches.isNotEmpty
-                                            ? flow.matches.first.profile
-                                            : flow.dailyProfiles.isNotEmpty
-                                                ? flow.dailyProfiles.first
-                                                : null);
-                                    if (targetProfile != null) {
-                                      flow.openChatDetail(targetProfile);
-                                    } else {
-                                      if (!mounted) return;
-                                      messenger.showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'No partners available right now. We\'ll keep you in queue.',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                    if (!mounted) return;
-                                    setState(() => isSearching = false);
-                                  },
-                                );
-                              }
-                            : null,
-                        icon: const Icon(Icons.casino),
-                        label: const Text('Roll the dice'),
                       ),
                     ],
                   ),
@@ -5967,16 +6123,61 @@ class _BlindsPageState extends State<BlindsPage> {
                 const Text('Icebreakers', style: FreezmeTypography.title),
                 const SizedBox(height: 8),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: prompts
                       .map(
-                        (p) => Chip(
-                          backgroundColor:
-                              FreezmeColors.surface.withValues(alpha: 0.8),
-                          label: Text(
-                            p,
-                            style: const TextStyle(color: FreezmeColors.neutral),
+                        (p) => InkWell(
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Copied: "${p.$1}"'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(24),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: FreezmeColors.border,
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: FreezmeColors.primary.withValues(alpha: 0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  p.$2,
+                                  size: 18,
+                                  color: FreezmeColors.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    p.$1,
+                                    style: const TextStyle(
+                                      color: FreezmeColors.neutral,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       )
