@@ -102,7 +102,6 @@ void main() {
       expect(service.invites, [
         {'uid': 'profile_42', 'slot': 'Tonight 9 PM'},
       ]);
-      expect(controller.current, AppStage.videoDate);
     });
 
     test('sendMeltChatInvite returns false when service throws', () async {
@@ -114,8 +113,6 @@ void main() {
       final result = await controller.sendMeltChatInvite(_profile(), 'Tonight');
 
       expect(result, isFalse);
-      // Should not push new stage when failing
-      expect(controller.current, isNot(AppStage.videoDate));
     });
   });
 }

@@ -32,13 +32,11 @@ enum AppStage {
   splash,
   authGate,
   onboarding,
-  compatibilityQuiz,
   dailyPool,
   chatList,
   feed,
   paths,
   blinds,
-  videoDate,
   matchSuccess,
   chat,
   profileSettings,
@@ -225,23 +223,6 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.onboarding]);
   }
 
-  void beginCompatibilityQuiz() {
-    // Skip compatibility quiz and go straight to the daily pool.
-    finishCompatibilityQuiz();
-  }
-
-  Future<void> finishCompatibilityQuiz() async {
-    if (_stack.isNotEmpty && _stack.last == AppStage.compatibilityQuiz) {
-      _stack.removeLast();
-    }
-    if (_stack.isNotEmpty && _stack.last == AppStage.onboarding) {
-      _stack.removeLast();
-    }
-    await _prefs?.setBool(_kOnboardingCompleteKey, true);
-    _stack.add(AppStage.dailyPool);
-    notifyListeners();
-  }
-
   Future<void> completeOnboarding() async {
     if (_stack.isNotEmpty && _stack.last == AppStage.onboarding) {
       _stack.removeLast();
@@ -334,28 +315,6 @@ class AppFlowController extends ChangeNotifier {
       _repository.inviteStatus(inviteId);
 
 
-  void startVideoDate(VibeProfile profile, {String? scheduledSlot}) {
-    activeProfile = profile;
-    _pendingInviteSlot = scheduledSlot;
-    pushIfMissing(AppStage.videoDate);
-  }
-
-  void completeVideoDate({bool success = true}) {
-    if (!success) {
-      pop();
-      return;
-    }
-    if (activeProfile != null) {
-      matches.add(
-        AppMatch(
-          profile: activeProfile!,
-          matchedAt: DateTime.now(),
-          scheduledSlot: _pendingInviteSlot,
-        ),
-      );
-    }
-    replaceTop(AppStage.matchSuccess);
-  }
 
   void finishMatchSuccessToChat() {
     if (activeProfile == null && matches.isNotEmpty) {
@@ -487,7 +446,7 @@ class AppFlowController extends ChangeNotifier {
         slotLabel: slotLabel,
       );
       _pendingInviteSlot = slotLabel;
-      pushIfMissing(AppStage.videoDate);
+      // Video call removed - invite sent
       return true;
     } catch (_) {
       return false;
@@ -713,8 +672,6 @@ class FlowNavigator extends StatelessWidget {
         return const AuthGatePage();
       case AppStage.onboarding:
         return const OnboardingFlowPage();
-      case AppStage.compatibilityQuiz:
-        return const CompatibilityQuizPage();
       case AppStage.dailyPool:
         return const DailyVibePoolPage();
       case AppStage.chatList:
@@ -725,8 +682,6 @@ class FlowNavigator extends StatelessWidget {
         return const PathsPage();
       case AppStage.blinds:
         return const BlindsPage();
-      case AppStage.videoDate:
-        return const VideoDatePage();
       case AppStage.matchSuccess:
         return const MatchSuccessPage();
       case AppStage.chat:
@@ -1089,7 +1044,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Daily pools, mindful pacing, and video vibes that keep connections real.',
+                      'Daily pools, mindful pacing, and authentic connections that keep it real.',
                       style: FreezmeTypography.bodyMuted,
                       textAlign: TextAlign.center,
                     ),
@@ -1104,8 +1059,8 @@ class _AuthGatePageState extends State<AuthGatePage> {
                           label: 'Curated daily matches',
                         ),
                         _HighlightPill(
-                          icon: Icons.videocam_outlined,
-                          label: '1:1 video vibes',
+                          icon: Icons.chat_bubble_outline,
+                          label: 'Real conversations',
                         ),
                         _HighlightPill(
                           icon: Icons.health_and_safety_outlined,
@@ -1512,7 +1467,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
       return;
     }
     if (!_validateProfile()) return;
-    flow.beginCompatibilityQuiz();
+    flow.completeOnboarding();
   }
 
   bool _validateProfile() {
@@ -2291,113 +2246,6 @@ class DailyVibePoolPage extends StatefulWidget {
 }
 
 class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
-  static const List<String> _timeSlots = <String>[
-    'Today 7:00 PM',
-    'Today 8:00 PM',
-    'Tomorrow 6:00 PM',
-    'Tomorrow 7:00 PM',
-    'Tomorrow 8:00 PM',
-  ];
-
-  Future<void> _handleInvite(
-    BuildContext context,
-    AppFlowController flow,
-    VibeProfile profile,
-  ) async {
-    final slot = await _showInviteDialog(context);
-    if (slot != null) {
-      flow.startVideoDate(profile, scheduledSlot: slot);
-    }
-  }
-
-  Future<String?> _showInviteDialog(BuildContext context) async {
-    String? selected = _timeSlots.first;
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: StatefulBuilder(
-            builder: (context, setStateDialog) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 24,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Invite for a Vibe Date?',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: FreezmeColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Choose a time for your 20-minute video date:',
-                      style: TextStyle(
-                        color: FreezmeColors.muted,
-                        fontSize: 13,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        for (final slot in _timeSlots)
-                          ChoiceChip(
-                            label: Text(slot),
-                            selected: selected == slot,
-                            onSelected: (_) => setStateDialog(() {
-                              selected = slot;
-                            }),
-                            selectedColor: FreezmeColors.primary,
-                            labelStyle: TextStyle(
-                              color: selected == slot
-                                  ? Colors.white
-                                  : FreezmeColors.neutral,
-                            ),
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              side: BorderSide(
-                                color: selected == slot
-                                    ? FreezmeColors.primary
-                                    : FreezmeColors.border,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: FreezmeColors.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(52),
-                        shape: const StadiumBorder(),
-                      ),
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(selected),
-                      child: const Text('Confirm Vibe'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
@@ -2735,23 +2583,9 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                                 ),
                                 onPressed: flow.isSendingAction
                                     ? null
-                                    : () async {
-                                        try {
-                                          await _handleInvite(
-                                              context, flow, profile);
-                                        } catch (_) {
-                                          if (!context.mounted) return;
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                  'Could not send invite. Please retry.'),
-                                            ),
-                                          );
-                                        }
-                                      },
+                                    : () => flow.likeCurrent(),
                                 icon: const Icon(Icons.favorite),
-                                label: const Text('Invite to Vibe'),
+                                label: const Text('Like'),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -2809,324 +2643,6 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
           ),
         );
       },
-    );
-  }
-}
-
-class VideoDatePage extends StatefulWidget {
-  const VideoDatePage({super.key});
-
-  @override
-  State<VideoDatePage> createState() => _VideoDatePageState();
-}
-
-class _VideoDatePageState extends State<VideoDatePage>
-    with SingleTickerProviderStateMixin {
-  static const int _totalSeconds = 1200;
-
-  late Timer _timer;
-  int _timeRemaining = _totalSeconds;
-  bool _isMuted = false;
-  String? _reaction;
-  Timer? _reactionTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      if (_timeRemaining == 0) {
-        AppFlowScope.of(context, listen: false).completeVideoDate();
-        timer.cancel();
-      } else {
-        setState(() => _timeRemaining--);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    _reactionTimer?.cancel();
-    super.dispose();
-  }
-
-  void _handleReaction(String emoji) {
-    _reactionTimer?.cancel();
-    setState(() => _reaction = emoji);
-    _reactionTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _reaction = null);
-    });
-  }
-
-  String get _formattedTime {
-    final minutes = _timeRemaining ~/ 60;
-    final seconds = _timeRemaining % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context, listen: false);
-    final profile = flow.activeProfile;
-
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              FreezmeColors.neutral,
-              Color(0xFF3D2D4D),
-              Color(0xFF4D2D3D),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.network(
-                                profile?.imageUrl ??
-                                    'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=1080',
-                                fit: BoxFit.cover,
-                              ),
-                              Positioned(
-                                top: 16,
-                                left: 16,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black54,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: Text(
-                                    profile != null
-                                        ? '${profile.name}, ${profile.age}'
-                                        : 'Your match',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                              if (_reaction != null)
-                                Center(
-                                  child: AnimatedScale(
-                                    scale: 1.4,
-                                    duration: const Duration(milliseconds: 600),
-                                    child: Text(
-                                      _reaction!,
-                                      style: const TextStyle(fontSize: 72),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 160,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.network(
-                                'https://images.unsplash.com/flagged/photo-1596479042555-9265a7fa7983?fit=crop&w=1080',
-                                fit: BoxFit.cover,
-                              ),
-                              Positioned(
-                                bottom: 16,
-                                left: 16,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black54,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: const Text(
-                                    'You',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Time Remaining',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              Text(
-                                _formattedTime,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: LinearProgressIndicator(
-                              value: _timeRemaining / _totalSeconds,
-                              backgroundColor: Colors.white24,
-                              valueColor: const AlwaysStoppedAnimation(
-                                FreezmeColors.secondary,
-                              ),
-                              minHeight: 6,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (final emoji in ['❤️', '😂', '🙌'])
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: GestureDetector(
-                              onTap: () => _handleReaction(emoji),
-                              child: Container(
-                                height: 56,
-                                width: 56,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(28),
-                                  border: Border.all(color: Colors.white24),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  emoji,
-                                  style: const TextStyle(fontSize: 24),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        GestureDetector(
-                          onTap: () => setState(() => _isMuted = !_isMuted),
-                          child: Container(
-                            height: 64,
-                            width: 64,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(32),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            alignment: Alignment.center,
-                            child: Icon(
-                              _isMuted ? Icons.volume_off : Icons.volume_up,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        GestureDetector(
-                          onTap: () {
-                            AppFlowScope.of(
-                              context,
-                              listen: false,
-                            ).completeVideoDate();
-                          },
-                          child: Container(
-                            height: 72,
-                            width: 72,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  FreezmeColors.accent,
-                                  FreezmeColors.secondary,
-                                ],
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Color(0x33C471ED),
-                                  blurRadius: 16,
-                                  offset: Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            alignment: Alignment.center,
-                            child: Transform.rotate(
-                              angle: math.pi * 0.75,
-                              child: const Icon(
-                                Icons.phone,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -4164,7 +3680,6 @@ class DailyRecapPage extends StatelessWidget {
     final flow = AppFlowScope.of(context);
     final matches = flow.matches;
     final newVibes = flow.dailyProfiles.length;
-    final videoDates = matches.length;
     final messages = matches.length * 4;
     final profileViews = 20 + matches.length * 2;
 
@@ -4178,9 +3693,9 @@ class DailyRecapPage extends StatelessWidget {
         ),
       ),
       (
-        icon: Icons.videocam,
-        label: 'Video Dates',
-        value: '$videoDates',
+        icon: Icons.people,
+        label: 'Matches',
+        value: '${matches.length}',
         gradient: const LinearGradient(
           colors: [FreezmeColors.primary, FreezmeColors.secondary],
         ),
@@ -4439,220 +3954,6 @@ class _RecapBullet extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class CompatibilityQuizPage extends StatefulWidget {
-  const CompatibilityQuizPage({super.key});
-
-  @override
-  State<CompatibilityQuizPage> createState() => _CompatibilityQuizPageState();
-}
-
-class _CompatibilityQuizPageState extends State<CompatibilityQuizPage> {
-  static const _questions = <({String emoji, String text})>[
-    (emoji: '💬', text: 'I prefer deep conversations over small talk'),
-    (emoji: '🎒', text: 'I enjoy spontaneous adventures'),
-    (emoji: '⏰', text: 'Quality time is my love language'),
-    (emoji: '🏠', text: 'I\'m more introverted than extroverted'),
-    (emoji: '🤗', text: 'Physical touch is important to me'),
-    (emoji: '🎯', text: 'I value ambition and drive'),
-    (emoji: '🧘', text: 'I need alone time to recharge'),
-    (emoji: '📅', text: 'I\'m a planner, not a go-with-the-flow person'),
-    (emoji: '💖', text: 'I express my feelings openly'),
-    (emoji: '🎨', text: 'Shared hobbies are essential in a relationship'),
-  ];
-
-  int _currentQuestion = 0;
-  final List<double> _answers = List<double>.filled(
-    _questions.length,
-    50.0,
-    growable: false,
-  );
-
-  void _handleNext(AppFlowController flow) {
-    if (_currentQuestion < _questions.length - 1) {
-      setState(() => _currentQuestion++);
-    } else {
-      flow.finishCompatibilityQuiz();
-    }
-  }
-
-  void _handleBack() {
-    if (_currentQuestion > 0) {
-      setState(() => _currentQuestion--);
-    }
-  }
-
-  String _emojiForValue(double value) {
-    if (value < 25) return '😐';
-    if (value < 50) return '🙂';
-    if (value < 75) return '😊';
-    return '😍';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context, listen: false);
-    final progress = (_currentQuestion + 1) / _questions.length;
-    final question = _questions[_currentQuestion];
-
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: FreezmeGradients.backgroundSoft,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 20,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const FreezmeLogo(size: LogoSize.sm, showText: true),
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 8,
-                        backgroundColor: FreezmeColors.border,
-                        valueColor: const AlwaysStoppedAnimation(
-                          FreezmeColors.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Question ${_currentQuestion + 1} of ${_questions.length}',
-                      style: const TextStyle(color: FreezmeColors.muted),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          question.emoji,
-                          style: const TextStyle(fontSize: 60),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          question.text,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: FreezmeColors.neutral,
-                                fontWeight: FontWeight.w600,
-                              ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 32),
-                        Text(
-                          _emojiForValue(_answers[_currentQuestion]),
-                          style: const TextStyle(fontSize: 60),
-                        ),
-                        const SizedBox(height: 16),
-                        Slider(
-                          value: _answers[_currentQuestion],
-                          onChanged: (value) {
-                            setState(() {
-                              _answers[_currentQuestion] = value;
-                            });
-                          },
-                          min: 0,
-                          max: 100,
-                          activeColor: FreezmeColors.primary,
-                          inactiveColor: FreezmeColors.border,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
-                              Text(
-                                'Disagree',
-                                style: TextStyle(color: FreezmeColors.muted),
-                              ),
-                              Text(
-                                'Agree',
-                                style: TextStyle(color: FreezmeColors.muted),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 24,
-                ),
-                child: Row(
-                  children: [
-                    OutlinedButton(
-                      onPressed: _currentQuestion == 0 ? null : _handleBack,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: FreezmeColors.primary,
-                        side: const BorderSide(color: FreezmeColors.border),
-                        shape: const StadiumBorder(),
-                        minimumSize: const Size(56, 56),
-                      ),
-                      child: const Icon(Icons.chevron_left),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: FreezmeColors.primary,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(56),
-                          shape: const StadiumBorder(),
-                        ),
-                        onPressed: () => _handleNext(flow),
-                        icon: Icon(
-                          _currentQuestion == _questions.length - 1
-                              ? Icons.check
-                              : Icons.chevron_right,
-                        ),
-                        label: Text(
-                          _currentQuestion == _questions.length - 1
-                              ? 'Complete'
-                              : 'Next',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -6553,22 +5854,8 @@ class DeveloperPreviewScreen extends StatelessWidget {
         action: () => flow.replaceStack(<AppStage>[AppStage.onboarding]),
       ),
       (
-        label: 'Compatibility Quiz',
-        action: () => flow.replaceStack(<AppStage>[
-          AppStage.onboarding,
-          AppStage.compatibilityQuiz,
-        ]),
-      ),
-      (
         label: 'Daily Vibe Pool',
         action: () => flow.replaceStack(<AppStage>[AppStage.dailyPool]),
-      ),
-      (
-        label: 'Video Date',
-        action: () {
-          flow.replaceStack(<AppStage>[AppStage.dailyPool]);
-          flow.startVideoDate(flow.currentProfile);
-        },
       ),
       (
         label: 'Match Success',
