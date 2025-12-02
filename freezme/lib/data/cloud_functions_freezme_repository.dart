@@ -112,6 +112,17 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
     return _fallback.fetchMatches();
   }
 
+  @override
+  Future<void> updateProfilePhotos({
+    required String uid,
+    required List<String> photoUrls,
+  }) =>
+      _fallback.updateProfilePhotos(uid: uid, photoUrls: photoUrls);
+
+  @override
+  Future<VibeProfile?> fetchProfile(String uid) =>
+      _fallback.fetchProfile(uid);
+
   static List<VibeProfile> _defaultProfileBuilder(List<ProfileJson> json) {
     return json
         .map(
@@ -141,11 +152,21 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
   Stream<List<PathsPresence>> fetchNearbyPaths({
     required double radiusKm,
     required Set<String> intents,
+    double? lat,
+    double? lng,
   }) =>
-      _fallback.fetchNearbyPaths(radiusKm: radiusKm, intents: intents);
+      _fallback.fetchNearbyPaths(
+        radiusKm: radiusKm,
+        intents: intents,
+        lat: lat,
+        lng: lng,
+      );
   @override
-  Future<void> sendPathsInvite(PathsInvite invite) =>
-      _fallback.sendPathsInvite(invite);
+  Future<String> sendPathsInvite({
+    required String receiverUid,
+    required String intent,
+  }) =>
+      _fallback.sendPathsInvite(receiverUid: receiverUid, intent: intent);
   @override
   Stream<PathsInvite> inviteStatus(String inviteId) =>
       _fallback.inviteStatus(inviteId);

@@ -121,6 +121,42 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
     return <Map<String, dynamic>>[];
   }
 
+  @override
+  Future<void> updateProfilePhotos({
+    required String uid,
+    required List<String> photoUrls,
+  }) async {
+    try {
+      await _firestore.collection('profiles').doc(uid).set(
+        {
+          'photoUrls': photoUrls,
+          if (photoUrls.isNotEmpty) 'imageUrl': photoUrls.first,
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.updateProfilePhotos(uid: uid, photoUrls: photoUrls);
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<VibeProfile?> fetchProfile(String uid) async {
+    try {
+      final doc = await _firestore.collection('profiles').doc(uid).get();
+      if (doc.exists) {
+        return VibeProfile.fromJson(doc.data()!, documentId: doc.id);
+      }
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.fetchProfile(uid);
+    }
+    return null;
+  }
+
   // Messaging
   @override
   Future<void> sendMessage(ChatMessage message) async {
@@ -199,12 +235,16 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
   Stream<List<PathsPresence>> fetchNearbyPaths({
     required double radiusKm,
     required Set<String> intents,
+    double? lat,
+    double? lng,
   }) {
     Future<List<PathsPresence>> load() async {
       try {
         final result = await _functions.httpsCallable('getNearbyPaths').call({
           'radiusKm': radiusKm,
           'intents': intents.toList(),
+          if (lat != null) 'lat': lat,
+          if (lng != null) 'lng': lng,
         });
         final data = result.data;
         if (data is Map && data['profiles'] is List) {
@@ -226,6 +266,8 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
         return fallback.fetchNearbyPaths(
           radiusKm: radiusKm,
           intents: intents,
+          lat: lat,
+          lng: lng,
         ).first;
       }
       return <PathsPresence>[];
@@ -235,15 +277,28 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
   }
 
   @override
-  Future<void> sendPathsInvite(PathsInvite invite) async {
+  Future<String> sendPathsInvite({
+    required String receiverUid,
+    required String intent,
+  }) async {
     try {
-      await _functions.httpsCallable('sendPathsInvite').call({
-        'receiverUid': invite.receiverUid,
-        'intent': invite.intent,
+      final result = await _functions.httpsCallable('sendPathsInvite').call({
+        'receiverUid': receiverUid,
+        'intent': intent,
       });
+      final data = result.data;
+      if (data is Map && data['id'] is String) {
+        return data['id'] as String;
+      }
+      return '';
     } catch (_) {
       final fallback = _fallback;
-      if (fallback != null) return fallback.sendPathsInvite(invite);
+      if (fallback != null) {
+        return fallback.sendPathsInvite(
+          receiverUid: receiverUid,
+          intent: intent,
+        );
+      }
       rethrow;
     }
   }

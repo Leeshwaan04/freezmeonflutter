@@ -4,17 +4,24 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'data/firestore_freezme_repository.dart';
+import 'data/freezme_repository.dart';
+import 'models/paths.dart';
+import 'services/location_service.dart';
 import 'services/melt_chat_service.dart';
 import 'services/photo_upload_service.dart';
 
 import 'ui/theme.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const FreezmeApp());
 }
 
@@ -79,8 +86,12 @@ class AppFlowController extends ChangeNotifier {
     this._prefs, {
     PhotoUploadService? photoUploadService,
     MeltChatService? meltChatService,
+    FreezmeRepository? repository,
+    LocationService? locationService,
   }) : _photoUploadService = photoUploadService ?? MockPhotoUploadService(),
        _meltChatService = meltChatService ?? MockMeltChatService(),
+       _repository = repository ?? FirestoreFreezmeRepository(),
+       _locationService = locationService ?? LocationService(),
        photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
        dailyProfiles = _mockProfiles() {
     _hydrate();
@@ -89,6 +100,8 @@ class AppFlowController extends ChangeNotifier {
   static Future<AppFlowController> create({
     PhotoUploadService? photoUploadService,
     MeltChatService? meltChatService,
+    FreezmeRepository? repository,
+    LocationService? locationService,
   }) async {
     SharedPreferences? prefs;
     try {
@@ -100,6 +113,8 @@ class AppFlowController extends ChangeNotifier {
       prefs,
       photoUploadService: photoUploadService,
       meltChatService: meltChatService,
+      repository: repository,
+      locationService: locationService,
     );
   }
 
@@ -107,17 +122,23 @@ class AppFlowController extends ChangeNotifier {
     SharedPreferences? prefs,
     PhotoUploadService? photoUploadService,
     MeltChatService? meltChatService,
+    FreezmeRepository? repository,
+    LocationService? locationService,
   }) {
     return AppFlowController._(
       prefs,
       photoUploadService: photoUploadService,
       meltChatService: meltChatService,
+      repository: repository,
+      locationService: locationService,
     );
   }
 
   final SharedPreferences? _prefs;
   final PhotoUploadService _photoUploadService;
   final MeltChatService _meltChatService;
+  final FreezmeRepository _repository;
+  final LocationService _locationService;
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
   final List<AppMatch> matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
@@ -125,10 +146,18 @@ class AppFlowController extends ChangeNotifier {
   VibeProfile? activeProfile;
   String? _pendingInviteSlot;
   int _poolIndex = 0;
+  int superVibesRemaining = 1;
+  bool isSendingAction = false;
+  bool pathsLoading = false;
+  String? pathsError;
+  List<PathsPresence> nearbyPaths = const [];
+  Set<String> lastPathsIntents = const {'Friends', 'Dates'};
+  double lastPathsRadiusKm = 10;
 
   List<AppStage> get stack => List.unmodifiable(_stack);
   AppStage get current => _stack.last;
   int get poolIndex => _poolIndex;
+  int get vibesRemaining => math.max(0, dailyProfiles.length - _poolIndex - 1);
   List<PhotoSlot> get currentPhotoSlots => List.unmodifiable(photoSlots);
 
   VibeProfile get currentProfile =>
@@ -145,6 +174,7 @@ class AppFlowController extends ChangeNotifier {
     if (!completed) {
       _poolIndex = 0;
     }
+    unawaited(_loadProfilePhotos());
   }
 
   void replaceStack(List<AppStage> stages) {
@@ -241,6 +271,7 @@ class AppFlowController extends ChangeNotifier {
   }
 
   void skipProfile() {
+    if (dailyProfiles.isEmpty) return;
     if (_poolIndex < dailyProfiles.length - 1) {
       _poolIndex++;
       notifyListeners();
@@ -253,6 +284,51 @@ class AppFlowController extends ChangeNotifier {
     _poolIndex = 0;
     notifyListeners();
   }
+
+  Future<void> refreshPaths({
+    required double radiusKm,
+    required Set<String> intents,
+  }) async {
+    pathsLoading = true;
+    pathsError = null;
+    notifyListeners();
+    lastPathsRadiusKm = radiusKm;
+    lastPathsIntents = intents;
+    try {
+      final location = await _locationService.getCoarseLocation();
+      final results = await _repository
+          .fetchNearbyPaths(
+            radiusKm: radiusKm,
+            intents: intents,
+            lat: location.lat,
+            lng: location.lng,
+          )
+          .first;
+      nearbyPaths = results;
+      if (location.denied) {
+        pathsError = 'Location permission is needed for better matches.';
+      }
+    } catch (e) {
+      pathsError = 'Could not load nearby people. Please try again.';
+    } finally {
+      pathsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String> sendPathsInvite({
+    required String receiverUid,
+    required String intent,
+  }) {
+    return _repository.sendPathsInvite(
+      receiverUid: receiverUid,
+      intent: intent,
+    );
+  }
+
+  Stream<PathsInvite> inviteStatus(String inviteId) =>
+      _repository.inviteStatus(inviteId);
+
 
   void startVideoDate(VibeProfile profile, {String? scheduledSlot}) {
     activeProfile = profile;
@@ -305,6 +381,14 @@ class AppFlowController extends ChangeNotifier {
 
   void openPaths() {
     replaceStack(<AppStage>[AppStage.paths]);
+    if (!pathsLoading && nearbyPaths.isEmpty) {
+      unawaited(
+        refreshPaths(
+          radiusKm: lastPathsRadiusKm,
+          intents: lastPathsIntents,
+        ),
+      );
+    }
   }
 
   void openBlinds() {
@@ -340,6 +424,7 @@ class AppFlowController extends ChangeNotifier {
         imageUrl: uploaded.url,
         localPath: uploaded.localPath,
       );
+      await _persistPhotosIfPossible();
       notifyListeners();
     } on PhotoUploadException catch (error) {
       photoSlots[index] = photoSlots[index].copyWith(
@@ -348,6 +433,44 @@ class AppFlowController extends ChangeNotifier {
       );
       notifyListeners();
       rethrow;
+    }
+  }
+
+  Future<void> _persistPhotosIfPossible() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final uploadedUrls = photoSlots
+        .where((p) => p.status == PhotoSlotStatus.uploaded && p.imageUrl != null)
+        .map((p) => p.imageUrl!)
+        .toList();
+    if (uploadedUrls.isEmpty) return;
+    try {
+      await _repository.updateProfilePhotos(uid: uid, photoUrls: uploadedUrls);
+    } catch (_) {
+      // Ignore persistence errors; user photos remain locally available.
+    }
+  }
+
+  Future<void> _loadProfilePhotos() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final profile = await _repository.fetchProfile(uid);
+      final photos = profile?.photoUrls ?? const [];
+      if (photos.isEmpty) return;
+      for (var i = 0; i < photoSlots.length; i++) {
+        if (i < photos.length) {
+          photoSlots[i] = photoSlots[i].copyWith(
+            status: PhotoSlotStatus.uploaded,
+            imageUrl: photos[i],
+          );
+        } else {
+          photoSlots[i] = const PhotoSlot();
+        }
+      }
+      notifyListeners();
+    } catch (_) {
+      // ignore hydrate errors
     }
   }
 
@@ -370,6 +493,39 @@ class AppFlowController extends ChangeNotifier {
       restartDailyPool();
     }
     replaceStack(<AppStage>[AppStage.dailyPool]);
+  }
+
+  Future<void> likeCurrent({bool superLike = false}) async {
+    if (dailyProfiles.isEmpty || isSendingAction) return;
+    isSendingAction = true;
+    notifyListeners();
+    final profile = currentProfile;
+    try {
+      await _repository.likeProfile(profile.uid);
+      if (superLike && superVibesRemaining > 0) {
+        superVibesRemaining -= 1;
+      }
+    } catch (_) {
+      // swallow for now; could surface an error
+    } finally {
+      isSendingAction = false;
+      skipProfile();
+    }
+  }
+
+  Future<void> passCurrent() async {
+    if (dailyProfiles.isEmpty || isSendingAction) return;
+    isSendingAction = true;
+    notifyListeners();
+    final profile = currentProfile;
+    try {
+      await _repository.skipProfile(profile.uid);
+    } catch (_) {
+      // ignore for now
+    } finally {
+      isSendingAction = false;
+      skipProfile();
+    }
   }
 
   static List<VibeProfile> _mockProfiles() => const <VibeProfile>[
@@ -2242,6 +2398,78 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
     return AnimatedBuilder(
       animation: flow,
       builder: (context, _) {
+        if (flow.dailyProfiles.isEmpty) {
+          return Scaffold(
+            bottomNavigationBar: _BottomNavBar(
+              currentIndex: 1,
+              onTap: (index) {
+                switch (index) {
+                  case 0:
+                    flow.openChatList();
+                    break;
+                  case 1:
+                    flow.openFeed();
+                    break;
+                  case 2:
+                    flow.openPaths();
+                    break;
+                  case 3:
+                    flow.openBlinds();
+                    break;
+                  case 4:
+                    flow.openProfileSettings();
+                    break;
+                }
+              },
+            ),
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [FreezmeColors.surface, FreezmeColors.surfaceAlt],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: SafeArea(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const FreezmeLogo(size: LogoSize.md, showText: true),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'You’re all caught up for today.',
+                          style: FreezmeTypography.title,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Check back later or expand your radius on Paths.',
+                          style: FreezmeTypography.bodyMuted,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: flow.openPaths,
+                          style: FilledButton.styleFrom(
+                            minimumSize: const Size(200, 48),
+                            backgroundColor: FreezmeColors.primary,
+                            foregroundColor: Colors.white,
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('Discover on Paths'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
         final VibeProfile profile = flow.currentProfile;
         final int remaining = flow.remainingProfiles;
 
@@ -2309,7 +2537,9 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Your ${flow.dailyProfiles.length} vibes are ready 💫',
+                          flow.vibesRemaining <= 0
+                              ? 'Last vibe — make it count 💫'
+                              : 'Your ${flow.dailyProfiles.length} vibes are ready 💫',
                           style: const TextStyle(
                             color: FreezmeColors.muted,
                             fontSize: 13,
@@ -2346,114 +2576,117 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                         horizontal: 24,
                         vertical: 12,
                       ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(32),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 24,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.network(
-                              profile.imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const ColoredBox(
-                                    color: FreezmeColors.border,
-                                    child: Icon(Icons.person, size: 48),
+                      child: AspectRatio(
+                        aspectRatio: 3 / 4,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(32),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 24,
+                                offset: const Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                profile.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const ColoredBox(
+                                      color: FreezmeColors.border,
+                                      child: Icon(Icons.person, size: 48),
+                                    ),
+                              ),
+                              Positioned(
+                                top: 20,
+                                right: 20,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
                                   ),
-                            ),
-                            Positioned(
-                              top: 20,
-                              right: 20,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      FreezmeColors.primary,
-                                      FreezmeColors.secondary,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        FreezmeColors.primary,
+                                        FreezmeColors.secondary,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(999),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.2,
+                                        ),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 6),
+                                      ),
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(999),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.2,
-                                      ),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
+                                  child: Text(
+                                    '${profile.compatibility}% Match',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
                                     ),
-                                  ],
-                                ),
-                                child: Text(
-                                  '${profile.compatibility}% Match',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                            ),
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(24),
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.bottomCenter,
-                                    end: Alignment.topCenter,
-                                    colors: [
-                                      Colors.black87,
-                                      Colors.transparent,
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                      colors: [
+                                        Colors.black87,
+                                        Colors.transparent,
+                                      ],
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${profile.name}, ${profile.age}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        profile.distance,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        profile.bio,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          height: 1.4,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      '${profile.name}, ${profile.age}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      profile.distance,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      profile.bio,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -2468,7 +2701,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                         Row(
                           children: [
                             IconButton.outlined(
-                              onPressed: flow.skipProfile,
+                              onPressed: flow.isSendingAction ? null : flow.passCurrent,
                               icon: const Icon(Icons.close),
                               color: FreezmeColors.muted,
                             ),
@@ -2481,17 +2714,41 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                                   minimumSize: const Size.fromHeight(56),
                                   shape: const StadiumBorder(),
                                 ),
-                                onPressed: () =>
-                                    _handleInvite(context, flow, profile),
+                                onPressed: flow.isSendingAction
+                                    ? null
+                                    : () => _handleInvite(context, flow, profile),
                                 icon: const Icon(Icons.favorite),
                                 label: const Text('Invite to Vibe'),
                               ),
                             ),
                             const SizedBox(width: 12),
-                            IconButton.outlined(
-                              onPressed: () => showFreezeModal(context),
-                              icon: const Icon(Icons.ac_unit),
-                              color: FreezmeColors.primary,
+                            Column(
+                              children: [
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: flow.superVibesRemaining > 0
+                                        ? FreezmeColors.secondary
+                                        : FreezmeColors.muted,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(56, 44),
+                                    shape: const StadiumBorder(),
+                                  ),
+                                  onPressed: flow.superVibesRemaining > 0 &&
+                                          !flow.isSendingAction
+                                      ? () => flow.likeCurrent(superLike: true)
+                                      : null,
+                                  icon: const Icon(Icons.auto_awesome),
+                                  label: const Text('Super'),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${flow.superVibesRemaining} left',
+                                  style: const TextStyle(
+                                    color: FreezmeColors.muted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -2989,10 +3246,60 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   bool _notifications = true;
   bool _showOnline = true;
   bool _readReceipts = false;
+  bool _signingOut = false;
+
+  double _completion(AppFlowController flow) {
+    final uploaded = flow.photoSlots
+        .where((p) => p.status == PhotoSlotStatus.uploaded)
+        .length;
+    final base = 50;
+    final photos = (uploaded / flow.photoSlots.length) * 40;
+    final onboarding = flow.stack.contains(AppStage.onboarding) ? 0 : 10;
+    return (base + photos + onboarding).clamp(0, 100);
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _confirmSignOut(AppFlowController flow) async {
+    if (_signingOut) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sign out?'),
+        content: const Text(
+          'We’ll pause your presence and take you back to the welcome screen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _signingOut = true);
+    try {
+      await flow.signOut();
+    } finally {
+      if (mounted) setState(() => _signingOut = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
+    final completion = _completion(flow).round();
+    final vibesLeft = flow.remainingProfiles;
+    final matchesCount = flow.matches.length;
     final menuItems = [
       (
         icon: Icons.person_outline,
@@ -3005,6 +3312,12 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         label: 'Preferences',
         description: 'Age range, distance, interests',
         action: () {},
+      ),
+      (
+        icon: Icons.workspace_premium_outlined,
+        label: 'Freezme+',
+        description: 'Manage membership and perks',
+        action: flow.openFreezmePlus,
       ),
       (
         icon: Icons.shield_outlined,
@@ -3154,9 +3467,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                                         color: FreezmeColors.border,
                                       ),
                                     ),
-                                    child: const Text(
-                                      '92% Complete',
-                                      style: TextStyle(
+                                    child: Text(
+                                      '$completion% Complete',
+                                      style: const TextStyle(
                                         color: FreezmeColors.primary,
                                         fontSize: 12,
                                         fontWeight: FontWeight.w500,
@@ -3168,6 +3481,22 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          _StatPill(
+                            label: 'Vibes left today',
+                            value: vibesLeft.toString(),
+                            icon: Icons.favorite_border,
+                          ),
+                          const SizedBox(width: 8),
+                          _StatPill(
+                            label: 'Matches',
+                            value: matchesCount.toString(),
+                            icon: Icons.chat_bubble_outline,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 24),
                       Container(
@@ -3202,8 +3531,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                               title: 'Notifications',
                               subtitle: 'Push & email alerts',
                               value: _notifications,
-                              onChanged: (value) =>
-                                  setState(() => _notifications = value),
+                              onChanged: (value) {
+                                setState(() => _notifications = value);
+                                _showSnack(
+                                  value
+                                      ? 'Notifications enabled'
+                                      : 'Notifications muted',
+                                );
+                              },
                             ),
                             const Divider(height: 32),
                             _SettingsToggleTile(
@@ -3211,8 +3546,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                               title: 'Show Online Status',
                               subtitle: 'Let matches see when you\'re active',
                               value: _showOnline,
-                              onChanged: (value) =>
-                                  setState(() => _showOnline = value),
+                              onChanged: (value) {
+                                setState(() => _showOnline = value);
+                                _showSnack(
+                                  value
+                                      ? 'Online status visible to matches'
+                                      : 'You’re now hidden',
+                                );
+                              },
                             ),
                             const Divider(height: 32),
                             _SettingsToggleTile(
@@ -3220,8 +3561,14 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                               title: 'Read Receipts',
                               subtitle: 'Show when you\'ve read messages',
                               value: _readReceipts,
-                              onChanged: (value) =>
-                                  setState(() => _readReceipts = value),
+                              onChanged: (value) {
+                                setState(() => _readReceipts = value);
+                                _showSnack(
+                                  value
+                                      ? 'Read receipts on'
+                                      : 'Read receipts off',
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -3266,9 +3613,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                           shape: const StadiumBorder(),
                           side: const BorderSide(color: FreezmeColors.border),
                         ),
-                        onPressed: flow.signOut,
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Sign Out'),
+                        onPressed: _signingOut ? null : () => _confirmSignOut(flow),
+                        icon: _signingOut
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.logout),
+                        label: Text(_signingOut ? 'Signing out…' : 'Sign Out'),
                       ),
                       const SizedBox(height: 16),
                       const Text(
@@ -3358,6 +3711,65 @@ class _SettingsToggleTile extends StatelessWidget {
   }
 }
 
+class _StatPill extends StatelessWidget {
+  const _StatPill({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: FreezmeColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: FreezmeColors.primary),
+            const SizedBox(width: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: FreezmeColors.neutral,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: FreezmeColors.muted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _LinkTile extends StatelessWidget {
   const _LinkTile({
     required this.icon,
@@ -3425,8 +3837,16 @@ class ProfilePreviewPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
-    const imageUrl =
-        'https://images.unsplash.com/photo-1546961329-78bef0414d7c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYwOTQ2MDQ5fDA&ixlib=rb-4.1.0&q=80&w=1080';
+    final uploadedPhotos = flow.photoSlots
+        .where((p) => p.status == PhotoSlotStatus.uploaded && p.imageUrl != null)
+        .map((p) => p.imageUrl!)
+        .toList();
+    final primaryPhoto = uploadedPhotos.isNotEmpty
+        ? uploadedPhotos.first
+        : 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
+    final completion = ((uploadedPhotos.length / flow.photoSlots.length) * 100)
+        .clamp(0, 100)
+        .round();
 
     return Scaffold(
       appBar: AppBar(
@@ -3456,9 +3876,11 @@ class ProfilePreviewPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Looking good! 💜',
-                  style: TextStyle(color: FreezmeColors.muted),
+                Text(
+                  uploadedPhotos.isEmpty
+                      ? 'Add a few photos to complete your vibe 💜'
+                      : 'Looking good! $completion% complete',
+                  style: const TextStyle(color: FreezmeColors.muted),
                 ),
                 const SizedBox(height: 24),
                 Container(
@@ -3473,16 +3895,16 @@ class ProfilePreviewPage extends StatelessWidget {
                       ),
                     ],
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 320,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.network(imageUrl, fit: BoxFit.cover),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 320,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                            Image.network(primaryPhoto, fit: BoxFit.cover),
                             Container(
                               decoration: const BoxDecoration(
                                 gradient: LinearGradient(
@@ -3497,7 +3919,7 @@ class ProfilePreviewPage extends StatelessWidget {
                               right: 24,
                               bottom: 24,
                               child: Text(
-                                'Sarah, 25',
+                                'Your vibe',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 24,
@@ -3523,40 +3945,61 @@ class ProfilePreviewPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             const Text(
-                              'Coffee enthusiast ☕ | Weekend hiker 🥾 | Always up for deep conversations about life, art, and everything in between. Looking for genuine connections with kind souls.',
+                              'Finish your bio and preferences to help matches get to know you. You can edit photos, interests, and distance in Settings.',
                               style: TextStyle(
                                 color: FreezmeColors.neutral,
                                 height: 1.5,
                               ),
                             ),
                             const SizedBox(height: 24),
-                            Text(
-                              'Personality Type',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: FreezmeColors.primary,
-                                    fontWeight: FontWeight.w600,
+                            if (uploadedPhotos.isNotEmpty) ...[
+                              Text(
+                                'Photos',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: FreezmeColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: uploadedPhotos
+                                    .map(
+                                      (url) => ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: Image.network(
+                                          url,
+                                          width: 96,
+                                          height: 96,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                            Row(
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: () =>
+                                      flow.startOnboarding(), // reuse uploader
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: FreezmeColors.primary,
+                                    foregroundColor: Colors.white,
+                                    shape: const StadiumBorder(),
                                   ),
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: const [
-                                _ChipLabel(label: '💬 Deep Conversationalist'),
-                                _ChipLabel(label: '🎒 Adventurous'),
-                                _ChipLabel(label: '🏠 Homebody at heart'),
+                                  icon: const Icon(Icons.photo_camera_back),
+                                  label: const Text('Edit photos'),
+                                ),
+                                const SizedBox(width: 12),
+                                TextButton(
+                                  onPressed: flow.openProfileSettings,
+                                  child: const Text('Edit details'),
+                                ),
                               ],
-                            ),
-                            const SizedBox(height: 24),
-                            const _ProfileDetailRow(
-                              icon: Icons.work_outline,
-                              label: 'Product Designer',
-                            ),
-                            const SizedBox(height: 12),
-                            const _ProfileDetailRow(
-                              icon: Icons.school_outlined,
-                              label: 'University of Arts',
                             ),
                             const SizedBox(height: 24),
                             Text(
@@ -4804,34 +5247,26 @@ class _PathsPageState extends State<PathsPage> {
   bool todayOnly = true;
   int wavesLeft = 5;
   bool notifyWhenNearby = true;
-  final Set<int> pendingInvites = {};
-  final Set<int> declinedInvites = {};
-  final Set<int> acceptedInvites = {};
+  final Map<String, String> inviteStatusByUser = {};
+  final Map<String, StreamSubscription<PathsInvite>> _inviteSubs = {};
 
-  final List<Map<String, String>> mockPeople = [
-    {
-      'name': 'Maya, 26',
-      'intent': 'Friends',
-      'distance': '2.1 km',
-      'tagline': 'Weekend hikes + matcha fan',
-      'photo':
-          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400',
-      'active': 'Active 12m ago',
-      'availability': 'Free tonight',
-      'interests': 'Hikes · Matcha · Films',
-    },
-    {
-      'name': 'Sam, 28',
-      'intent': 'Dates',
-      'distance': '3.4 km',
-      'tagline': 'Coffee > cocktails, books > bars',
-      'photo':
-          'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=400',
-      'active': 'Active now',
-      'availability': 'Free this weekend',
-      'interests': 'Coffee · Books · Travel',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final flow = AppFlowScope.of(context, listen: false);
+      _refresh(flow);
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _inviteSubs.values) {
+      sub.cancel();
+    }
+    _inviteSubs.clear();
+    super.dispose();
+  }
 
   void _openChat(AppFlowController flow) {
     final targetProfile = flow.activeProfile ??
@@ -4868,8 +5303,17 @@ class _PathsPageState extends State<PathsPage> {
     );
   }
 
-  void _sendInvite(AppFlowController flow, int id) {
-    if (pendingInvites.contains(id)) return;
+  Future<void> _refresh(AppFlowController flow) async {
+    await flow.refreshPaths(radiusKm: radius, intents: intents);
+    setState(() {});
+  }
+
+  Future<void> _sendInvite(
+    AppFlowController flow,
+    PathsPresence person,
+  ) async {
+    final current = inviteStatusByUser[person.userId];
+    if (current == 'pending') return;
     if (wavesLeft <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Out of invites for today.')),
@@ -4877,32 +5321,36 @@ class _PathsPageState extends State<PathsPage> {
       return;
     }
     setState(() {
+      inviteStatusByUser[person.userId] = 'pending';
       wavesLeft = (wavesLeft - 1).clamp(0, 99);
-      pendingInvites.add(id);
-      declinedInvites.remove(id);
-      acceptedInvites.remove(id);
     });
-    // Simulate backend response
-    Future<void>.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      final accepted = id % 2 == 0; // mock outcome
-      setState(() {
-        pendingInvites.remove(id);
-        if (accepted) {
-          acceptedInvites.add(id);
-          flow.openChatDetail(
-            flow.dailyProfiles.isNotEmpty ? flow.dailyProfiles.first : flow.activeProfile ?? flow.matches.first.profile,
-          );
-        } else {
-          declinedInvites.add(id);
+    try {
+      final inviteId = await flow.sendPathsInvite(
+        receiverUid: person.userId,
+        intent: person.intents.isNotEmpty ? person.intents.first : 'Either',
+      );
+      if (inviteId.isEmpty) {
+        throw Exception('Failed to send invite');
+      }
+      _inviteSubs[person.userId]?.cancel();
+      _inviteSubs[person.userId] = flow.inviteStatus(inviteId).listen((invite) {
+        if (!mounted) return;
+        setState(() {
+          inviteStatusByUser[person.userId] = invite.status;
+        });
+        if (invite.status == 'accepted') {
+          _openChat(flow);
         }
       });
-      if (!accepted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No response yet. Try again later.')),
-        );
-      }
-    });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        inviteStatusByUser[person.userId] = 'error';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not send invite. Please retry.')),
+      );
+    }
   }
 
   Widget _emptyNearby() {
@@ -4955,6 +5403,43 @@ class _PathsPageState extends State<PathsPage> {
     );
   }
 
+  String _inviteLabel(String? status) {
+    switch (status) {
+      case 'pending':
+        return 'Pending…';
+      case 'accepted':
+        return 'Open chat';
+      case 'declined':
+        return 'Retry';
+      case 'error':
+        return 'Retry';
+      default:
+        return 'Invite';
+    }
+  }
+
+  Color _buttonColor(String? status) {
+    switch (status) {
+      case 'pending':
+        return FreezmeColors.muted;
+      case 'accepted':
+        return FreezmeColors.success;
+      case 'declined':
+      case 'error':
+        return FreezmeColors.accent;
+      default:
+        return FreezmeColors.primary;
+    }
+  }
+
+  static String _timeAgo(DateTime ts) {
+    final diff = DateTime.now().difference(ts);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context);
@@ -4997,7 +5482,10 @@ class _PathsPageState extends State<PathsPage> {
                               trackColor: WidgetStateProperty.all(
                                 FreezmeColors.primary.withValues(alpha: 0.15),
                               ),
-                              onChanged: (v) => setState(() => visible = v),
+                              onChanged: (v) {
+                                setState(() => visible = v);
+                                if (v) _refresh(flow);
+                              },
                               title: const Text(
                                 'Show me on Paths',
                                 style: TextStyle(color: FreezmeColors.neutral),
@@ -5019,6 +5507,7 @@ class _PathsPageState extends State<PathsPage> {
                               divisions: 49,
                               activeColor: FreezmeColors.primary,
                               onChanged: (v) => setState(() => radius = v),
+                              onChangeEnd: (_) => _refresh(flow),
                             ),
                             CheckboxListTile(
                               contentPadding: EdgeInsets.zero,
@@ -5076,6 +5565,7 @@ class _PathsPageState extends State<PathsPage> {
                                         intents.add(label);
                                       }
                                     });
+                                    _refresh(flow);
                                   },
                                 );
                               }).toList(),
@@ -5091,22 +5581,52 @@ class _PathsPageState extends State<PathsPage> {
                           'Turn on visibility to see people nearby.',
                           style: FreezmeTypography.bodyMuted,
                         )
-                      else if (mockPeople.isEmpty)
+                      else if (flow.pathsLoading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (flow.pathsError != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              flow.pathsError!,
+                              style: const TextStyle(
+                                color: FreezmeColors.error,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ElevatedButton.icon(
+                              onPressed: () => _refresh(flow),
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                            ),
+                          ],
+                        )
+                      else if (flow.nearbyPaths.isEmpty)
                         _emptyNearby()
                       else
                         Column(
                           children: [
-                            for (final person in mockPeople) ...[
+                            for (final person in flow.nearbyPaths) ...[
                               _surfaceCard(
                                 child: Row(
                                   children: [
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(16),
-                                      child: Image.network(
-                                        person['photo']!,
+                                      child: Container(
                                         width: 72,
                                         height: 72,
-                                        fit: BoxFit.cover,
+                                        color: FreezmeColors.surfaceAlt,
+                                        child: const Icon(
+                                          Icons.person,
+                                          color: FreezmeColors.primary,
+                                          size: 32,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -5115,82 +5635,37 @@ class _PathsPageState extends State<PathsPage> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            '${person['name']} • ${person['distance']}',
+                                            person.userId,
                                             style: const TextStyle(
                                               fontWeight: FontWeight.w600,
                                               color: FreezmeColors.neutral,
                                             ),
                                           ),
                                           const SizedBox(height: 4),
-                                          if (person['active'] != null)
+                                          if (person.lastActiveAt != null)
                                             Text(
-                                              person['active']!,
+                                              'Active ${_timeAgo(person.lastActiveAt!)}',
                                               style: const TextStyle(
                                                 color: FreezmeColors.primary,
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 12,
                                               ),
                                             ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            person['tagline']!,
-                                            style: FreezmeTypography.bodyMuted,
-                                          ),
-                                          const SizedBox(height: 6),
-                                          if (person['availability'] != null)
-                                            Container(
-                                              margin: const EdgeInsets.only(bottom: 6),
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 6,
+                                          if (person.availability != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4),
+                                              child: Text(
+                                                person.availability!,
+                                                style: FreezmeTypography.bodyMuted,
                                               ),
-                                              decoration: BoxDecoration(
-                                                color: FreezmeColors.accent
-                                                    .withValues(alpha: 0.12),
-                                                borderRadius: BorderRadius.circular(12),
+                                            ),
+                                          if (person.interestsSummary != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4),
+                                              child: Text(
+                                                person.interestsSummary!,
+                                                style: FreezmeTypography.bodyMuted,
                                               ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  const Icon(Icons.access_time,
-                                                      size: 14,
-                                                      color: FreezmeColors.accent),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          person['availability']!,
-                                          style: const TextStyle(
-                                            color: FreezmeColors.accent,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                          if (person['interests'] != null)
-                                            Wrap(
-                                              spacing: 6,
-                                              runSpacing: 6,
-                                              children: person['interests']!
-                                                  .split('·')
-                                                  .map(
-                                                    (chip) => Chip(
-                                                      label: Text(
-                                                        chip.trim(),
-                                                        style: const TextStyle(
-                                                          color: FreezmeColors.neutral,
-                                                          fontSize: 12,
-                                                        ),
-                                                      ),
-                                                      backgroundColor: FreezmeColors.surface,
-                                                      shape: StadiumBorder(
-                                                        side: BorderSide(
-                                                          color: FreezmeColors.border,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  )
-                                                  .toList(),
                                             ),
                                           const SizedBox(height: 6),
                                           Wrap(
@@ -5198,26 +5673,27 @@ class _PathsPageState extends State<PathsPage> {
                                             runSpacing: 8,
                                             crossAxisAlignment: WrapCrossAlignment.center,
                                             children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 6,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: FreezmeColors.primary
-                                                      .withValues(alpha: 0.12),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: Text(
-                                                  person['intent']!,
-                                                  style: const TextStyle(
-                                                    color: FreezmeColors.primary,
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
+                                              for (final intent in person.intents)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: FreezmeColors.primary
+                                                        .withValues(alpha: 0.12),
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                  ),
+                                                  child: Text(
+                                                    intent,
+                                                    style: const TextStyle(
+                                                      color: FreezmeColors.primary,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
                                               TextButton(
                                                 onPressed: () {
                                                   _useWave(context);
@@ -5227,32 +5703,27 @@ class _PathsPageState extends State<PathsPage> {
                                               ),
                                               ElevatedButton(
                                                 style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      pendingInvites.contains(
-                                                              person.hashCode)
-                                                          ? FreezmeColors.muted
-                                                          : FreezmeColors.primary,
+                                                  backgroundColor: _buttonColor(
+                                                    inviteStatusByUser[person.userId],
+                                                  ),
                                                   foregroundColor: Colors.white,
                                                   minimumSize: const Size(110, 44),
                                                   shape: const StadiumBorder(),
                                                 ),
-                                                onPressed: pendingInvites
-                                                        .contains(person.hashCode)
-                                                    ? null
-                                                    : () => _sendInvite(
-                                                          flow,
-                                                          person.hashCode,
-                                                        ),
-                                                child: pendingInvites
-                                                        .contains(person.hashCode)
-                                                    ? const Text('Pending…')
-                                                    : acceptedInvites.contains(
-                                                            person.hashCode)
-                                                        ? const Text('Chat')
-                                                        : declinedInvites.contains(
-                                                                person.hashCode)
-                                                            ? const Text('Retry')
-                                                            : const Text('Invite'),
+                                                onPressed: () {
+                                                  final status =
+                                                      inviteStatusByUser[person.userId];
+                                                  if (status == 'accepted') {
+                                                    _openChat(flow);
+                                                  } else {
+                                                    _sendInvite(flow, person);
+                                                  }
+                                                },
+                                                child: Text(
+                                                  _inviteLabel(
+                                                    inviteStatusByUser[person.userId],
+                                                  ),
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -5456,7 +5927,9 @@ class _BlindsPageState extends State<BlindsPage> {
                           style: FreezmeTypography.bodyMuted,
                         ),
                         const SizedBox(height: 8),
-                        Row(
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
@@ -5473,7 +5946,6 @@ class _BlindsPageState extends State<BlindsPage> {
                               },
                               child: const Text('Thumbs up'),
                             ),
-                            const SizedBox(width: 8),
                             TextButton(
                               onPressed: () {
                                 setState(() => sessionProgress = 0);

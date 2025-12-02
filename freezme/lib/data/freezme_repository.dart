@@ -9,6 +9,11 @@ abstract class FreezmeRepository {
   Future<void> likeProfile(String targetUid);
   Future<void> skipProfile(String targetUid);
   Future<List<Map<String, dynamic>>> fetchMatches();
+  Future<void> updateProfilePhotos({
+    required String uid,
+    required List<String> photoUrls,
+  });
+  Future<VibeProfile?> fetchProfile(String uid);
 
   // Messaging
   Future<void> sendMessage(ChatMessage message);
@@ -21,8 +26,13 @@ abstract class FreezmeRepository {
   Stream<List<PathsPresence>> fetchNearbyPaths({
     required double radiusKm,
     required Set<String> intents,
+    double? lat,
+    double? lng,
   });
-  Future<void> sendPathsInvite(PathsInvite invite);
+  Future<String> sendPathsInvite({
+    required String receiverUid,
+    required String intent,
+  });
   Stream<PathsInvite> inviteStatus(String inviteId);
   Future<void> cancelPathsInvite(String inviteId);
 

@@ -51,5 +51,7 @@
 	<string>Freezme stores the photos you upload to complete your profile.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Freezme uses the camera when you want to capture new photos for your vibe.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Freezme uses your location to show nearby people on Paths.</string>
 </dict>
 </plist>
