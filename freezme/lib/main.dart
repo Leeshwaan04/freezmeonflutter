@@ -4036,16 +4036,18 @@ class ProfilePreviewPage extends StatelessWidget {
                             ],
                             Row(
                               children: [
-                                ElevatedButton.icon(
-                                  onPressed: () =>
-                                      flow.startOnboarding(), // reuse uploader
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: FreezmeColors.primary,
-                                    foregroundColor: Colors.white,
-                                    shape: const StadiumBorder(),
+                                Flexible(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () =>
+                                        flow.startOnboarding(), // reuse uploader
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: FreezmeColors.primary,
+                                      foregroundColor: Colors.white,
+                                      shape: const StadiumBorder(),
+                                    ),
+                                    icon: const Icon(Icons.photo_camera_back),
+                                    label: const Text('Edit photos'),
                                   ),
-                                  icon: const Icon(Icons.photo_camera_back),
-                                  label: const Text('Edit photos'),
                                 ),
                                 const SizedBox(width: 12),
                                 TextButton(
