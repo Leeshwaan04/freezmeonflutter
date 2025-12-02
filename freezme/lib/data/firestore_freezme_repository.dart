@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/vibe_profile.dart';
 import 'freezme_repository.dart';
@@ -101,15 +102,46 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
   @override
   Future<List<Map<String, dynamic>>> fetchMatches() async {
     try {
+      final currentUser = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUser == null) return <Map<String, dynamic>>[];
+
       final snapshot = await _firestore
-          .collection('matches')
-          .orderBy('ts', descending: true)
+          .collection('chats')
+          .where('members', arrayContains: currentUser)
+          .orderBy('updatedAt', descending: true)
           .limit(50)
           .get();
+
       if (snapshot.docs.isNotEmpty) {
-        return snapshot.docs
-            .map((doc) => <String, dynamic>{'id': doc.id, ...doc.data()})
-            .toList();
+        return snapshot.docs.map((doc) {
+          final data = doc.data();
+          final members = List<String>.from(data['members'] ?? []);
+          final otherUserId = members.firstWhere(
+            (uid) => uid != currentUser,
+            orElse: () => '',
+          );
+
+          final memberDisplay = data['memberDisplay'] as Map<String, dynamic>? ?? {};
+          final otherUserDisplay = memberDisplay[otherUserId] as Map<String, dynamic>? ?? {};
+
+          final lastMessage = data['lastMessage'] as Map<String, dynamic>? ?? {};
+          final unread = data['unread'] as Map<String, dynamic>? ?? {};
+
+          return <String, dynamic>{
+            'id': doc.id,
+            'chatId': doc.id,
+            'name': otherUserDisplay['name'] ?? 'Unknown',
+            'otherUserName': otherUserDisplay['name'] ?? 'Unknown',
+            'photoUrl': otherUserDisplay['photoUrl'] ?? '',
+            'lastMessage': lastMessage['text'] ?? '',
+            'lastMessageSenderId': lastMessage['senderId'] ?? '',
+            'ts': data['updatedAt'],
+            'updatedAt': data['updatedAt'],
+            'unread': unread[currentUser] ?? 0,
+            'status': lastMessage['status'] ?? 'sent',
+            'isGroup': data['isGroup'] ?? false,
+          };
+        }).toList();
       }
     } catch (_) {
       // fall through
@@ -161,11 +193,43 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
   @override
   Future<void> sendMessage(ChatMessage message) async {
     try {
-      await _firestore
+      final batch = _firestore.batch();
+
+      // 1. Add message to subcollection
+      final messageRef = _firestore
           .collection('chats')
           .doc(message.chatId)
           .collection('messages')
-          .add(message.toJson());
+          .doc();
+      batch.set(messageRef, message.toJson());
+
+      // 2. Update chat document with lastMessage and updatedAt
+      final chatRef = _firestore.collection('chats').doc(message.chatId);
+
+      // Get other user ID to increment their unread count
+      final chatDoc = await chatRef.get();
+      if (chatDoc.exists) {
+        final data = chatDoc.data()!;
+        final members = List<String>.from(data['members'] ?? []);
+        final currentUser = FirebaseAuth.instance.currentUser?.uid;
+        final otherUserId = members.firstWhere(
+          (uid) => uid != currentUser,
+          orElse: () => '',
+        );
+
+        batch.update(chatRef, {
+          'lastMessage': {
+            'text': message.text,
+            'senderId': message.senderId,
+            'status': message.status ?? 'sent',
+            'sentAt': FieldValue.serverTimestamp(),
+          },
+          'updatedAt': FieldValue.serverTimestamp(),
+          if (otherUserId.isNotEmpty) 'unread.$otherUserId': FieldValue.increment(1),
+        });
+      }
+
+      await batch.commit();
     } catch (_) {
       final fallback = _fallback;
       if (fallback != null) return fallback.sendMessage(message);
@@ -185,6 +249,22 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
         .map((snapshot) => snapshot.docs
             .map((doc) => ChatMessage.fromJson(doc.data(), documentId: doc.id))
             .toList());
+  }
+
+  @override
+  Future<void> markChatAsRead(String chatId) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUser == null) return;
+
+      await _firestore.collection('chats').doc(chatId).update({
+        'unread.$currentUser': 0,
+      });
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.markChatAsRead(chatId);
+      rethrow;
+    }
   }
 
   @override

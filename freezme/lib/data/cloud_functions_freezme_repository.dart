@@ -141,6 +141,9 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
   Stream<List<ChatMessage>> messagesForChat(String chatId) =>
       _fallback.messagesForChat(chatId);
   @override
+  Future<void> markChatAsRead(String chatId) =>
+      _fallback.markChatAsRead(chatId);
+  @override
   Future<void> updateOnlineStatus(String userId, bool isOnline) =>
       _fallback.updateOnlineStatus(userId, isOnline);
   @override

@@ -40,6 +40,8 @@ class MockFreezmeRepository implements FreezmeRepository {
   Stream<List<ChatMessage>> messagesForChat(String chatId) =>
       const Stream.empty();
   @override
+  Future<void> markChatAsRead(String chatId) async {}
+  @override
   Future<void> updateOnlineStatus(String userId, bool isOnline) async {}
   @override
   Future<void> signOut() async {}

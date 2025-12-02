@@ -8,6 +8,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:intl/intl.dart';
+import 'models/chat_message.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -5033,12 +5035,6 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
     );
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
 }
 
 class ChatListPage extends StatefulWidget {
@@ -5306,6 +5302,7 @@ class _ChatListPageState extends State<ChatListPage> {
                                       flow.openChatDetail(
                                         VibeProfile(
                                           uid: convo.chatId,
+                                          id: 0,
                                           name: convo.displayName,
                                           age: 0,
                                           imageUrl: convo.photoUrl,

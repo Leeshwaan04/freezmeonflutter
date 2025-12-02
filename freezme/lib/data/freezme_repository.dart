@@ -18,6 +18,7 @@ abstract class FreezmeRepository {
   // Messaging
   Future<void> sendMessage(ChatMessage message);
   Stream<List<ChatMessage>> messagesForChat(String chatId);
+  Future<void> markChatAsRead(String chatId);
   Future<void> updateOnlineStatus(String userId, bool isOnline);
   Future<void> signOut();
 
