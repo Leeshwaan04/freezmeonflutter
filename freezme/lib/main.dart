@@ -4694,36 +4694,24 @@ IconData _statusIcon(_MessageStatus status) {
 class _ChatScreenPageState extends State<ChatScreenPage> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<_ChatMessage> _messages = <_ChatMessage>[
-    _ChatMessage(
-      text: 'Hey! That was such a great vibe date! 💜',
-      isMe: false,
-      timestamp: '2:30 PM',
-      status: _MessageStatus.read,
-    ),
-    _ChatMessage(
-      text: 'I know right! I loved our conversation about art 🎨',
-      isMe: true,
-      timestamp: '2:31 PM',
-      status: _MessageStatus.read,
-    ),
-    _ChatMessage(
-      text: 'Same! We should definitely check out that gallery together',
-      isMe: false,
-      timestamp: '2:32 PM',
-      status: _MessageStatus.read,
-    ),
-    _ChatMessage(
-      text: 'Absolutely! How about this weekend?',
-      isMe: true,
-      timestamp: '2:33 PM',
-      status: _MessageStatus.delivered,
-    ),
-  ];
+  final List<_ChatMessage> _messages = <_ChatMessage>[];
+  StreamSubscription<List<ChatMessage>>? _msgSub;
+  bool _sending = false;
 
-  void _handleSend() {
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    _msgSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _handleSend() async {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
+    final chatId = AppFlowScope.of(context, listen: false).activeChatId;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (text.isEmpty || chatId == null || uid == null || _sending) return;
+    _sending = true;
     final now = TimeOfDay.now();
     final message = _ChatMessage(
       text: text,
@@ -4736,19 +4724,33 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
       _messages.add(message);
     });
     _controller.clear();
-    Future<void>.delayed(const Duration(milliseconds: 600), () {
-      if (!mounted) return;
+    try {
+      final flow = AppFlowScope.of(context, listen: false);
+      await flow._repository.sendMessage(
+        ChatMessage(
+          chatId: chatId,
+          senderId: uid,
+          text: text,
+          sentAt: DateTime.now(),
+          status: 'sent',
+        ),
+      );
       setState(() {
-        message.status = _MessageStatus.delivered;
+        message.status = _MessageStatus.sent;
       });
-      Future<void>.delayed(const Duration(milliseconds: 700), () {
-        if (mounted) {
-          setState(() {
-            message.status = _MessageStatus.read;
-          });
-        }
+    } catch (_) {
+      setState(() {
+        message.status = _MessageStatus.failed;
       });
-    });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not send. Please retry.'),
+        ),
+      );
+    } finally {
+      _sending = false;
+    }
     Future<void>.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -4764,6 +4766,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context);
     final profile = flow.activeProfile;
+    final chatId = flow.activeChatId;
 
     return Scaffold(
       body: Container(
@@ -4831,99 +4834,139 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                 ),
               ),
               Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 24,
-                  ),
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = _messages[index];
-                    final bool isMe = msg.isMe;
-                    return Align(
-                      alignment: isMe
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                child: chatId == null
+                    ? const Center(
+                        child: Text(
+                          'No chat selected.',
+                          style: FreezmeTypography.bodyMuted,
                         ),
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.7,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: isMe
-                              ? const LinearGradient(
-                                  colors: [
-                                    FreezmeColors.primary,
-                                    FreezmeColors.secondary,
-                                  ],
-                                )
-                              : null,
-                          color: isMe ? null : Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(24),
-                            topRight: isMe
-                                ? const Radius.circular(8)
-                                : const Radius.circular(24),
-                            bottomLeft: isMe
-                                ? const Radius.circular(24)
-                                : const Radius.circular(8),
-                            bottomRight: const Radius.circular(24),
-                          ),
-                          boxShadow: isMe
-                              ? null
-                              : [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              msg.text,
-                              style: TextStyle(
-                                color: isMe
-                                    ? Colors.white
-                                    : FreezmeColors.neutral,
-                              ),
+                      )
+                    : StreamBuilder<List<ChatMessage>>(
+                        stream: flow._repository.messagesForChat(chatId),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError) {
+                            return const Center(
+                              child: Text('Could not load messages'),
+                            );
+                          }
+                          final msgs = snapshot.data ?? const [];
+                          final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                          final mapped = msgs
+                              .map(
+                                (m) => _ChatMessage(
+                                  text: m.text,
+                                  isMe: m.senderId == uid,
+                                  timestamp:
+                                      DateFormat('h:mm a').format(m.sentAt),
+                                  status: switch (m.status) {
+                                    'read' => _MessageStatus.read,
+                                    'delivered' => _MessageStatus.delivered,
+                                    'sent' => _MessageStatus.sent,
+                                    _ => _MessageStatus.delivered,
+                                  },
+                                ),
+                              )
+                              .toList();
+                          return ListView.builder(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 24,
                             ),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  msg.timestamp,
-                                  style: TextStyle(
-                                    color: isMe
-                                        ? Colors.white70
-                                        : FreezmeColors.muted,
-                                    fontSize: 11,
+                            itemCount: mapped.length,
+                            itemBuilder: (context, index) {
+                              final msg = mapped[index];
+                              final bool isMe = msg.isMe;
+                              return Align(
+                                alignment: isMe
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  constraints: BoxConstraints(
+                                    maxWidth:
+                                        MediaQuery.of(context).size.width * 0.7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: isMe
+                                        ? const LinearGradient(
+                                            colors: [
+                                              FreezmeColors.primary,
+                                              FreezmeColors.secondary,
+                                            ],
+                                          )
+                                        : null,
+                                    color: isMe ? null : Colors.white,
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(24),
+                                      topRight: isMe
+                                          ? const Radius.circular(8)
+                                          : const Radius.circular(24),
+                                      bottomLeft: isMe
+                                          ? const Radius.circular(24)
+                                          : const Radius.circular(8),
+                                      bottomRight: const Radius.circular(24),
+                                    ),
+                                    boxShadow: isMe
+                                        ? null
+                                        : [
+                                            BoxShadow(
+                                              color:
+                                                  Colors.black.withValues(alpha: 0.05),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 6),
+                                            ),
+                                          ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        msg.text,
+                                        style: TextStyle(
+                                          color: isMe
+                                              ? Colors.white
+                                              : FreezmeColors.neutral,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            msg.timestamp,
+                                            style: TextStyle(
+                                              color: isMe
+                                                  ? Colors.white70
+                                                  : FreezmeColors.muted,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                          if (isMe) ...[
+                                            const SizedBox(width: 6),
+                                            Icon(
+                                              _statusIcon(msg.status),
+                                              size: 14,
+                                              color: Colors.white70,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                if (isMe) ...[
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    _statusIcon(msg.status),
-                                    size: 14,
-                                    color: Colors.white70,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ),
+                              );
+                            },
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -5011,7 +5054,7 @@ class _Conversation {
     required this.displayName,
     required this.photoUrl,
     required this.lastMessage,
-    required this.time,
+    required this.timeLabel,
     this.unread = 0,
     this.status = _MessageStatus.delivered,
     this.isGroup = false,
@@ -5021,7 +5064,7 @@ class _Conversation {
   final String displayName;
   final String photoUrl;
   String lastMessage;
-  String time;
+  String timeLabel;
   int unread;
   _MessageStatus status;
   bool isGroup;
@@ -5071,9 +5114,29 @@ class _ChatListPageState extends State<ChatListPage> {
             (m['otherUserName']?.toString() ?? 'Freezme Match');
         final photo = m['photoUrl']?.toString() ?? '';
         final lastMsg = m['lastMessage']?.toString() ?? 'Tap to open chat';
-        final ts = m['updatedAt']?.toString() ??
+        final tsString = m['updatedAt']?.toString() ??
             m['ts']?.toString() ??
             DateTime.now().toIso8601String();
+        String timeLabel;
+        try {
+          final parsed = DateTime.tryParse(tsString);
+          if (parsed != null) {
+            final now = DateTime.now();
+            if (now.difference(parsed).inDays >= 1) {
+              timeLabel =
+                  '${parsed.month}/${parsed.day}'; // simple date fallback
+            } else {
+              final hour = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
+              final minute = parsed.minute.toString().padLeft(2, '0');
+              final ampm = parsed.hour >= 12 ? 'PM' : 'AM';
+              timeLabel = '$hour:$minute $ampm';
+            }
+          } else {
+            timeLabel = tsString;
+          }
+        } catch (_) {
+          timeLabel = tsString;
+        }
         final unread = (m['unread'] as num?)?.toInt() ?? 0;
         final statusString = m['status']?.toString();
         final status = switch (statusString) {
@@ -5086,7 +5149,7 @@ class _ChatListPageState extends State<ChatListPage> {
           displayName: displayName,
           photoUrl: photo,
           lastMessage: lastMsg,
-          time: ts,
+          timeLabel: timeLabel,
           unread: unread,
           status: status,
           isGroup: (m['isGroup'] as bool?) ?? false,
@@ -5202,99 +5265,132 @@ class _ChatListPageState extends State<ChatListPage> {
                 ),
               ),
               Expanded(
-                child: _visibleConversations.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No conversations yet.\nInvite a vibe to start chatting.',
-                          textAlign: TextAlign.center,
-                          style: FreezmeTypography.bodyMuted,
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        itemBuilder: (context, index) {
-                          final convo = _visibleConversations[index];
-                          return ListTile(
-                            onTap: () {
-                              setState(() {
-                                convo.unread = 0;
-                                convo.status = _MessageStatus.read;
-                              });
-                              flow.openChatDetail(convo.profile);
-                            },
-                            leading: Stack(
-                              clipBehavior: Clip.none,
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                CircleAvatar(
-                                  backgroundImage: NetworkImage(
-                                    convo.profile.imageUrl,
-                                  ),
-                                  radius: 26,
+                                Text(_error!, style: FreezmeTypography.bodyMuted),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed: _loadConversations,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Retry'),
                                 ),
-                                if (convo.unread > 0)
-                                  Positioned(
-                                    right: -2,
-                                    top: -2,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.redAccent,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Text(
-                                        '${convo.unread}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
+                              ],
+                            ),
+                          )
+                        : _visibleConversations.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'No conversations yet.\nInvite a vibe to start chatting.',
+                                  textAlign: TextAlign.center,
+                                  style: FreezmeTypography.bodyMuted,
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                itemBuilder: (context, index) {
+                                  final convo = _visibleConversations[index];
+                                  return ListTile(
+                                    onTap: () {
+                                      setState(() {
+                                        convo.unread = 0;
+                                        convo.status = _MessageStatus.read;
+                                      });
+                                      flow.openChatDetail(
+                                        VibeProfile(
+                                          uid: convo.chatId,
+                                          name: convo.displayName,
+                                          age: 0,
+                                          imageUrl: convo.photoUrl,
+                                          compatibility: 0,
+                                          bio: '',
+                                          distance: '',
                                         ),
+                                        chatId: convo.chatId,
+                                      );
+                                    },
+                                    leading: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        CircleAvatar(
+                                          backgroundImage: convo.photoUrl.isNotEmpty
+                                              ? CachedNetworkImageProvider(
+                                                  convo.photoUrl,
+                                                )
+                                              : null,
+                                          radius: 26,
+                                          child: convo.photoUrl.isEmpty
+                                              ? const Icon(Icons.person)
+                                              : null,
+                                        ),
+                                        if (convo.unread > 0)
+                                          Positioned(
+                                            right: -2,
+                                            top: -2,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.redAccent,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Text(
+                                                '${convo.unread}',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    title: Text(
+                                      convo.displayName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: FreezmeColors.neutral,
                                       ),
                                     ),
-                                  ),
-                              ],
-                            ),
-                            title: Text(
-                              convo.profile.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: FreezmeColors.neutral,
+                                    subtitle: Text(
+                                      convo.lastMessage,
+                                      style: FreezmeTypography.bodyMuted,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    trailing: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          convo.timeLabel,
+                                          style: const TextStyle(
+                                            color: FreezmeColors.muted,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Icon(
+                                          _statusIcon(convo.status),
+                                          size: 14,
+                                          color: FreezmeColors.muted,
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                separatorBuilder: (_, __) => const Divider(
+                                  height: 1,
+                                  color: FreezmeColors.border,
+                                ),
+                                itemCount: _visibleConversations.length,
                               ),
-                            ),
-                            subtitle: Text(
-                              convo.lastMessage,
-                              style: FreezmeTypography.bodyMuted,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  convo.time,
-                                  style: const TextStyle(
-                                    color: FreezmeColors.muted,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Icon(
-                                  _statusIcon(convo.status),
-                                  size: 14,
-                                  color: FreezmeColors.muted,
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        separatorBuilder: (_, __) => const Divider(
-                          height: 1,
-                          color: FreezmeColors.border,
-                        ),
-                        itemCount: _visibleConversations.length,
-                      ),
               ),
             ],
           ),
