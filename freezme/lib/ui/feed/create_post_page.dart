@@ -91,8 +91,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
     try {
       final flow = AppFlowScope.of(context, listen: false);
-      final uploadService = PhotoUploadService();
-      
+      final uploadService = FirebasePhotoUploadService();
+
       // Upload all images
       final photoUrls = <String>[];
       for (int i = 0; i < _selectedImages.length; i++) {

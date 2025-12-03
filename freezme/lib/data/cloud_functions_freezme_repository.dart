@@ -141,8 +141,8 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
   Future<void> sendMessage(ChatMessage message) =>
       _fallback.sendMessage(message);
   @override
-  Stream<List<ChatMessage>> messagesForChat(String chatId) =>
-      _fallback.messagesForChat(chatId);
+  Stream<List<ChatMessage>> messagesForChat(String chatId, {int limit = 50}) =>
+      _fallback.messagesForChat(chatId, limit: limit);
   @override
   Future<void> markChatAsRead(String chatId) =>
       _fallback.markChatAsRead(chatId);
@@ -206,4 +206,81 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
   @override
   Future<void> reportBlindSession(String sessionId, String reason) =>
       _fallback.reportBlindSession(sessionId, reason);
+
+  @override
+  Future<void> updateProfile({
+    required String uid,
+    String? displayName,
+    String? bio,
+    int? age,
+    String? location,
+    List<String>? interests,
+  }) =>
+      _fallback.updateProfile(
+        uid: uid,
+        displayName: displayName,
+        bio: bio,
+        age: age,
+        location: location,
+        interests: interests,
+      );
+
+  @override
+  Future<List<ChatMessage>> loadMoreMessages(
+    String chatId, {
+    required ChatMessage lastMessage,
+    int limit = 50,
+  }) =>
+      _fallback.loadMoreMessages(chatId, lastMessage: lastMessage, limit: limit);
+
+  // Feed (Social Posts)
+  @override
+  Future<String> createPost({
+    required List<String> photoUrls,
+    String? caption,
+    required String visibility,
+  }) =>
+      _fallback.createPost(
+        photoUrls: photoUrls,
+        caption: caption,
+        visibility: visibility,
+      );
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchFeed({int limit = 20}) =>
+      _fallback.watchFeed(limit: limit);
+
+  @override
+  Future<List<Map<String, dynamic>>> loadMorePosts({
+    required String lastPostId,
+    int limit = 20,
+  }) =>
+      _fallback.loadMorePosts(lastPostId: lastPostId, limit: limit);
+
+  @override
+  Future<void> deletePost(String postId) => _fallback.deletePost(postId);
+
+  @override
+  Future<void> likePost(String postId) => _fallback.likePost(postId);
+
+  @override
+  Future<void> unlikePost(String postId) => _fallback.unlikePost(postId);
+
+  @override
+  Future<void> addComment({
+    required String postId,
+    required String text,
+  }) =>
+      _fallback.addComment(postId: postId, text: text);
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchComments(String postId) =>
+      _fallback.watchComments(postId);
+
+  @override
+  Future<void> deleteComment({
+    required String postId,
+    required String commentId,
+  }) =>
+      _fallback.deleteComment(postId: postId, commentId: commentId);
 }

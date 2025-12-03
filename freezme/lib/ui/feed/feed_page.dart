@@ -5,6 +5,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../main.dart';
 import '../../models/feed_post.dart';
 import '../theme.dart';
+import 'post_detail_page.dart';
 
 /// Main feed page displaying social posts
 class FeedPage extends StatefulWidget {
@@ -174,9 +175,11 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   void _openComments(FeedPost post) {
-    // TODO: Navigate to post detail/comments page
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Comments coming soon!')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PostDetailPage(post: post),
+      ),
     );
   }
 

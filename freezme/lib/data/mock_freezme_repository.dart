@@ -179,7 +179,7 @@ class MockFreezmeRepository implements FreezmeRepository {
   }) async => [];
 
   @override
-  Future<void> deletePost(String postId) async {};
+  Future<void> deletePost(String postId) async {}
 
   @override
   Future<void> likePost(String postId) async {}

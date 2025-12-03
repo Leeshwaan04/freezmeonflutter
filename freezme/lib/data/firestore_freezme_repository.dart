@@ -262,6 +262,44 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
   }
 
   @override
+  Future<void> updateProfile({
+    required String uid,
+    String? displayName,
+    String? bio,
+    int? age,
+    String? location,
+    List<String>? interests,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (displayName != null) updates['displayName'] = displayName;
+      if (bio != null) updates['bio'] = bio;
+      if (age != null) updates['age'] = age;
+      if (location != null) updates['location'] = location;
+      if (interests != null) updates['interests'] = interests;
+      updates['updatedAt'] = FieldValue.serverTimestamp();
+
+      await _firestore.collection('profiles').doc(uid).set(
+        updates,
+        SetOptions(merge: true),
+      );
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.updateProfile(
+          uid: uid,
+          displayName: displayName,
+          bio: bio,
+          age: age,
+          location: location,
+          interests: interests,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  @override
   Future<VibeProfile?> fetchProfile(String uid) async {
     try {
       final doc = await _firestore.collection('profiles').doc(uid).get();
@@ -348,7 +386,7 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
           .collection('chats')
           .doc(chatId)
           .collection('messages')
-          .doc(lastMessage.id)
+          .doc(lastMessage.documentId ?? '')
           .get();
 
       final snapshot = await _firestore
