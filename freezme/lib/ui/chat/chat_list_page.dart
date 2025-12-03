@@ -440,8 +440,7 @@ class _ChatListPageState extends State<ChatListPage> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        // Performance optimizations
-                        itemExtent: 92, // Approximate height of each chat card
+                        // Performance optimizations for separated lists
                         addAutomaticKeepAlives: true, // Keep alive for better scroll performance
                         addRepaintBoundaries: true, // Isolate repaints
                         cacheExtent: 500, // Cache more items for smoother scrolling
