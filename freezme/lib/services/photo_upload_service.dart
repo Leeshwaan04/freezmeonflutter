@@ -15,6 +15,9 @@ class UploadedPhoto {
 
 abstract class PhotoUploadService {
   Future<UploadedPhoto> pickAndUpload({required int slotIndex});
+  
+  // New method for uploading a specific file
+  Future<String> uploadPhoto(File file, {required String userId, required int photoIndex});
 }
 
 class PhotoUploadException implements Exception {
@@ -69,6 +72,26 @@ class FirebasePhotoUploadService implements PhotoUploadService {
       throw const PhotoUploadException('upload_failed');
     }
   }
+
+  @override
+  Future<String> uploadPhoto(File file, {required String userId, required int photoIndex}) async {
+    try {
+      final fileName = 'posts/$userId/${_uuid.v4()}';
+      final ref = _storage.ref(fileName);
+      await ref.putFile(file);
+      return await ref.getDownloadURL();
+    } on FirebaseException catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('Firebase upload failed: ${error.code} ${error.message}\n$stackTrace');
+      }
+      throw PhotoUploadException('storage_${error.code}');
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('Photo upload failed: $error\n$stackTrace');
+      }
+      throw const PhotoUploadException('upload_failed');
+    }
+  }
 }
 
 class MockPhotoUploadService implements PhotoUploadService {
@@ -94,5 +117,13 @@ class MockPhotoUploadService implements PhotoUploadService {
     final url = _demoUrls[_index % _demoUrls.length];
     _index++;
     return UploadedPhoto(url: url);
+  }
+
+  @override
+  Future<String> uploadPhoto(File file, {required String userId, required int photoIndex}) async {
+    await Future<void>.delayed(delay);
+    final url = _demoUrls[_index % _demoUrls.length];
+    _index++;
+    return url;
   }
 }

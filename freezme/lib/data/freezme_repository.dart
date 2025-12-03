@@ -15,10 +15,21 @@ abstract class FreezmeRepository {
     required List<String> photoUrls,
   });
   Future<VibeProfile?> fetchProfile(String uid);
+  
+  // Profile Management
+  Future<void> updateProfile({
+    required String uid,
+    String? displayName,
+    String? bio,
+    int? age,
+    String? location,
+    List<String>? interests,
+  });
 
   // Messaging
   Future<void> sendMessage(ChatMessage message);
-  Stream<List<ChatMessage>> messagesForChat(String chatId);
+  Stream<List<ChatMessage>> messagesForChat(String chatId, {int limit = 50});
+  Future<List<ChatMessage>> loadMoreMessages(String chatId, {required ChatMessage lastMessage, int limit = 50});
   Future<void> markChatAsRead(String chatId);
   Future<void> updateOnlineStatus(String userId, bool isOnline);
   Future<void> signOut();
@@ -51,4 +62,28 @@ abstract class FreezmeRepository {
   Future<void> createBlindSession(BlindSession session);
   Stream<BlindSession> blindSessionUpdates(String sessionId);
   Future<void> reportBlindSession(String sessionId, String reason);
+
+  // Feed (Social Posts)
+  Future<String> createPost({
+    required List<String> photoUrls,
+    String? caption,
+    required String visibility,
+  });
+  Stream<List<Map<String, dynamic>>> watchFeed({int limit = 20});
+  Future<List<Map<String, dynamic>>> loadMorePosts({
+    required String lastPostId,
+    int limit = 20,
+  });
+  Future<void> deletePost(String postId);
+  Future<void> likePost(String postId);
+  Future<void> unlikePost(String postId);
+  Future<void> addComment({
+    required String postId,
+    required String text,
+  });
+  Stream<List<Map<String, dynamic>>> watchComments(String postId);
+  Future<void> deleteComment({
+    required String postId,
+    required String commentId,
+  });
 }

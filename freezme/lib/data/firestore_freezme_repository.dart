@@ -324,17 +324,48 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
   }
 
   @override
-  Stream<List<ChatMessage>> messagesForChat(String chatId) {
+  Stream<List<ChatMessage>> messagesForChat(String chatId, {int limit = 50}) {
     return _firestore
         .collection('chats')
         .doc(chatId)
         .collection('messages')
         .orderBy('sentAt', descending: true)
-        .limit(50)
+        .limit(limit)
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => ChatMessage.fromJson(doc.data(), documentId: doc.id))
             .toList());
+  }
+
+  @override
+  Future<List<ChatMessage>> loadMoreMessages(
+    String chatId, {
+    required ChatMessage lastMessage,
+    int limit = 50,
+  }) async {
+    try {
+      final lastDoc = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(lastMessage.id)
+          .get();
+
+      final snapshot = await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .orderBy('sentAt', descending: true)
+          .startAfterDocument(lastDoc)
+          .limit(limit)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ChatMessage.fromJson(doc.data(), documentId: doc.id))
+          .toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   @override
@@ -690,6 +721,282 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
     } catch (_) {
       final fallback = _fallback;
       if (fallback != null) return fallback.reportBlindSession(sessionId, reason);
+      rethrow;
+    }
+  }
+
+  // ============================================================================
+  // Feed (Social Posts) Implementation
+  // ============================================================================
+
+  @override
+  Future<String> createPost({
+    required List<String> photoUrls,
+    String? caption,
+    required String visibility,
+  }) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) throw Exception('User not logged in');
+
+      final userDoc = await _firestore.collection('users').doc(currentUser.uid).get();
+      final userData = userDoc.data() ?? {};
+
+      final postRef = await _firestore.collection('feed_posts').add({
+        'authorUid': currentUser.uid,
+        'authorName': userData['displayName'] ?? currentUser.displayName ?? 'Anonymous',
+        'authorPhotoUrl': userData['photoUrls']?[0] ?? currentUser.photoURL,
+        'caption': caption,
+        'photoUrls': photoUrls,
+        'visibility': visibility,
+        'likeCount': 0,
+        'commentCount': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      return postRef.id;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchFeed({int limit = 20}) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return Stream.value([]);
+
+    return _firestore
+        .collection('feed_posts')
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .asyncMap((snapshot) async {
+      final posts = <Map<String, dynamic>>[];
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        
+        final likeDoc = await _firestore
+            .collection('post_likes')
+            .doc(doc.id)
+            .collection('likes')
+            .doc(currentUser.uid)
+            .get();
+
+        posts.add({
+          ...data,
+          'id': doc.id,
+          'isLikedByMe': likeDoc.exists,
+        });
+      }
+
+      return posts;
+    });
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadMorePosts({
+    required String lastPostId,
+    int limit = 20,
+  }) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return [];
+
+      final lastDoc = await _firestore.collection('feed_posts').doc(lastPostId).get();
+      
+      final snapshot = await _firestore
+          .collection('feed_posts')
+          .orderBy('createdAt', descending: true)
+          .startAfterDocument(lastDoc)
+          .limit(limit)
+          .get();
+
+      final posts = <Map<String, dynamic>>[];
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        
+        final likeDoc = await _firestore
+            .collection('post_likes')
+            .doc(doc.id)
+            .collection('likes')
+            .doc(currentUser.uid)
+            .get();
+
+        posts.add({
+          ...data,
+          'id': doc.id,
+          'isLikedByMe': likeDoc.exists,
+        });
+      }
+
+      return posts;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  @override
+  Future<void> deletePost(String postId) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) throw Exception('User not logged in');
+
+      final postDoc = await _firestore.collection('feed_posts').doc(postId).get();
+      if (!postDoc.exists) throw Exception('Post not found');
+      
+      final postData = postDoc.data()!;
+      if (postData['authorUid'] != currentUser.uid) {
+        throw Exception('Not authorized to delete this post');
+      }
+
+      await postDoc.reference.delete();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> likePost(String postId) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) throw Exception('User not logged in');
+
+      final batch = _firestore.batch();
+
+      batch.set(
+        _firestore.collection('post_likes').doc(postId).collection('likes').doc(currentUser.uid),
+        {'likedAt': FieldValue.serverTimestamp()},
+      );
+
+      batch.update(
+        _firestore.collection('feed_posts').doc(postId),
+        {'likeCount': FieldValue.increment(1)},
+      );
+
+      await batch.commit();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> unlikePost(String postId) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) throw Exception('User not logged in');
+
+      final batch = _firestore.batch();
+
+      batch.delete(
+        _firestore.collection('post_likes').doc(postId).collection('likes').doc(currentUser.uid),
+      );
+
+      batch.update(
+        _firestore.collection('feed_posts').doc(postId),
+        {'likeCount': FieldValue.increment(-1)},
+      );
+
+      await batch.commit();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> addComment({
+    required String postId,
+    required String text,
+  }) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) throw Exception('User not logged in');
+
+      final userDoc = await _firestore.collection('users').doc(currentUser.uid).get();
+      final userData = userDoc.data() ?? {};
+
+      final batch = _firestore.batch();
+
+      final commentRef = _firestore
+          .collection('post_comments')
+          .doc(postId)
+          .collection('comments')
+          .doc();
+          
+      batch.set(commentRef, {
+        'authorUid': currentUser.uid,
+        'authorName': userData['displayName'] ?? currentUser.displayName ?? 'Anonymous',
+        'authorPhotoUrl': userData['photoUrls']?[0] ?? currentUser.photoURL,
+        'text': text,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      batch.update(
+        _firestore.collection('feed_posts').doc(postId),
+        {'commentCount': FieldValue.increment(1)},
+      );
+
+      await batch.commit();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchComments(String postId) {
+    return _firestore
+        .collection('post_comments')
+        .doc(postId)
+        .collection('comments')
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return {
+          ...doc.data(),
+          'id': doc.id,
+          'postId': postId,
+        };
+      }).toList();
+    });
+  }
+
+  @override
+  Future<void> deleteComment({
+    required String postId,
+    required String commentId,
+  }) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) throw Exception('User not logged in');
+
+      final commentDoc = await _firestore
+          .collection('post_comments')
+          .doc(postId)
+          .collection('comments')
+          .doc(commentId)
+          .get();
+          
+      if (!commentDoc.exists) throw Exception('Comment not found');
+      
+      final commentData = commentDoc.data()!;
+      if (commentData['authorUid'] != currentUser.uid) {
+        throw Exception('Not authorized to delete this comment');
+      }
+
+      final batch = _firestore.batch();
+
+      batch.delete(commentDoc.reference);
+      
+      batch.update(
+        _firestore.collection('feed_posts').doc(postId),
+        {'commentCount': FieldValue.increment(-1)},
+      );
+
+      await batch.commit();
+    } catch (e) {
       rethrow;
     }
   }

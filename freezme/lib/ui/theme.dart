@@ -15,6 +15,10 @@ class FreezmeColors {
   static const Color background = Color(0xFFF6F0FF);
   static const Color success = Color(0xFFFF9A56);
   static const Color error = Color(0xFFD93F5B);
+
+  // Aliases for consistency
+  static const Color text = neutral;
+  static const Color textMuted = muted;
 }
 
 class FreezmeGradients {

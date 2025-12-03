@@ -33,6 +33,16 @@ class MockFreezmeRepository implements FreezmeRepository {
   }) async {}
 
   @override
+  Future<void> updateProfile({
+    required String uid,
+    String? displayName,
+    String? bio,
+    int? age,
+    String? location,
+    List<String>? interests,
+  }) async {}
+
+  @override
   Future<VibeProfile?> fetchProfile(String uid) async =>
       _profiles.firstWhere((p) => p.uid == uid, orElse: () => _profiles.first);
 
@@ -40,8 +50,14 @@ class MockFreezmeRepository implements FreezmeRepository {
   @override
   Future<void> sendMessage(ChatMessage message) async {}
   @override
-  Stream<List<ChatMessage>> messagesForChat(String chatId) =>
+  Stream<List<ChatMessage>> messagesForChat(String chatId, {int limit = 50}) =>
       const Stream.empty();
+  @override
+  Future<List<ChatMessage>> loadMoreMessages(
+    String chatId, {
+    required ChatMessage lastMessage,
+    int limit = 50,
+  }) async => [];
   @override
   Future<void> markChatAsRead(String chatId) async {}
   @override
@@ -143,4 +159,47 @@ class MockFreezmeRepository implements FreezmeRepository {
       distance: '3 km away',
     ),
   ];
+
+  // Feed (Social Posts) - Mock implementations
+  @override
+  Future<String> createPost({
+    required List<String> photoUrls,
+    String? caption,
+    required String visibility,
+  }) async => 'mock-post-id';
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchFeed({int limit = 20}) =>
+      Stream.value(const []);
+
+  @override
+  Future<List<Map<String, dynamic>>> loadMorePosts({
+    required String lastPostId,
+    int limit = 20,
+  }) async => [];
+
+  @override
+  Future<void> deletePost(String postId) async {};
+
+  @override
+  Future<void> likePost(String postId) async {}
+
+  @override
+  Future<void> unlikePost(String postId) async {}
+
+  @override
+  Future<void> addComment({
+    required String postId,
+    required String text,
+  }) async {}
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchComments(String postId) =>
+      Stream.value(const []);
+
+  @override
+  Future<void> deleteComment({
+    required String postId,
+    required String commentId,
+  }) async {}
 }

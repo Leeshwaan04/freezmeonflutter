@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -23,6 +24,9 @@ import 'services/photo_upload_service.dart';
 import 'ui/theme.dart';
 import 'ui/chat/chat_list_page.dart';
 import 'ui/chat/chat_screen_page.dart';
+import 'ui/feed/feed_page.dart';
+import 'ui/feed/create_post_page.dart';
+import 'services/offline_queue_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +41,7 @@ enum AppStage {
   dailyPool,
   chatList,
   feed,
+  createPost, // NEW: Create post page
   paths,
   blinds,
   matchSuccess,
@@ -99,6 +104,7 @@ class AppFlowController extends ChangeNotifier {
        _locationService = locationService ?? LocationService(),
        photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
        dailyProfiles = _mockProfiles() {
+    _offlineQueue = OfflineQueueService(_prefs);
     if (!skipHydrate) {
       _hydrate();
     }
@@ -148,7 +154,9 @@ class AppFlowController extends ChangeNotifier {
   final MeltChatService _meltChatService;
   final FreezmeRepository _repository;
   final LocationService _locationService;
+  late final OfflineQueueService _offlineQueue;
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
+
   final List<AppMatch> matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
   final List<PhotoSlot> photoSlots;
@@ -158,6 +166,8 @@ class AppFlowController extends ChangeNotifier {
   bool notificationsEnabled = true;
   bool onlineStatusEnabled = true;
   bool readReceiptsEnabled = false;
+  bool hasBio = false;
+  bool hasPreferences = false;
   VibeProfile? activeProfile;
   String? activeChatId;
   String? _pendingInviteSlot;
@@ -182,6 +192,18 @@ class AppFlowController extends ChangeNotifier {
   int get remainingProfiles =>
       math.max(0, dailyProfiles.length - _poolIndex - 1);
   int get matchesCount => matches.length;
+  int get uploadedPhotoCount =>
+      photoSlots.where((p) => p.status == PhotoSlotStatus.uploaded).length;
+  int get completionPercent {
+    // Simple heuristic: photos (40%), bio (30%), preferences (20%), onboarding (10%).
+    final photosScore = (uploadedPhotoCount / photoSlots.length * 40).clamp(0, 40);
+    final bioScore = hasBio ? 30 : 0;
+    final prefsScore = hasPreferences ? 20 : 0;
+    final onboardingScore = stack.contains(AppStage.onboarding) ? 0 : 10;
+    return (photosScore + bioScore + prefsScore + onboardingScore)
+        .clamp(0, 100)
+        .round();
+  }
   FreezmeRepository get repository => _repository;
 
   void _hydrate() {
@@ -241,11 +263,40 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.onboarding]);
   }
 
+  // Save onboarding progress
+  Future<void> saveOnboardingProgress({
+    String? name,
+    int? age,
+    String? location,
+    String? bio,
+    List<String>? interests,
+  }) async {
+    final data = <String, dynamic>{};
+    if (name != null) data['name'] = name;
+    if (age != null) data['age'] = age;
+    if (location != null) data['location'] = location;
+    if (bio != null) data['bio'] = bio;
+    if (interests != null) data['interests'] = interests;
+    
+    await _prefs?.setString('onboarding_progress', jsonEncode(data));
+  }
+
+  Map<String, dynamic>? getOnboardingProgress() {
+    final json = _prefs?.getString('onboarding_progress');
+    if (json == null) return null;
+    try {
+      return jsonDecode(json) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> completeOnboarding() async {
     if (_stack.isNotEmpty && _stack.last == AppStage.onboarding) {
       _stack.removeLast();
     }
     await _prefs?.setBool(_kOnboardingCompleteKey, true);
+    await _prefs?.remove('onboarding_progress'); // Clear saved progress
     _stack.add(AppStage.dailyPool);
     notifyListeners();
   }
@@ -469,6 +520,8 @@ class AppFlowController extends ChangeNotifier {
     profileName = user?.displayName ?? profileName ?? 'Freezme member';
     profileEmail = user?.email;
     profilePhotoUrl = user?.photoURL;
+    hasBio = false;
+    hasPreferences = false;
     notifyListeners();
     if (user == null) return;
     try {
@@ -511,6 +564,16 @@ class AppFlowController extends ChangeNotifier {
     readReceiptsEnabled = value;
     notifyListeners();
     await _prefs?.setBool('read_receipts_enabled', value);
+  }
+
+  Future<void> setBioFilled(bool value) async {
+    hasBio = value;
+    notifyListeners();
+  }
+
+  Future<void> setPreferencesSet(bool value) async {
+    hasPreferences = value;
+    notifyListeners();
   }
 
   Future<bool> sendMeltChatInvite(VibeProfile profile, String slotLabel) async {
@@ -751,7 +814,9 @@ class FlowNavigator extends StatelessWidget {
       case AppStage.chatList:
         return const ChatListPage();
       case AppStage.feed:
-        return const DailyVibePoolPage();
+        return const FeedPage();
+      case AppStage.createPost:
+        return const CreatePostPage();
       case AppStage.paths:
         return const PathsPage();
       case AppStage.blinds:
@@ -2980,7 +3045,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context); // listen to rebuild on updates
-    final completion = _completion(flow).round();
+    final completion = flow.completionPercent;
     final vibesLeft = flow.remainingProfiles;
     final matchesCount = flow.matchesCount;
     final profileName = flow.profileName ?? 'Freezme member';
@@ -3201,14 +3266,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                       ),
                       const SizedBox(height: 16),
                       _ProfileChecklist(
-                        uploadedPhotos: flow.photoSlots
-                            .where((p) =>
-                                p.status == PhotoSlotStatus.uploaded &&
-                                p.imageUrl != null)
-                            .length,
+                        uploadedPhotos: flow.uploadedPhotoCount,
                         completion: completion,
+                        hasBio: flow.hasBio,
+                        hasPreferences: flow.hasPreferences,
                         onEditProfile: flow.openProfilePreview,
                         onPreferences: () {
+                          flow.pushIfMissing(AppStage.profilePreview);
+                        },
+                        onAddBio: () {
                           flow.pushIfMissing(AppStage.profilePreview);
                         },
                       ),
@@ -3519,14 +3585,20 @@ class _ProfileChecklist extends StatelessWidget {
   const _ProfileChecklist({
     required this.uploadedPhotos,
     required this.completion,
+    required this.hasBio,
+    required this.hasPreferences,
     required this.onEditProfile,
     required this.onPreferences,
+    required this.onAddBio,
   });
 
   final int uploadedPhotos;
   final int completion;
+  final bool hasBio;
+  final bool hasPreferences;
   final VoidCallback onEditProfile;
   final VoidCallback onPreferences;
+  final VoidCallback onAddBio;
 
   @override
   Widget build(BuildContext context) {
@@ -3583,15 +3655,15 @@ class _ProfileChecklist extends StatelessWidget {
           const SizedBox(height: 10),
           _ChecklistItem(
             label: 'Fill your bio & interests',
-            status: 'Tap to edit',
-            done: false,
-            onTap: onEditProfile,
+            status: hasBio ? 'Done' : 'Tap to edit',
+            done: hasBio,
+            onTap: onAddBio,
           ),
           const SizedBox(height: 10),
           _ChecklistItem(
             label: 'Set your preferences',
-            status: 'Age, distance, intentions',
-            done: false,
+            status: hasPreferences ? 'Done' : 'Age, distance, intentions',
+            done: hasPreferences,
             onTap: onPreferences,
           ),
           const SizedBox(height: 10),
@@ -4121,18 +4193,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     try {
       final flow = AppFlowScope.of(context, listen: false);
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      
+      if (uid == null) {
+        throw Exception('User not logged in');
+      }
 
-      // TODO: Save profile data to Firestore via repository
-      // await flow.repository.updateProfile(
-      //   uid: flow.uid,
-      //   displayName: _nameController.text.trim(),
-      //   bio: _bioController.text.trim(),
-      //   age: int.tryParse(_ageController.text),
-      //   location: _locationController.text.trim(),
-      // );
+      // Save profile data to Firestore
+      await flow.repository.updateProfile(
+        uid: uid,
+        displayName: _nameController.text.trim(),
+        bio: _bioController.text.trim(),
+        age: int.tryParse(_ageController.text),
+        location: _locationController.text.trim(),
+        interests: _selectedInterests,
+      );
 
-      // Simulate save delay
-      await Future.delayed(const Duration(seconds: 1));
+      // Update local state for completion tracking
+      await flow.setBioFilled(_bioController.text.trim().isNotEmpty);
+      await flow.setPreferencesSet(_selectedInterests.isNotEmpty);
 
       if (!mounted) return;
 
@@ -4156,7 +4235,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving profile: $e')),
+        SnackBar(
+          content: Text('Error saving profile: $e'),
+          backgroundColor: FreezmeColors.error,
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
