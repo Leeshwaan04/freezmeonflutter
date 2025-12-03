@@ -82,21 +82,29 @@ service cloud.firestore {
     }
 
     // Feed posts: authenticated users can read all, write only their own
-    match /posts/{postId} {
+    match /feed_posts/{postId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+    }
 
-      // Post likes: users can like/unlike posts
+    // Post likes: separate collection with nested structure
+    match /post_likes/{postId} {
+      allow read: if isSignedIn();
+
       match /likes/{uid} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && request.auth.uid == uid;
         allow delete: if isSignedIn() && request.auth.uid == uid;
         allow update: if false;
       }
+    }
 
-      // Post comments: authenticated users can read all, write their own
+    // Post comments: separate collection with nested structure
+    match /post_comments/{postId} {
+      allow read: if isSignedIn();
+
       match /comments/{commentId} {
         allow read: if isSignedIn();
         allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
