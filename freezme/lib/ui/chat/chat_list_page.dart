@@ -440,8 +440,11 @@ class _ChatListPageState extends State<ChatListPage> {
                           horizontal: 16,
                           vertical: 12,
                         ),
-                        // Add itemExtent for better performance (approximate height)
-                        // itemExtent: 80, // Uncomment if all items have same height
+                        // Performance optimizations
+                        itemExtent: 92, // Approximate height of each chat card
+                        addAutomaticKeepAlives: true, // Keep alive for better scroll performance
+                        addRepaintBoundaries: true, // Isolate repaints
+                        cacheExtent: 500, // Cache more items for smoother scrolling
                         itemCount: visibleConversations.length,
                         itemBuilder: (context, index) {
                           final convo = visibleConversations[index];
@@ -616,19 +619,30 @@ class _ChatListPageState extends State<ChatListPage> {
                                                     )
                                                   : null,
                                             ),
-                                            child: CircleAvatar(
-                                              backgroundImage: convo.photoUrl.isNotEmpty
-                                                  ? CachedNetworkImageProvider(
-                                                      convo.photoUrl,
-                                                      maxWidth: 150, // Limit cache size
-                                                      maxHeight: 150,
-                                                    )
-                                                  : null,
-                                              radius: 28,
-                                              child: convo.photoUrl.isEmpty
-                                                  ? const Icon(Icons.person,size: 28)
-                                                  : null,
-                                            ),
+                                            child: convo.photoUrl.isNotEmpty
+                                                ? CachedNetworkImage(
+                                                    imageUrl: convo.photoUrl,
+                                                    imageBuilder: (context, imageProvider) => CircleAvatar(
+                                                      backgroundImage: imageProvider,
+                                                      radius: 28,
+                                                    ),
+                                                    placeholder: (context, url) => const CircleAvatar(
+                                                      radius: 28,
+                                                      child: Icon(Icons.person, size: 28),
+                                                    ),
+                                                    errorWidget: (context, url, error) => const CircleAvatar(
+                                                      radius: 28,
+                                                      child: Icon(Icons.person, size: 28),
+                                                    ),
+                                                    memCacheWidth: 150,
+                                                    memCacheHeight: 150,
+                                                    maxWidthDiskCache: 150,
+                                                    maxHeightDiskCache: 150,
+                                                  )
+                                                : const CircleAvatar(
+                                                    radius: 28,
+                                                    child: Icon(Icons.person, size: 28),
+                                                  ),
                                           ),
                                           if (convo.unread > 0)
                                             Positioned(
