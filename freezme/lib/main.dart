@@ -8,8 +8,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
-import 'models/chat_message.dart';
+
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -21,6 +21,8 @@ import 'services/melt_chat_service.dart';
 import 'services/photo_upload_service.dart';
 
 import 'ui/theme.dart';
+import 'ui/chat/chat_list_page.dart';
+import 'ui/chat/chat_screen_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +43,7 @@ enum AppStage {
   chat,
   profileSettings,
   profilePreview,
+  editProfile, // NEW: Edit profile with forms
   dailyRecap,
   freezmePlus,
   developerMenu,
@@ -89,13 +92,16 @@ class AppFlowController extends ChangeNotifier {
     MeltChatService? meltChatService,
     FreezmeRepository? repository,
     LocationService? locationService,
+    bool skipHydrate = false,
   }) : _photoUploadService = photoUploadService ?? MockPhotoUploadService(),
        _meltChatService = meltChatService ?? MockMeltChatService(),
        _repository = repository ?? FirestoreFreezmeRepository(),
        _locationService = locationService ?? LocationService(),
        photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
        dailyProfiles = _mockProfiles() {
-    _hydrate();
+    if (!skipHydrate) {
+      _hydrate();
+    }
   }
 
   static Future<AppFlowController> create({
@@ -125,6 +131,7 @@ class AppFlowController extends ChangeNotifier {
     MeltChatService? meltChatService,
     FreezmeRepository? repository,
     LocationService? locationService,
+    bool skipHydrate = true,
   }) {
     return AppFlowController._(
       prefs,
@@ -132,6 +139,7 @@ class AppFlowController extends ChangeNotifier {
       meltChatService: meltChatService,
       repository: repository,
       locationService: locationService,
+      skipHydrate: skipHydrate,
     );
   }
 
@@ -144,6 +152,12 @@ class AppFlowController extends ChangeNotifier {
   final List<AppMatch> matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
   final List<PhotoSlot> photoSlots;
+  String? profileName;
+  String? profileEmail;
+  String? profilePhotoUrl;
+  bool notificationsEnabled = true;
+  bool onlineStatusEnabled = true;
+  bool readReceiptsEnabled = false;
   VibeProfile? activeProfile;
   String? activeChatId;
   String? _pendingInviteSlot;
@@ -167,6 +181,8 @@ class AppFlowController extends ChangeNotifier {
 
   int get remainingProfiles =>
       math.max(0, dailyProfiles.length - _poolIndex - 1);
+  int get matchesCount => matches.length;
+  FreezmeRepository get repository => _repository;
 
   void _hydrate() {
     final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
@@ -177,6 +193,8 @@ class AppFlowController extends ChangeNotifier {
       _poolIndex = 0;
     }
     unawaited(_loadProfilePhotos());
+    unawaited(_loadProfileBasics());
+    _loadSettings();
   }
 
   void replaceStack(List<AppStage> stages) {
@@ -416,6 +434,13 @@ class AppFlowController extends ChangeNotifier {
     }
   }
 
+  void _loadSettings() {
+    notificationsEnabled = _prefs?.getBool('notifications_enabled') ?? true;
+    onlineStatusEnabled = _prefs?.getBool('online_status_enabled') ?? true;
+    readReceiptsEnabled = _prefs?.getBool('read_receipts_enabled') ?? false;
+    notifyListeners();
+  }
+
   Future<void> _loadProfilePhotos() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -437,6 +462,55 @@ class AppFlowController extends ChangeNotifier {
     } catch (_) {
       // ignore hydrate errors
     }
+  }
+
+  Future<void> _loadProfileBasics() async {
+    final user = FirebaseAuth.instance.currentUser;
+    profileName = user?.displayName ?? profileName ?? 'Freezme member';
+    profileEmail = user?.email;
+    profilePhotoUrl = user?.photoURL;
+    notifyListeners();
+    if (user == null) return;
+    try {
+      final profile = await _repository.fetchProfile(user.uid);
+      if (profile != null) {
+        profileName = profile.name.isNotEmpty ? profile.name : profileName;
+        if (profile.photoUrls.isNotEmpty) {
+          profilePhotoUrl = profile.photoUrls.first;
+        }
+      }
+      notifyListeners();
+    } catch (_) {
+      // silently ignore profile fetch issues
+    }
+  }
+
+  Future<void> setNotificationsEnabled(bool value) async {
+    notificationsEnabled = value;
+    notifyListeners();
+    await _prefs?.setBool('notifications_enabled', value);
+  }
+
+  Future<void> setOnlineStatusEnabled(bool value) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final previous = onlineStatusEnabled;
+    onlineStatusEnabled = value;
+    notifyListeners();
+    await _prefs?.setBool('online_status_enabled', value);
+    if (uid != null) {
+      try {
+        await _repository.updateOnlineStatus(uid, value);
+      } catch (_) {
+        onlineStatusEnabled = previous;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> setReadReceiptsEnabled(bool value) async {
+    readReceiptsEnabled = value;
+    notifyListeners();
+    await _prefs?.setBool('read_receipts_enabled', value);
   }
 
   Future<bool> sendMeltChatInvite(VibeProfile profile, String slotLabel) async {
@@ -690,6 +764,8 @@ class FlowNavigator extends StatelessWidget {
         return const ProfileSettingsPage();
       case AppStage.profilePreview:
         return const ProfilePreviewPage();
+      case AppStage.editProfile:
+        return const EditProfilePage();
       case AppStage.dailyRecap:
         return const DailyRecapPage();
       case AppStage.freezmePlus:
@@ -2792,10 +2868,68 @@ class ProfileSettingsPage extends StatefulWidget {
 }
 
 class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
-  bool _notifications = true;
-  bool _showOnline = true;
-  bool _readReceipts = false;
   bool _signingOut = false;
+  final Set<String> _savingKeys = <String>{};
+
+  Widget _buildNavItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool active = false,
+  }) {
+    final color = active ? FreezmeColors.primary : FreezmeColors.muted;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _fallbackAvatar(String initials) {
+    return Container(
+      height: 80,
+      width: 80,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            FreezmeColors.primary,
+            FreezmeColors.secondary,
+          ],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          initials.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
 
   double _completion(AppFlowController flow) {
     final uploaded = flow.photoSlots
@@ -2845,16 +2979,46 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context, listen: false);
+    final flow = AppFlowScope.of(context); // listen to rebuild on updates
     final completion = _completion(flow).round();
     final vibesLeft = flow.remainingProfiles;
-    final matchesCount = flow.matches.length;
+    final matchesCount = flow.matchesCount;
+    final profileName = flow.profileName ?? 'Freezme member';
+    final profileEmail = flow.profileEmail ?? 'Add your email';
+    final photoUrl = flow.profilePhotoUrl;
+    final initials = profileName.isNotEmpty
+        ? profileName.trim().split(' ').map((p) => p.isNotEmpty ? p[0] : '').take(2).join()
+        : 'F';
+
+    Widget avatar;
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      avatar = ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: photoUrl,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+          placeholder: (context, _) => Container(
+            width: 80,
+            height: 80,
+            color: FreezmeColors.surfaceAlt,
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          errorWidget: (context, _, __) => _fallbackAvatar(initials),
+        ),
+      );
+    } else {
+      avatar = _fallbackAvatar(initials);
+    }
+
     final menuItems = [
       (
         icon: Icons.person_outline,
         label: 'Edit Profile',
         description: 'Update your photos and bio',
-        action: flow.openProfilePreview,
+        action: () => flow.pushIfMissing(AppStage.editProfile),
       ),
       (
         icon: Icons.tune,
@@ -2965,20 +3129,8 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                             Container(
                               height: 80,
                               width: 80,
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    FreezmeColors.primary,
-                                    FreezmeColors.secondary,
-                                  ],
-                                ),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.person_outline,
-                                color: Colors.white,
-                                size: 40,
-                              ),
+                              alignment: Alignment.center,
+                              child: avatar,
                             ),
                             const SizedBox(width: 20),
                             Expanded(
@@ -2986,7 +3138,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Sarah Johnson',
+                                    profileName,
                                     style: Theme.of(context)
                                         .textTheme
                                         .titleMedium
@@ -2996,9 +3148,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                                         ),
                                   ),
                                   const SizedBox(height: 4),
-                                  const Text(
-                                    'sarah@example.com',
-                                    style: TextStyle(
+                                  Text(
+                                    profileEmail,
+                                    style: const TextStyle(
                                       color: FreezmeColors.muted,
                                       fontSize: 14,
                                     ),
@@ -3047,6 +3199,19 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      _ProfileChecklist(
+                        uploadedPhotos: flow.photoSlots
+                            .where((p) =>
+                                p.status == PhotoSlotStatus.uploaded &&
+                                p.imageUrl != null)
+                            .length,
+                        completion: completion,
+                        onEditProfile: flow.openProfilePreview,
+                        onPreferences: () {
+                          flow.pushIfMissing(AppStage.profilePreview);
+                        },
+                      ),
                       const SizedBox(height: 24),
                       Container(
                         padding: const EdgeInsets.all(24),
@@ -3076,49 +3241,67 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                             ),
                             const SizedBox(height: 20),
                             _SettingsToggleTile(
-                              icon: Icons.notifications_outlined,
-                              title: 'Notifications',
-                              subtitle: 'Push & email alerts',
-                              value: _notifications,
-                              onChanged: (value) {
-                                setState(() => _notifications = value);
+                            icon: Icons.notifications_outlined,
+                            title: 'Notifications',
+                            subtitle: 'Push & email alerts',
+                            value: flow.notificationsEnabled,
+                            loading: _savingKeys.contains('notifications'),
+                            onChanged: (value) async {
+                              if (_savingKeys.contains('notifications')) return;
+                              setState(() => _savingKeys.add('notifications'));
+                              await flow.setNotificationsEnabled(value);
+                              if (mounted) {
+                                setState(() => _savingKeys.remove('notifications'));
                                 _showSnack(
                                   value
                                       ? 'Notifications enabled'
                                       : 'Notifications muted',
                                 );
-                              },
-                            ),
-                            const Divider(height: 32),
-                            _SettingsToggleTile(
-                              icon: Icons.visibility_outlined,
-                              title: 'Show Online Status',
-                              subtitle: 'Let matches see when you\'re active',
-                              value: _showOnline,
-                              onChanged: (value) {
-                                setState(() => _showOnline = value);
+                              }
+                            },
+                          ),
+                          const Divider(height: 32),
+                          _SettingsToggleTile(
+                            icon: Icons.visibility_outlined,
+                            title: 'Show Online Status',
+                            subtitle: 'Let matches see when you\'re active',
+                            value: flow.onlineStatusEnabled,
+                            loading: _savingKeys.contains('online'),
+                            onChanged: (value) async {
+                              if (_savingKeys.contains('online')) return;
+                              setState(() => _savingKeys.add('online'));
+                              await flow.setOnlineStatusEnabled(value);
+                              if (mounted) {
+                                setState(() => _savingKeys.remove('online'));
                                 _showSnack(
                                   value
                                       ? 'Online status visible to matches'
                                       : 'You’re now hidden',
                                 );
-                              },
-                            ),
-                            const Divider(height: 32),
-                            _SettingsToggleTile(
-                              icon: Icons.favorite_outline,
-                              title: 'Read Receipts',
-                              subtitle: 'Show when you\'ve read messages',
-                              value: _readReceipts,
-                              onChanged: (value) {
-                                setState(() => _readReceipts = value);
+                              }
+                            },
+                          ),
+                          const Divider(height: 32),
+                          _SettingsToggleTile(
+                            icon: Icons.favorite_outline,
+                            title: 'Read Receipts',
+                            subtitle: 'Show when you\'ve read messages',
+                            value: flow.readReceiptsEnabled,
+                            loading: _savingKeys.contains('readReceipts'),
+                            onChanged: (value) async {
+                              if (_savingKeys.contains('readReceipts')) return;
+                              setState(() => _savingKeys.add('readReceipts'));
+                              await flow.setReadReceiptsEnabled(value);
+                              if (mounted) {
+                                setState(() => _savingKeys.remove('readReceipts'));
                                 _showSnack(
                                   value
                                       ? 'Read receipts on'
                                       : 'Read receipts off',
                                 );
-                              },
-                            ),
+                              }
+                            },
+                          ),
                           ],
                         ),
                       ),
@@ -3188,6 +3371,62 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
           ),
         ),
       ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNavItem(
+                context,
+                icon: Icons.chat_bubble_outline,
+                label: 'Chats',
+                active: false,
+                onTap: () => flow.openChatList(),
+              ),
+              _buildNavItem(
+                context,
+                icon: Icons.favorite_border,
+                label: 'Feed',
+                active: false,
+                onTap: () => flow.openFeed(),
+              ),
+              _buildNavItem(
+                context,
+                icon: Icons.route_outlined,
+                label: 'Paths',
+                active: false,
+                onTap: () => flow.openPaths(),
+              ),
+              _buildNavItem(
+                context,
+                icon: Icons.bolt_outlined,
+                label: 'Blinds',
+                active: false,
+                onTap: () => flow.openBlinds(),
+              ),
+              _buildNavItem(
+                context,
+                icon: Icons.person_outline,
+                label: 'Profile',
+                active: true,
+                onTap: () {},
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -3199,6 +3438,7 @@ class _SettingsToggleTile extends StatelessWidget {
     required this.subtitle,
     required this.value,
     required this.onChanged,
+    this.loading = false,
   });
 
   final IconData icon;
@@ -3206,6 +3446,7 @@ class _SettingsToggleTile extends StatelessWidget {
   final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -3243,19 +3484,189 @@ class _SettingsToggleTile extends StatelessWidget {
             ],
           ),
         ),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeTrackColor: FreezmeColors.primary,
-          inactiveTrackColor: FreezmeColors.border,
-          thumbColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return Colors.white;
-            }
-            return FreezmeColors.muted;
-          }),
+        Row(
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(FreezmeColors.primary),
+                ),
+              ),
+            Switch(
+              value: value,
+              onChanged: loading ? null : onChanged,
+              activeTrackColor: FreezmeColors.primary,
+              inactiveTrackColor: FreezmeColors.border,
+              thumbColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Colors.white;
+                }
+                return FreezmeColors.muted;
+              }),
+            ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _ProfileChecklist extends StatelessWidget {
+  const _ProfileChecklist({
+    required this.uploadedPhotos,
+    required this.completion,
+    required this.onEditProfile,
+    required this.onPreferences,
+  });
+
+  final int uploadedPhotos;
+  final int completion;
+  final VoidCallback onEditProfile;
+  final VoidCallback onPreferences;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasMinPhotos = uploadedPhotos >= 3;
+    final isMostlyComplete = completion >= 80;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: FreezmeColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle_outline,
+                  color: FreezmeColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Complete your profile',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: FreezmeColors.neutral,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const Spacer(),
+              Text(
+                '$completion% done',
+                style: const TextStyle(
+                  color: FreezmeColors.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _ChecklistItem(
+            label: 'Add at least 3 photos',
+            status: hasMinPhotos ? 'Done' : '$uploadedPhotos/3 added',
+            done: hasMinPhotos,
+            onTap: onEditProfile,
+          ),
+          const SizedBox(height: 10),
+          _ChecklistItem(
+            label: 'Fill your bio & interests',
+            status: 'Tap to edit',
+            done: false,
+            onTap: onEditProfile,
+          ),
+          const SizedBox(height: 10),
+          _ChecklistItem(
+            label: 'Set your preferences',
+            status: 'Age, distance, intentions',
+            done: false,
+            onTap: onPreferences,
+          ),
+          const SizedBox(height: 10),
+          _ChecklistItem(
+            label: 'Reach 80% completion',
+            status: isMostlyComplete ? 'Done' : 'Keep going',
+            done: isMostlyComplete,
+            onTap: onEditProfile,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChecklistItem extends StatelessWidget {
+  const _ChecklistItem({
+    required this.label,
+    required this.status,
+    required this.done,
+    required this.onTap,
+  });
+
+  final String label;
+  final String status;
+  final bool done;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            height: 28,
+            width: 28,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: done ? FreezmeColors.primary : FreezmeColors.surfaceAlt,
+              border: Border.all(
+                color: done ? FreezmeColors.primary : FreezmeColors.border,
+              ),
+            ),
+            child: Icon(
+              done ? Icons.check : Icons.add,
+              color: done ? Colors.white : FreezmeColors.primary,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: FreezmeColors.neutral,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  status,
+                  style: const TextStyle(
+                    color: FreezmeColors.muted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: FreezmeColors.muted),
+        ],
+      ),
     );
   }
 }
@@ -3609,6 +4020,572 @@ class ProfilePreviewPage extends StatelessWidget {
   }
 }
 
+// EditProfilePage - Full profile editing with validation
+class EditProfilePage extends StatefulWidget {
+  const EditProfilePage({super.key});
+
+  @override
+  State<EditProfilePage> createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends State<EditProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+  bool _saving = false;
+  bool _hasUnsavedChanges = false;
+
+  // Controllers
+  late TextEditingController _nameController;
+  late TextEditingController _bioController;
+  late TextEditingController _ageController;
+  late TextEditingController _locationController;
+
+  // State
+  List<String> _selectedInterests = [];
+  final int _maxInterests = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    final flow = AppFlowScope.of(context, listen: false);
+
+    // Initialize with current profile data
+    _nameController = TextEditingController(text: flow.profileName ?? '');
+    _bioController = TextEditingController(text: ''); // TODO: Get from flow
+    _ageController = TextEditingController(text: ''); // TODO: Get from flow
+    _locationController = TextEditingController(text: ''); // TODO: Get from flow
+
+    // TODO: Initialize selected interests from flow
+    _selectedInterests = ['Music', 'Travel']; // Placeholder
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _bioController.dispose();
+    _ageController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  // Validation methods
+  String? _validateName(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Name is required';
+    }
+    if (value.trim().length < 2) {
+      return 'Name must be at least 2 characters';
+    }
+    if (value.trim().length > 50) {
+      return 'Name must be less than 50 characters';
+    }
+    return null;
+  }
+
+  String? _validateBio(String? value) {
+    if (value != null && value.length > 500) {
+      return 'Bio must be less than 500 characters';
+    }
+    return null;
+  }
+
+  String? _validateAge(String? value) {
+    if (value == null || value.isEmpty) {
+      return null; // Age is optional
+    }
+    final age = int.tryParse(value);
+    if (age == null) {
+      return 'Please enter a valid number';
+    }
+    if (age < 18) {
+      return 'You must be at least 18 years old';
+    }
+    if (age > 99) {
+      return 'Please enter a valid age';
+    }
+    return null;
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedInterests.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select at least one interest')),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    try {
+      final flow = AppFlowScope.of(context, listen: false);
+
+      // TODO: Save profile data to Firestore via repository
+      // await flow.repository.updateProfile(
+      //   uid: flow.uid,
+      //   displayName: _nameController.text.trim(),
+      //   bio: _bioController.text.trim(),
+      //   age: int.tryParse(_ageController.text),
+      //   location: _locationController.text.trim(),
+      // );
+
+      // Simulate save delay
+      await Future.delayed(const Duration(seconds: 1));
+
+      if (!mounted) return;
+
+      // Show success
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: const [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Text('Profile updated successfully'),
+            ],
+          ),
+          backgroundColor: FreezmeColors.success,
+        ),
+      );
+
+      // Navigate back
+      setState(() => _hasUnsavedChanges = false);
+      flow.pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving profile: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _toggleInterest(String interest) {
+    setState(() {
+      if (_selectedInterests.contains(interest)) {
+        _selectedInterests.remove(interest);
+      } else {
+        if (_selectedInterests.length < _maxInterests) {
+          _selectedInterests.add(interest);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Maximum $_maxInterests interests allowed')),
+          );
+        }
+      }
+      _hasUnsavedChanges = true;
+    });
+  }
+
+  Future<bool> _onWillPop() async {
+    if (!_hasUnsavedChanges) return true;
+
+    final shouldPop = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text('You have unsaved changes. Discard them?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: FreezmeColors.error,
+            ),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+
+    return shouldPop ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final flow = AppFlowScope.of(context, listen: false);
+
+    return PopScope(
+      canPop: !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldPop = await _onWillPop();
+        if (shouldPop && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: FreezmeColors.primary,
+          foregroundColor: Colors.white,
+          leading: IconButton(
+            icon: const Icon(Icons.close),
+            onPressed: () async {
+              if (_hasUnsavedChanges) {
+                final shouldPop = await _onWillPop();
+                if (shouldPop && mounted) flow.pop();
+              } else {
+                flow.pop();
+              }
+            },
+          ),
+          title: const Text('Edit Profile'),
+          actions: [
+            TextButton(
+              onPressed: _saving ? null : _saveProfile,
+              child: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text(
+                      'Save',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: FreezmeGradients.backgroundSoft,
+          ),
+          child: Form(
+            key: _formKey,
+            onChanged: () {
+              if (!_hasUnsavedChanges) {
+                setState(() => _hasUnsavedChanges = true);
+              }
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Name Field
+                  Text(
+                    'Name',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: FreezmeColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your name',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: FreezmeColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: FreezmeColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: FreezmeColors.primary, width: 2),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: FreezmeColors.error),
+                      ),
+                    ),
+                    validator: _validateName,
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Bio Field
+                  Text(
+                    'Bio',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: FreezmeColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _bioController,
+                    decoration: InputDecoration(
+                      hintText: 'Tell others about yourself...',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: FreezmeColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: FreezmeColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: FreezmeColors.primary, width: 2),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: FreezmeColors.error),
+                      ),
+                      helperText: '${_bioController.text.length}/500 characters',
+                    ),
+                    validator: _validateBio,
+                    maxLines: 4,
+                    maxLength: 500,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Age and Location Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Age',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: FreezmeColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _ageController,
+                              decoration: InputDecoration(
+                                hintText: '18+',
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: FreezmeColors.border),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: FreezmeColors.border),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: FreezmeColors.primary, width: 2),
+                                ),
+                              ),
+                              validator: _validateAge,
+                              keyboardType: TextInputType.number,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Location',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: FreezmeColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _locationController,
+                              decoration: InputDecoration(
+                                hintText: 'City, State',
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: FreezmeColors.border),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: FreezmeColors.border),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: const BorderSide(color: FreezmeColors.primary, width: 2),
+                                ),
+                              ),
+                              textCapitalization: TextCapitalization.words,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Interests Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Interests',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: FreezmeColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        '${_selectedInterests.length}/$_maxInterests selected',
+                        style: const TextStyle(
+                          color: FreezmeColors.muted,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _selectedInterests.isEmpty
+                            ? FreezmeColors.error
+                            : FreezmeColors.border,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildInterestCategory('Hobbies', [
+                          'Music', 'Travel', 'Art', 'Photography', 'Reading', 'Gaming', 'Cooking',
+                        ]),
+                        const SizedBox(height: 16),
+                        _buildInterestCategory('Sports & Fitness', [
+                          'Yoga', 'Running', 'Gym', 'Cycling', 'Swimming', 'Dancing', 'Hiking',
+                        ]),
+                        const SizedBox(height: 16),
+                        _buildInterestCategory('Lifestyle', [
+                          'Coffee', 'Wine', 'Foodie', 'Nightlife', 'Movies', 'Netflix',
+                        ]),
+                      ],
+                    ),
+                  ),
+                  if (_selectedInterests.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8, left: 12),
+                      child: Text(
+                        'Please select at least one interest',
+                        style: TextStyle(
+                          color: FreezmeColors.error,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 32),
+
+                  // Save Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _saveProfile,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: FreezmeColors.primary,
+                        shape: const StadiumBorder(),
+                      ),
+                      child: _saving
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text(
+                              'Save Changes',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInterestCategory(String category, List<String> interests) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          category,
+          style: const TextStyle(
+            color: FreezmeColors.neutral,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: interests.map((interest) {
+            final isSelected = _selectedInterests.contains(interest);
+            return InkWell(
+              onTap: () => _toggleInterest(interest),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: isSelected
+                      ? const LinearGradient(
+                          colors: [FreezmeColors.primary, FreezmeColors.secondary],
+                        )
+                      : null,
+                  color: isSelected ? null : FreezmeColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? FreezmeColors.primary : FreezmeColors.border,
+                  ),
+                ),
+                child: Text(
+                  interest,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : FreezmeColors.neutral,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
 class _ProfileDetailRow extends StatelessWidget {
   const _ProfileDetailRow({required this.icon, required this.label});
 
@@ -3958,768 +4935,8 @@ class _RecapBullet extends StatelessWidget {
   }
 }
 
-class ChatScreenPage extends StatefulWidget {
-  const ChatScreenPage({super.key});
 
-  @override
-  State<ChatScreenPage> createState() => _ChatScreenPageState();
-}
 
-enum _MessageStatus { pending, sent, delivered, read, failed }
-
-class _ChatMessage {
-  _ChatMessage({
-    required this.text,
-    required this.isMe,
-    required this.timestamp,
-    this.status = _MessageStatus.sent,
-  });
-
-  final String text;
-  final bool isMe;
-  final String timestamp;
-  _MessageStatus status;
-}
-
-IconData _statusIcon(_MessageStatus status) {
-  switch (status) {
-    case _MessageStatus.pending:
-      return Icons.access_time;
-    case _MessageStatus.sent:
-      return Icons.check;
-    case _MessageStatus.delivered:
-      return Icons.done_all;
-    case _MessageStatus.read:
-      return Icons.done_all;
-    case _MessageStatus.failed:
-      return Icons.error_outline;
-  }
-}
-
-class _ChatScreenPageState extends State<ChatScreenPage> {
-  final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-  final List<_ChatMessage> _messages = <_ChatMessage>[];
-  StreamSubscription<List<ChatMessage>>? _msgSub;
-  bool _sending = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _scrollController.dispose();
-    _msgSub?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _handleSend() async {
-    final text = _controller.text.trim();
-    final chatId = AppFlowScope.of(context, listen: false).activeChatId;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (text.isEmpty || chatId == null || uid == null || _sending) return;
-    _sending = true;
-    final now = TimeOfDay.now();
-    final message = _ChatMessage(
-      text: text,
-      isMe: true,
-      timestamp:
-          '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}',
-      status: _MessageStatus.pending,
-    );
-    setState(() {
-      _messages.add(message);
-    });
-    _controller.clear();
-    try {
-      final flow = AppFlowScope.of(context, listen: false);
-      await flow._repository.sendMessage(
-        ChatMessage(
-          chatId: chatId,
-          senderId: uid,
-          text: text,
-          sentAt: DateTime.now(),
-          status: 'sent',
-        ),
-      );
-      setState(() {
-        message.status = _MessageStatus.sent;
-      });
-    } catch (_) {
-      setState(() {
-        message.status = _MessageStatus.failed;
-      });
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not send. Please retry.'),
-        ),
-      );
-    } finally {
-      _sending = false;
-    }
-    Future<void>.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context);
-    final profile = flow.activeProfile;
-    final chatId = flow.activeChatId;
-
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: FreezmeGradients.backgroundSoft,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [FreezmeColors.primary, FreezmeColors.secondary],
-                  ),
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(24),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: flow.exitChat,
-                      icon: const Icon(Icons.chevron_left, color: Colors.white),
-                    ),
-                    const SizedBox(width: 12),
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(
-                        profile?.imageUrl ??
-                            'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=320',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            profile?.name ?? 'Match',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Online',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => showFreezeModal(context),
-                      icon: const Icon(Icons.ac_unit, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: chatId == null
-                    ? const Center(
-                        child: Text(
-                          'No chat selected.',
-                          style: FreezmeTypography.bodyMuted,
-                        ),
-                      )
-                    : StreamBuilder<List<ChatMessage>>(
-                        stream: flow._repository.messagesForChat(chatId),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
-                          if (snapshot.hasError) {
-                            return const Center(
-                              child: Text('Could not load messages'),
-                            );
-                          }
-                          final msgs = snapshot.data ?? const [];
-                          final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-                          final mapped = msgs
-                              .map(
-                                (m) => _ChatMessage(
-                                  text: m.text,
-                                  isMe: m.senderId == uid,
-                                  timestamp:
-                                      DateFormat('h:mm a').format(m.sentAt),
-                                  status: switch (m.status) {
-                                    'read' => _MessageStatus.read,
-                                    'delivered' => _MessageStatus.delivered,
-                                    'sent' => _MessageStatus.sent,
-                                    _ => _MessageStatus.delivered,
-                                  },
-                                ),
-                              )
-                              .toList();
-                          return ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 24,
-                            ),
-                            itemCount: mapped.length,
-                            itemBuilder: (context, index) {
-                              final msg = mapped[index];
-                              final bool isMe = msg.isMe;
-                              return Align(
-                                alignment: isMe
-                                    ? Alignment.centerRight
-                                    : Alignment.centerLeft,
-                                child: Container(
-                                  margin: const EdgeInsets.symmetric(vertical: 6),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  constraints: BoxConstraints(
-                                    maxWidth:
-                                        MediaQuery.of(context).size.width * 0.7,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: isMe
-                                        ? const LinearGradient(
-                                            colors: [
-                                              FreezmeColors.primary,
-                                              FreezmeColors.secondary,
-                                            ],
-                                          )
-                                        : null,
-                                    color: isMe ? null : Colors.white,
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: const Radius.circular(24),
-                                      topRight: isMe
-                                          ? const Radius.circular(8)
-                                          : const Radius.circular(24),
-                                      bottomLeft: isMe
-                                          ? const Radius.circular(24)
-                                          : const Radius.circular(8),
-                                      bottomRight: const Radius.circular(24),
-                                    ),
-                                    boxShadow: isMe
-                                        ? null
-                                        : [
-                                            BoxShadow(
-                                              color:
-                                                  Colors.black.withValues(alpha: 0.05),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 6),
-                                            ),
-                                          ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        msg.text,
-                                        style: TextStyle(
-                                          color: isMe
-                                              ? Colors.white
-                                              : FreezmeColors.neutral,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            msg.timestamp,
-                                            style: TextStyle(
-                                              color: isMe
-                                                  ? Colors.white70
-                                                  : FreezmeColors.muted,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                          if (isMe) ...[
-                                            const SizedBox(width: 6),
-                                            Icon(
-                                              _statusIcon(msg.status),
-                                              size: 14,
-                                              color: Colors.white70,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x1F000000),
-                      blurRadius: 10,
-                      offset: Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.emoji_emotions_outlined,
-                        color: FreezmeColors.primary,
-                      ),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        onSubmitted: (_) => _handleSend(),
-                        decoration: InputDecoration(
-                          hintText: 'Type a message...',
-                          filled: true,
-                          fillColor: FreezmeColors.surface,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(28),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.mic_none,
-                        color: FreezmeColors.primary,
-                      ),
-                    ),
-                    IconButton.filled(
-                      onPressed: _handleSend,
-                      style: IconButton.styleFrom(
-                        backgroundColor: FreezmeColors.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.send),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-}
-
-class ChatListPage extends StatefulWidget {
-  const ChatListPage({super.key});
-
-  @override
-  State<ChatListPage> createState() => _ChatListPageState();
-}
-
-class _Conversation {
-  _Conversation({
-    required this.chatId,
-    required this.displayName,
-    required this.photoUrl,
-    required this.lastMessage,
-    required this.timeLabel,
-    this.unread = 0,
-    this.status = _MessageStatus.delivered,
-    this.isGroup = false,
-  });
-
-  final String chatId;
-  final String displayName;
-  final String photoUrl;
-  String lastMessage;
-  String timeLabel;
-  int unread;
-  _MessageStatus status;
-  bool isGroup;
-}
-
-class _ChatListPageState extends State<ChatListPage> {
-  List<_Conversation> _conversations = const [];
-  bool _loading = true;
-  String? _error;
-  final TextEditingController _searchController = TextEditingController();
-  String _query = '';
-  bool _showUnreadOnly = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadConversations();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  List<_Conversation> get _visibleConversations {
-    return _conversations.where((c) {
-      final matchesQuery = _query.isEmpty ||
-          c.displayName.toLowerCase().contains(_query.toLowerCase()) ||
-          c.lastMessage.toLowerCase().contains(_query.toLowerCase());
-      final matchesUnread = !_showUnreadOnly || c.unread > 0;
-      return matchesQuery && matchesUnread;
-    }).toList();
-  }
-
-  Future<void> _loadConversations() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final flow = AppFlowScope.of(context, listen: false);
-      final matches = await flow._repository.fetchMatches();
-      final mapped = matches.map((m) {
-        final id = m['id']?.toString() ?? '';
-        final displayName = m['name']?.toString() ??
-            (m['otherUserName']?.toString() ?? 'Freezme Match');
-        final photo = m['photoUrl']?.toString() ?? '';
-        final lastMsg = m['lastMessage']?.toString() ?? 'Tap to open chat';
-        final tsString = m['updatedAt']?.toString() ??
-            m['ts']?.toString() ??
-            DateTime.now().toIso8601String();
-        String timeLabel;
-        try {
-          final parsed = DateTime.tryParse(tsString);
-          if (parsed != null) {
-            final now = DateTime.now();
-            if (now.difference(parsed).inDays >= 1) {
-              timeLabel =
-                  '${parsed.month}/${parsed.day}'; // simple date fallback
-            } else {
-              final hour = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
-              final minute = parsed.minute.toString().padLeft(2, '0');
-              final ampm = parsed.hour >= 12 ? 'PM' : 'AM';
-              timeLabel = '$hour:$minute $ampm';
-            }
-          } else {
-            timeLabel = tsString;
-          }
-        } catch (_) {
-          timeLabel = tsString;
-        }
-        final unread = (m['unread'] as num?)?.toInt() ?? 0;
-        final statusString = m['status']?.toString();
-        final status = switch (statusString) {
-          'read' => _MessageStatus.read,
-          'sent' => _MessageStatus.sent,
-          _ => _MessageStatus.delivered,
-        };
-        return _Conversation(
-          chatId: id,
-          displayName: displayName,
-          photoUrl: photo,
-          lastMessage: lastMsg,
-          timeLabel: timeLabel,
-          unread: unread,
-          status: status,
-          isGroup: (m['isGroup'] as bool?) ?? false,
-        );
-      }).toList();
-      setState(() {
-        _conversations = mapped;
-        _loading = false;
-      });
-    } catch (_) {
-      setState(() {
-        _loading = false;
-        _error = 'Could not load chats';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context, listen: true);
-
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: FreezmeGradients.backgroundSoft,
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: const [
-                        FreezmeLogo(size: LogoSize.sm, showText: true),
-                        Spacer(),
-                        Text('Chats', style: FreezmeTypography.title),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (value) => setState(() => _query = value),
-                      decoration: InputDecoration(
-                        hintText: 'Search chats or messages',
-                        prefixIcon:
-                            const Icon(Icons.search, color: FreezmeColors.muted),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: const BorderSide(color: FreezmeColors.border),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: const BorderSide(color: FreezmeColors.border),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: const BorderSide(color: FreezmeColors.primary),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        FilterChip(
-                          selected: !_showUnreadOnly,
-                          onSelected: (_) => setState(() => _showUnreadOnly = false),
-                          label: const Text('All'),
-                          selectedColor:
-                              FreezmeColors.primary.withValues(alpha: 0.15),
-                          labelStyle: TextStyle(
-                            color: !_showUnreadOnly
-                                ? FreezmeColors.primary
-                                : FreezmeColors.neutral,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        FilterChip(
-                          selected: _showUnreadOnly,
-                          onSelected: (_) => setState(() => _showUnreadOnly = true),
-                          label: const Text('Unread'),
-                          selectedColor:
-                              FreezmeColors.primary.withValues(alpha: 0.15),
-                          labelStyle: TextStyle(
-                            color: _showUnreadOnly
-                                ? FreezmeColors.primary
-                                : FreezmeColors.neutral,
-                          ),
-                        ),
-                        const Spacer(),
-                        Row(
-                          children: const [
-                            Icon(Icons.done_all,
-                                size: 16, color: FreezmeColors.muted),
-                            SizedBox(width: 4),
-                            Text('Read', style: FreezmeTypography.bodyMuted),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _error != null
-                        ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(_error!, style: FreezmeTypography.bodyMuted),
-                                const SizedBox(height: 8),
-                                ElevatedButton.icon(
-                                  onPressed: _loadConversations,
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          )
-                        : _visibleConversations.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'No conversations yet.\nInvite a vibe to start chatting.',
-                                  textAlign: TextAlign.center,
-                                  style: FreezmeTypography.bodyMuted,
-                                ),
-                              )
-                            : ListView.separated(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                itemBuilder: (context, index) {
-                                  final convo = _visibleConversations[index];
-                                  return ListTile(
-                                    onTap: () {
-                                      setState(() {
-                                        convo.unread = 0;
-                                        convo.status = _MessageStatus.read;
-                                      });
-                                      flow.openChatDetail(
-                                        VibeProfile(
-                                          uid: convo.chatId,
-                                          id: 0,
-                                          name: convo.displayName,
-                                          age: 0,
-                                          imageUrl: convo.photoUrl,
-                                          compatibility: 0,
-                                          bio: '',
-                                          distance: '',
-                                        ),
-                                        chatId: convo.chatId,
-                                      );
-                                    },
-                                    leading: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        CircleAvatar(
-                                          backgroundImage: convo.photoUrl.isNotEmpty
-                                              ? CachedNetworkImageProvider(
-                                                  convo.photoUrl,
-                                                )
-                                              : null,
-                                          radius: 26,
-                                          child: convo.photoUrl.isEmpty
-                                              ? const Icon(Icons.person)
-                                              : null,
-                                        ),
-                                        if (convo.unread > 0)
-                                          Positioned(
-                                            right: -2,
-                                            top: -2,
-                                            child: Container(
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: const BoxDecoration(
-                                                color: Colors.redAccent,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Text(
-                                                '${convo.unread}',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    title: Text(
-                                      convo.displayName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: FreezmeColors.neutral,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      convo.lastMessage,
-                                      style: FreezmeTypography.bodyMuted,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    trailing: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          convo.timeLabel,
-                                          style: const TextStyle(
-                                            color: FreezmeColors.muted,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Icon(
-                                          _statusIcon(convo.status),
-                                          size: 14,
-                                          color: FreezmeColors.muted,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                                separatorBuilder: (_, __) => const Divider(
-                                  height: 1,
-                                  color: FreezmeColors.border,
-                                ),
-                                itemCount: _visibleConversations.length,
-                              ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: _BottomNavBar(
-        currentIndex: 0,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              break;
-            case 1:
-              flow.openFeed();
-              break;
-            case 2:
-              flow.openPaths();
-              break;
-            case 3:
-              flow.openBlinds();
-              break;
-            case 4:
-              flow.openProfileSettings();
-              break;
-          }
-        },
-      ),
-    );
-  }
-}
 
 class PathsPage extends StatefulWidget {
   const PathsPage({super.key});

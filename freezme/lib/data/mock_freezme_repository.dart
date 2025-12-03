@@ -24,6 +24,9 @@ class MockFreezmeRepository implements FreezmeRepository {
   Future<List<Map<String, dynamic>>> fetchMatches() async => const [];
 
   @override
+  Stream<List<Map<String, dynamic>>> watchMatches() => Stream.value(const []);
+
+  @override
   Future<void> updateProfilePhotos({
     required String uid,
     required List<String> photoUrls,
@@ -45,6 +48,18 @@ class MockFreezmeRepository implements FreezmeRepository {
   Future<void> updateOnlineStatus(String userId, bool isOnline) async {}
   @override
   Future<void> signOut() async {}
+
+  // Chat Management
+  @override
+  Future<void> deleteChat(String chatId) async {}
+  @override
+  Future<void> pinChat(String chatId, bool pin) async {}
+  @override
+  Future<void> muteChat(String chatId, bool mute) async {}
+  @override
+  Future<void> archiveChat(String chatId, bool archive) async {}
+  @override
+  Future<void> updateTypingStatus(String chatId, bool isTyping) async {}
 
   // Paths
   @override

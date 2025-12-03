@@ -9,6 +9,7 @@ abstract class FreezmeRepository {
   Future<void> likeProfile(String targetUid);
   Future<void> skipProfile(String targetUid);
   Future<List<Map<String, dynamic>>> fetchMatches();
+  Stream<List<Map<String, dynamic>>> watchMatches(); // Real-time chat updates
   Future<void> updateProfilePhotos({
     required String uid,
     required List<String> photoUrls,
@@ -21,6 +22,13 @@ abstract class FreezmeRepository {
   Future<void> markChatAsRead(String chatId);
   Future<void> updateOnlineStatus(String userId, bool isOnline);
   Future<void> signOut();
+
+  // Chat Management
+  Future<void> deleteChat(String chatId);
+  Future<void> pinChat(String chatId, bool pin);
+  Future<void> muteChat(String chatId, bool mute);
+  Future<void> archiveChat(String chatId, bool archive);
+  Future<void> updateTypingStatus(String chatId, bool isTyping);
 
   // Paths (Nearby)
   Future<void> upsertPathsPresence(PathsPresence presence);

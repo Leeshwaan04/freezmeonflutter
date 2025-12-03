@@ -154,6 +154,92 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
   }
 
   @override
+  Stream<List<Map<String, dynamic>>> watchMatches() {
+    final currentUser = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUser == null) {
+      return Stream.value(<Map<String, dynamic>>[]);
+    }
+
+    return _firestore
+        .collection('chats')
+        .where('members', arrayContains: currentUser)
+        .orderBy('updatedAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        final members = List<String>.from(data['members'] ?? []);
+        final otherUserId = members.firstWhere(
+          (uid) => uid != currentUser,
+          orElse: () => '',
+        );
+
+        final memberDisplay = data['memberDisplay'] as Map<String, dynamic>? ?? {};
+        final otherUserDisplay = memberDisplay[otherUserId] as Map<String, dynamic>? ?? {};
+
+        final lastMessage = data['lastMessage'] as Map<String, dynamic>? ?? {};
+        final unread = data['unread'] as Map<String, dynamic>? ?? {};
+
+        // Format timestamp here to avoid heavy work on UI thread
+        final timestamp = data['updatedAt'];
+        String timeLabel = '';
+        try {
+          DateTime? parsed;
+          if (timestamp is DateTime) {
+            parsed = timestamp;
+          } else if (timestamp != null) {
+            // Handle Firestore Timestamp
+            final dynamic ts = timestamp;
+            if (ts.runtimeType.toString().contains('Timestamp')) {
+              // Firestore Timestamp has seconds and nanoseconds
+              try {
+                parsed = (ts as dynamic).toDate() as DateTime?;
+              } catch (_) {
+                parsed = DateTime.now();
+              }
+            }
+          }
+          
+          if (parsed != null) {
+            final now = DateTime.now();
+            if (now.difference(parsed).inDays >= 1) {
+              timeLabel = '${parsed.month}/${parsed.day}';
+            } else {
+              final hour = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
+              final minute = parsed.minute.toString().padLeft(2, '0');
+              final ampm = parsed.hour >= 12 ? 'PM' : 'AM';
+              timeLabel = '$hour:$minute $ampm';
+            }
+          }
+        } catch (_) {
+          timeLabel = '';
+        }
+
+        return <String, dynamic>{
+          'id': doc.id,
+          'chatId': doc.id,
+          'name': otherUserDisplay['name'] ?? 'Unknown',
+          'otherUserName': otherUserDisplay['name'] ?? 'Unknown',
+          'photoUrl': otherUserDisplay['photoUrl'] ?? '',
+          'lastMessage': lastMessage['text'] ?? '',
+          'lastMessageSenderId': lastMessage['senderId'] ?? '',
+          'timeLabel': timeLabel, // Pre-formatted time
+          'ts': data['updatedAt'],
+          'updatedAt': data['updatedAt'],
+          'unread': unread[currentUser] ?? 0,
+          'status': lastMessage['status'] ?? 'sent',
+          'isGroup': data['isGroup'] ?? false,
+          'isPinned': (data['pinnedBy'] as List?)?.contains(currentUser) ?? false,
+          'isMuted': (data['mutedBy'] as Map?)?.containsKey(currentUser) ?? false,
+          'isArchived': (data['archivedBy'] as List?)?.contains(currentUser) ?? false,
+          'isTyping': (data['typing'] as Map?)?.entries.any((e) => e.key != currentUser && (e.value['isTyping'] as bool? ?? false)) ?? false,
+        };
+      }).toList();
+    });
+  }
+
+  @override
   Future<void> updateProfilePhotos({
     required String uid,
     required List<String> photoUrls,
@@ -288,6 +374,142 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
   Future<void> signOut() async {
     final fallback = _fallback;
     if (fallback != null) return fallback.signOut();
+  }
+
+  // Chat Management
+  @override
+  Future<void> deleteChat(String chatId) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUser == null) return;
+
+      // Soft delete: Add user to deletedBy array
+      await _firestore.collection('chats').doc(chatId).update({
+        'deletedBy': FieldValue.arrayUnion([currentUser]),
+      });
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.deleteChat(chatId);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> pinChat(String chatId, bool pin) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUser == null) return;
+
+      final batch = _firestore.batch();
+      final settingsRef = _firestore.collection('user_chat_settings').doc(currentUser);
+      batch.set(
+        settingsRef,
+        {
+          'pinnedChats': pin
+              ? FieldValue.arrayUnion([chatId])
+              : FieldValue.arrayRemove([chatId]),
+        },
+        SetOptions(merge: true),
+      );
+
+      final chatRef = _firestore.collection('chats').doc(chatId);
+      batch.update(chatRef, {
+        'pinnedBy': pin
+            ? FieldValue.arrayUnion([currentUser])
+            : FieldValue.arrayRemove([currentUser]),
+      });
+
+      await batch.commit();
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.pinChat(chatId, pin);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> muteChat(String chatId, bool mute) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUser == null) return;
+
+      final batch = _firestore.batch();
+      final settingsRef = _firestore.collection('user_chat_settings').doc(currentUser);
+      final muteUntil = mute ? DateTime.now().add(const Duration(days: 365)) : null;
+      
+      batch.set(
+        settingsRef,
+        {
+          'mutedChats': {
+            chatId: muteUntil,
+          },
+        },
+        SetOptions(merge: true),
+      );
+
+      final chatRef = _firestore.collection('chats').doc(chatId);
+      batch.update(chatRef, {
+        'mutedBy.$currentUser': muteUntil,
+      });
+
+      await batch.commit();
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.muteChat(chatId, mute);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> archiveChat(String chatId, bool archive) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUser == null) return;
+
+      final batch = _firestore.batch();
+      final settingsRef = _firestore.collection('user_chat_settings').doc(currentUser);
+      batch.set(
+        settingsRef,
+        {
+          'archivedChats': archive
+              ? FieldValue.arrayUnion([chatId])
+              : FieldValue.arrayRemove([chatId]),
+        },
+        SetOptions(merge: true),
+      );
+
+      final chatRef = _firestore.collection('chats').doc(chatId);
+      batch.update(chatRef, {
+        'archivedBy': archive
+            ? FieldValue.arrayUnion([currentUser])
+            : FieldValue.arrayRemove([currentUser]),
+      });
+
+      await batch.commit();
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.archiveChat(chatId, archive);
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> updateTypingStatus(String chatId, bool isTyping) async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUser == null) return;
+
+      await _firestore.collection('chats').doc(chatId).update({
+        'typing.$currentUser': {
+          'isTyping': isTyping,
+          'startedAt': isTyping ? FieldValue.serverTimestamp() : null,
+        }
+      });
+    } catch (_) {
+      final fallback = _fallback;
+      if (fallback != null) return fallback.updateTypingStatus(chatId, isTyping);
+      rethrow;
+    }
   }
 
   // Paths

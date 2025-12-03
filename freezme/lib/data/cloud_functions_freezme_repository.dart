@@ -113,6 +113,9 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
   }
 
   @override
+  Stream<List<Map<String, dynamic>>> watchMatches() => _fallback.watchMatches();
+
+  @override
   Future<void> updateProfilePhotos({
     required String uid,
     required List<String> photoUrls,
@@ -148,6 +151,19 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
       _fallback.updateOnlineStatus(userId, isOnline);
   @override
   Future<void> signOut() => _fallback.signOut();
+
+  // Chat Management
+  @override
+  Future<void> deleteChat(String chatId) => _fallback.deleteChat(chatId);
+  @override
+  Future<void> pinChat(String chatId, bool pin) => _fallback.pinChat(chatId, pin);
+  @override
+  Future<void> muteChat(String chatId, bool mute) => _fallback.muteChat(chatId, mute);
+  @override
+  Future<void> archiveChat(String chatId, bool archive) => _fallback.archiveChat(chatId, archive);
+  @override
+  Future<void> updateTypingStatus(String chatId, bool isTyping) => _fallback.updateTypingStatus(chatId, isTyping);
+
   @override
   Future<void> upsertPathsPresence(PathsPresence presence) =>
       _fallback.upsertPathsPresence(presence);
