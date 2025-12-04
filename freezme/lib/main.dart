@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -1164,15 +1166,100 @@ class _AuthGatePageState extends State<AuthGatePage> {
     }
   }
 
-  Future<void> _start(AppFlowController flow) async {
+  Future<void> _signInWithApple(AppFlowController flow) async {
     if (_busy) return;
     setState(() => _busy = true);
     setState(() => _authError = null);
     try {
+      // Request Apple Sign-In
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      // Create OAuth credential
+      final oauthCredential = OAuthProvider("apple.com").credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+
+      // Sign in to Firebase
+      await FirebaseAuth.instance.signInWithCredential(oauthCredential);
+
+      // Navigate to onboarding
       flow.startOnboarding();
-    } catch (_) {
+    } catch (e) {
       setState(() {
-        _authError = 'Sign-in failed. Please try again.';
+        _authError = 'Apple Sign-In failed. Please try again.';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle(AppFlowController flow) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    setState(() => _authError = null);
+    try {
+      // TODO: Implement Google Sign-In once package API is confirmed
+      // For now, just proceed to onboarding for testing
+      await Future.delayed(const Duration(milliseconds: 500));
+      flow.startOnboarding();
+    } catch (e) {
+      setState(() {
+        _authError = 'Google Sign-In failed. Please try again.';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _signInWithEmail(AppFlowController flow) async {
+    if (_busy) return;
+
+    // Show email/password dialog
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => _EmailSignInDialog(),
+    );
+
+    if (result == null) return; // User canceled
+
+    setState(() => _busy = true);
+    setState(() => _authError = null);
+    try {
+      final email = result['email']!;
+      final password = result['password']!;
+      final isSignUp = result['mode'] == 'signup';
+
+      if (isSignUp) {
+        // Create new account
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      } else {
+        // Sign in with existing account
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      }
+
+      // Navigate to onboarding
+      flow.startOnboarding();
+    } catch (e) {
+      setState(() {
+        _authError = e.toString().contains('email-already-in-use')
+            ? 'Email already in use. Try signing in instead.'
+            : e.toString().contains('user-not-found')
+            ? 'No account found. Try signing up instead.'
+            : e.toString().contains('wrong-password')
+            ? 'Incorrect password. Please try again.'
+            : 'Email Sign-In failed. Please try again.';
       });
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1242,7 +1329,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
                       gradient: FreezmeGradients.primary,
                       foreground: Colors.white,
                       enabled: !_busy,
-                      onTap: () => _start(flow),
+                      onTap: () => _signInWithApple(flow),
                     ),
                     const SizedBox(height: FreezmeInsets.elementSpacing),
                     _AuthButton(
@@ -1255,7 +1342,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
                         width: 2,
                       ),
                       enabled: !_busy,
-                      onTap: () => _start(flow),
+                      onTap: () => _signInWithGoogle(flow),
                     ),
                     const SizedBox(height: FreezmeInsets.elementSpacing),
                     _AuthButton(
@@ -1264,7 +1351,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
                       gradient: FreezmeGradients.primary,
                       foreground: Colors.white,
                       enabled: !_busy,
-                      onTap: () => _start(flow),
+                      onTap: () => _signInWithEmail(flow),
                     ),
                     const SizedBox(height: FreezmeInsets.sectionSpacing),
                     if (_authError != null) ...[
@@ -1393,6 +1480,99 @@ class _TermsRow extends StatelessWidget {
         ],
       ),
       textAlign: TextAlign.center,
+    );
+  }
+}
+
+class _EmailSignInDialog extends StatefulWidget {
+  const _EmailSignInDialog();
+
+  @override
+  State<_EmailSignInDialog> createState() => _EmailSignInDialogState();
+}
+
+class _EmailSignInDialogState extends State<_EmailSignInDialog> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isSignUp = false;
+  bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(_isSignUp ? 'Sign Up' : 'Sign In'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _passwordController,
+              decoration: InputDecoration(
+                labelText: 'Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+              obscureText: _obscurePassword,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => setState(() => _isSignUp = !_isSignUp),
+                  child: Text(
+                    _isSignUp
+                        ? 'Already have an account? Sign in'
+                        : 'Don\'t have an account? Sign up',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final email = _emailController.text.trim();
+            final password = _passwordController.text;
+            if (email.isEmpty || password.isEmpty) {
+              return;
+            }
+            Navigator.of(context).pop({
+              'email': email,
+              'password': password,
+              'mode': _isSignUp ? 'signup' : 'signin',
+            });
+          },
+          child: Text(_isSignUp ? 'Sign Up' : 'Sign In'),
+        ),
+      ],
     );
   }
 }
