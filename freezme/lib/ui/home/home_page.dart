@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../data/freezme_repository.dart';
 import '../../main.dart';
-import '../../models/vibe_profile.dart';
+import '../../models/vibe_profile.dart' as models;
 import '../theme.dart';
 
 class HomePage extends StatefulWidget {
@@ -14,7 +14,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
-  List<VibeProfile> _tonightPool = [];
+  List<models.VibeProfile> _tonightPool = [];
   // TODO: Add Paths data model
 
   @override
@@ -247,7 +247,7 @@ class _LivePathCard extends StatelessWidget {
 }
 
 class _TonightProfileCard extends StatelessWidget {
-  final VibeProfile profile;
+  final models.VibeProfile profile;
 
   const _TonightProfileCard({required this.profile});
 

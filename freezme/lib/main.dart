@@ -10,7 +10,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,9 +25,7 @@ import 'services/photo_upload_service.dart';
 import 'ui/theme.dart';
 import 'ui/chat/chat_list_page.dart';
 import 'ui/chat/chat_screen_page.dart';
-import 'ui/feed/feed_page.dart';
 import 'ui/feed/create_post_page.dart';
-import 'ui/home/home_page.dart';
 import 'ui/home/home_page.dart';
 import 'ui/profile/profile_completion_page.dart';
 import 'services/offline_queue_service.dart';
@@ -775,7 +772,6 @@ class _FreezmeAppState extends State<FreezmeApp> {
         debugShowCheckedModeBanner: false,
         theme: FreezmeTheme.build(),
         localizationsDelegates: const [
-          AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
