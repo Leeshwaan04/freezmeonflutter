@@ -403,6 +403,26 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.dailyPool]);
   }
 
+  bool get isSignedIn => FirebaseAuth.instance.currentUser != null;
+
+  int get currentTabIndex {
+    switch (current) {
+      case AppStage.dailyPool:
+        return 0;
+      case AppStage.chatList:
+      case AppStage.chat:
+        return 1;
+      case AppStage.feed:
+        return 2;
+      case AppStage.paths:
+        return 3;
+      case AppStage.blinds:
+        return 4;
+      default:
+        return 0;
+    }
+  }
+
   void openChatList() {
     replaceStack(<AppStage>[AppStage.chatList]);
   }
@@ -439,6 +459,30 @@ class AppFlowController extends ChangeNotifier {
 
   void openChats() {
     replaceStack(<AppStage>[AppStage.chatList]);
+  }
+
+  void openTab(int index) {
+    if (!isSignedIn) {
+      replaceStack(<AppStage>[AppStage.authGate]);
+      return;
+    }
+    switch (index) {
+      case 0:
+        openHome();
+        break;
+      case 1:
+        openChats();
+        break;
+      case 2:
+        openFeed();
+        break;
+      case 3:
+        openPaths();
+        break;
+      case 4:
+        openBlinds();
+        break;
+    }
   }
 
   Future<void> signOut() async {
@@ -1672,32 +1716,32 @@ class _BottomNavBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _BottomNavItem(
-              icon: Icons.chat_bubble_outline,
-              label: 'Chats',
+              icon: Icons.explore_outlined,
+              label: 'Tonight',
               active: currentIndex == 0,
               onTap: () => onTap(0),
             ),
             _BottomNavItem(
-              icon: Icons.favorite_border,
-              label: 'Feed',
+              icon: Icons.chat_bubble_outline,
+              label: 'Chats',
               active: currentIndex == 1,
               onTap: () => onTap(1),
             ),
             _BottomNavItem(
-              icon: Icons.route_outlined,
-              label: 'Paths',
+              icon: Icons.favorite_border,
+              label: 'Feed',
               active: currentIndex == 2,
               onTap: () => onTap(2),
             ),
             _BottomNavItem(
-              icon: Icons.bolt_outlined,
-              label: 'Blinds',
+              icon: Icons.route_outlined,
+              label: 'Paths',
               active: currentIndex == 3,
               onTap: () => onTap(3),
             ),
             _BottomNavItem(
-              icon: Icons.person_outline,
-              label: 'Profile',
+              icon: Icons.bolt_outlined,
+              label: 'Blinds',
               active: currentIndex == 4,
               onTap: () => onTap(4),
             ),
@@ -2602,26 +2646,8 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
         if (flow.dailyProfiles.isEmpty) {
           return Scaffold(
             bottomNavigationBar: _BottomNavBar(
-              currentIndex: 1,
-              onTap: (index) {
-                switch (index) {
-                  case 0:
-                    flow.openChatList();
-                    break;
-                  case 1:
-                    flow.openFeed();
-                    break;
-                  case 2:
-                    flow.openPaths();
-                    break;
-                  case 3:
-                    flow.openBlinds();
-                    break;
-                  case 4:
-                    flow.openProfileSettings();
-                    break;
-                }
-              },
+              currentIndex: 0,
+              onTap: flow.openTab,
             ),
             body: Container(
               decoration: const BoxDecoration(
@@ -2676,26 +2702,8 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
 
         return Scaffold(
           bottomNavigationBar: _BottomNavBar(
-            currentIndex: 1,
-            onTap: (index) {
-              switch (index) {
-                case 0:
-                  flow.openChatList();
-                  break;
-                case 1:
-                  flow.openFeed();
-                  break;
-                case 2:
-                  flow.openPaths();
-                  break;
-                case 3:
-                  flow.openBlinds();
-                  break;
-                case 4:
-                  flow.openProfileSettings();
-                  break;
-              }
-            },
+            currentIndex: 0,
+            onTap: flow.openTab,
           ),
           body: Container(
             decoration: const BoxDecoration(
@@ -3000,6 +3008,30 @@ class MatchSuccessPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context);
+    final loading = flow.pathsLoading;
+    final error = flow.pathsError;
+    final nearby = flow.nearbyPaths;
+
+    if (loading && nearby.isEmpty) {
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: FreezmeGradients.backgroundSoft,
+          ),
+          child: const SafeArea(
+            child: Center(
+              child: CircularProgressIndicator(
+                color: FreezmeColors.primary,
+              ),
+            ),
+          ),
+        ),
+        bottomNavigationBar: _BottomNavBar(
+          currentIndex: 3,
+          onTap: flow.openTab,
+        ),
+      );
+    }
     final profile = flow.activeProfile;
     return Scaffold(
       body: Container(
@@ -5445,6 +5477,7 @@ class _PathsPageState extends State<PathsPage> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
+                key: const PageStorageKey('pathsScroll'),
                 padding: const EdgeInsets.all(16),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
@@ -5739,25 +5772,8 @@ class _PathsPageState extends State<PathsPage> {
         ),
       ),
       bottomNavigationBar: _BottomNavBar(
-        currentIndex: 2,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              flow.openChatList();
-              break;
-            case 1:
-              flow.openFeed();
-              break;
-            case 2:
-              break;
-            case 3:
-              flow.openBlinds();
-              break;
-            case 4:
-              flow.openProfileSettings();
-              break;
-          }
-        },
+        currentIndex: 3,
+        onTap: flow.openTab,
       ),
     );
   }
@@ -6103,25 +6119,8 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
         ),
       ),
       bottomNavigationBar: _BottomNavBar(
-        currentIndex: 3,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              flow.openChatList();
-              break;
-            case 1:
-              flow.openFeed();
-              break;
-            case 2:
-              flow.openPaths();
-              break;
-            case 3:
-              break;
-            case 4:
-              flow.openProfileSettings();
-              break;
-          }
-        },
+        currentIndex: 4,
+        onTap: flow.openTab,
       ),
     );
   }
