@@ -1,0 +1,26 @@
+{
+  "appTitle": "Freezme",
+  "pulseDashboardTitle": "Ce soir à {city}",
+  "@pulseDashboardTitle": {
+    "description": "Titre de l'écran d'accueil du Tableau de bord Pulse",
+    "placeholders": {
+      "city": {
+        "type": "String"
+      }
+    }
+  },
+  "livePaths": "Chemins en direct",
+  "tonightPool": "Groupe de ce soir",
+  "trendingVibes": "Vibes tendance",
+  "onboardingWelcome": "Bienvenue sur Freezme",
+  "onboardingStep1Title": "Connexions spontanées",
+  "onboardingStep1Desc": "Trouvez des personnes qui sont libres ce soir, pas seulement un jour.",
+  "onboardingStep2Title": "Vérification des vibes",
+  "onboardingStep2Desc": "Voyez qui correspond à votre énergie en ce moment.",
+  "profileCompletionTitle": "Complétez votre profil",
+  "saveAndContinue": "Enregistrer et continuer",
+  "nameLabel": "Nom",
+  "ageLabel": "Âge",
+  "bioLabel": "Biographie",
+  "distanceLabel": "Distance préférée"
+}
