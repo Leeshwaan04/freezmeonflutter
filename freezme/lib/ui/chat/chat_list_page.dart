@@ -200,6 +200,13 @@ class _ChatListPageState extends State<ChatListPage> {
             children: [
               _buildNavItem(
                 context,
+                icon: Icons.explore_outlined,
+                label: 'Tonight',
+                active: false,
+                onTap: () => flow.openHome(),
+              ),
+              _buildNavItem(
+                context,
                 icon: Icons.chat_bubble_outline,
                 label: 'Chats',
                 active: true,
@@ -225,13 +232,6 @@ class _ChatListPageState extends State<ChatListPage> {
                 label: 'Blinds',
                 active: false,
                 onTap: () => flow.openBlinds(),
-              ),
-              _buildNavItem(
-                context,
-                icon: Icons.person_outline,
-                label: 'Profile',
-                active: false,
-                onTap: () => flow.openProfileSettings(),
               ),
             ],
           ),

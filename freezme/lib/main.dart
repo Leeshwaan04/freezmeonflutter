@@ -431,6 +431,14 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.blinds]);
   }
 
+  void openHome() {
+    replaceStack(<AppStage>[AppStage.dailyPool]);
+  }
+
+  void openChats() {
+    replaceStack(<AppStage>[AppStage.chatList]);
+  }
+
   Future<void> signOut() async {
     activeProfile = null;
     activeChatId = null;
