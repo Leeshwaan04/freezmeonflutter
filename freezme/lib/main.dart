@@ -9,6 +9,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,6 +28,9 @@ import 'ui/chat/chat_list_page.dart';
 import 'ui/chat/chat_screen_page.dart';
 import 'ui/feed/feed_page.dart';
 import 'ui/feed/create_post_page.dart';
+import 'ui/home/home_page.dart';
+import 'ui/home/home_page.dart';
+import 'ui/profile/profile_completion_page.dart';
 import 'services/offline_queue_service.dart';
 
 Future<void> main() async {
@@ -38,6 +43,7 @@ enum AppStage {
   splash,
   authGate,
   onboarding,
+  profileCompletion, // NEW: Profile completion after onboarding
   dailyPool,
   chatList,
   feed,
@@ -531,6 +537,11 @@ class AppFlowController extends ChangeNotifier {
         if (profile.photoUrls.isNotEmpty) {
           profilePhotoUrl = profile.photoUrls.first;
         }
+        hasBio = profile.bio.trim().isNotEmpty;
+        // Heuristic until prefs are modeled: mark preferences set if we have age
+        // and a non-empty distance string.
+        hasPreferences =
+            (profile.age > 0) && profile.distance.trim().isNotEmpty;
       }
       notifyListeners();
     } catch (_) {
@@ -763,6 +774,15 @@ class _FreezmeAppState extends State<FreezmeApp> {
         title: 'Freezme',
         debugShowCheckedModeBanner: false,
         theme: FreezmeTheme.build(),
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('en'), // English
+        ],
         home: const FlowNavigator(),
       ),
     );
@@ -809,12 +829,14 @@ class FlowNavigator extends StatelessWidget {
         return const AuthGatePage();
       case AppStage.onboarding:
         return const OnboardingFlowPage();
+      case AppStage.profileCompletion:
+        return const ProfileCompletionPage();
       case AppStage.dailyPool:
         return const DailyVibePoolPage();
       case AppStage.chatList:
         return const ChatListPage();
       case AppStage.feed:
-        return const FeedPage();
+        return const HomePage(); // Replaced FeedPage with Pulse Dashboard
       case AppStage.createPost:
         return const CreatePostPage();
       case AppStage.paths:

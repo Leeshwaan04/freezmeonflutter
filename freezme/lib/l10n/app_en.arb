@@ -1,0 +1,26 @@
+{
+  "appTitle": "Freezme",
+  "pulseDashboardTitle": "Tonight In {city}",
+  "@pulseDashboardTitle": {
+    "description": "Title for the Pulse Dashboard home screen",
+    "placeholders": {
+      "city": {
+        "type": "String"
+      }
+    }
+  },
+  "livePaths": "Live Paths",
+  "tonightPool": "Tonight's Pool",
+  "trendingVibes": "Trending Vibes",
+  "onboardingWelcome": "Welcome to Freezme",
+  "onboardingStep1Title": "Spontaneous Connections",
+  "onboardingStep1Desc": "Find people who are free tonight, not just someday.",
+  "onboardingStep2Title": "Vibe Check",
+  "onboardingStep2Desc": "See who matches your energy right now.",
+  "profileCompletionTitle": "Complete Your Profile",
+  "saveAndContinue": "Save & Continue",
+  "nameLabel": "Name",
+  "ageLabel": "Age",
+  "bioLabel": "Bio",
+  "distanceLabel": "Preferred distance"
+}

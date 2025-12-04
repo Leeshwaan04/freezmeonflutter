@@ -12,6 +12,30 @@ class MockFreezmeRepository implements FreezmeRepository {
   Future<List<VibeProfile>> fetchDailyProfiles() async => _profiles;
 
   @override
+  Future<List<VibeProfile>> fetchTonightPool({
+    required double lat,
+    required double lng,
+    required String timezone,
+  }) async {
+    // Simulate network delay
+    await Future.delayed(const Duration(milliseconds: 800));
+    // Return all profiles for now (simulating they are active tonight)
+    return _profiles;
+  }
+
+  @override
+  Future<void> updateUserPreferences({
+    required int ageMin,
+    required int ageMax,
+    required double distanceKm,
+    required String bio,
+  }) async {
+    // Mock implementation: do nothing or print
+    debugPrint('Mock: Updated preferences: age $ageMin-$ageMax, dist $distanceKm, bio $bio');
+  }
+
+
+  @override
   Future<void> createProfile(VibeProfile profile) async {}
 
   @override

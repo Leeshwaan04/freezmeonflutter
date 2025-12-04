@@ -63,6 +63,59 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
   }
 
   @override
+  Future<List<VibeProfile>> fetchTonightPool({
+    required double lat,
+    required double lng,
+    required String timezone,
+  }) async {
+    try {
+      final response = await _functions.httpsCallable('getTonightPool').call({
+        'lat': lat,
+        'lng': lng,
+        'timezone': timezone,
+      });
+
+      final data = response.data;
+      if (data is Map<String, dynamic>) {
+        final profiles = data['profiles'];
+        if (profiles is List) {
+          return _profileBuilder(
+            profiles.whereType<Map<String, dynamic>>().toList(),
+          );
+        }
+      }
+    } catch (_) {
+      // Fallback on error
+    }
+    return _fallback.fetchTonightPool(lat: lat, lng: lng, timezone: timezone);
+  }
+
+  @override
+  Future<void> updateUserPreferences({
+    required int ageMin,
+    required int ageMax,
+    required double distanceKm,
+    required String bio,
+  }) async {
+    try {
+      await _functions.httpsCallable('updateUserPreferences').call({
+        'ageMin': ageMin,
+        'ageMax': ageMax,
+        'distanceKm': distanceKm,
+        'bio': bio,
+      });
+    } catch (_) {
+      // Fallback
+      await _fallback.updateUserPreferences(
+        ageMin: ageMin,
+        ageMax: ageMax,
+        distanceKm: distanceKm,
+        bio: bio,
+      );
+    }
+  }
+
+  @override
   Future<void> createProfile(VibeProfile profile) async {
     try {
       await _functions

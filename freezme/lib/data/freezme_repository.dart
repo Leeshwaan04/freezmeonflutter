@@ -5,6 +5,21 @@ import '../models/blinds.dart';
 
 abstract class FreezmeRepository {
   Future<List<VibeProfile>> fetchDailyProfiles();
+
+  /// Fetches profiles for the "Tonight Algorithm" (Recency + Proximity).
+  Future<List<VibeProfile>> fetchTonightPool({
+    required double lat,
+    required double lng,
+    required String timezone,
+  });
+
+  Future<void> updateUserPreferences({
+    required int ageMin,
+    required int ageMax,
+    required double distanceKm,
+    required String bio,
+  });
+
   Future<void> createProfile(VibeProfile profile);
   Future<void> likeProfile(String targetUid);
   Future<void> skipProfile(String targetUid);
