@@ -882,11 +882,11 @@ class FlowNavigator extends StatelessWidget {
       case AppStage.profileCompletion:
         return const ProfileCompletionPage();
       case AppStage.dailyPool:
-        return const DailyVibePoolPage();
+        return const HomePage(); // Tonight dashboard
       case AppStage.chatList:
         return const ChatListPage();
       case AppStage.feed:
-        return const HomePage(); // Replaced FeedPage with Pulse Dashboard
+        return const DailyVibePoolPage(); // Feed placeholder / legacy pool
       case AppStage.createPost:
         return const CreatePostPage();
       case AppStage.paths:
@@ -2646,7 +2646,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
         if (flow.dailyProfiles.isEmpty) {
           return Scaffold(
             bottomNavigationBar: _BottomNavBar(
-              currentIndex: 0,
+              currentIndex: flow.currentTabIndex,
               onTap: flow.openTab,
             ),
             body: Container(
@@ -2702,7 +2702,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
 
         return Scaffold(
           bottomNavigationBar: _BottomNavBar(
-            currentIndex: 0,
+            currentIndex: flow.currentTabIndex,
             onTap: flow.openTab,
           ),
           body: Container(

@@ -5,6 +5,8 @@ import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
 import '../theme.dart';
 
+const bool kLowMotion = false;
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -37,40 +39,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildNavItem(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    final color = active ? FreezmeColors.primary : FreezmeColors.muted;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: true);
@@ -79,58 +47,9 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: FreezmeColors.background,
       bottomNavigationBar: SafeArea(
         top: false,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 12,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildNavItem(
-                context,
-                icon: Icons.explore_outlined,
-                label: 'Tonight',
-                active: true,
-                onTap: () {},
-              ),
-              _buildNavItem(
-                context,
-                icon: Icons.chat_bubble_outline,
-                label: 'Chats',
-                active: false,
-                onTap: () => flow.openChats(),
-              ),
-              _buildNavItem(
-                context,
-                icon: Icons.favorite_border,
-                label: 'Feed',
-                active: false,
-                onTap: () => flow.openFeed(),
-              ),
-              _buildNavItem(
-                context,
-                icon: Icons.route_outlined,
-                label: 'Paths',
-                active: false,
-                onTap: () => flow.openPaths(),
-              ),
-              _buildNavItem(
-                context,
-                icon: Icons.bolt_outlined,
-                label: 'Blinds',
-                active: false,
-                onTap: () => flow.openBlinds(),
-              ),
-            ],
-          ),
+        child: _BottomNavBar(
+          currentIndex: flow.currentTabIndex,
+          onTap: flow.openTab,
         ),
       ),
       body: SafeArea(
@@ -139,6 +58,7 @@ class _HomePageState extends State<HomePage> {
             : RefreshIndicator(
                 onRefresh: _loadData,
                 child: CustomScrollView(
+                  key: const PageStorageKey('homeScroll'),
                   slivers: [
                     _buildHeader(),
                     _buildLivePathsSection(),
@@ -244,6 +164,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTonightPoolSection() {
+    if (_tonightPool.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text("TONIGHT'S POOL", style: FreezmeTypography.title),
+              SizedBox(height: 8),
+              _EmptyState(),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
@@ -350,13 +286,15 @@ class _TonightProfileCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: kLowMotion
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Row(
         children: [
@@ -367,6 +305,20 @@ class _TonightProfileCard extends StatelessWidget {
               width: 100,
               height: 100,
               fit: BoxFit.cover,
+              memCacheWidth: 200,
+              memCacheHeight: 200,
+              placeholder: (context, _) => Container(
+                width: 100,
+                height: 100,
+                color: FreezmeColors.surfaceAlt,
+                child: const Icon(Icons.person, color: FreezmeColors.primary),
+              ),
+              errorWidget: (context, _, __) => Container(
+                width: 100,
+                height: 100,
+                color: FreezmeColors.surfaceAlt,
+                child: const Icon(Icons.person, color: FreezmeColors.primary),
+              ),
             ),
           ),
           Expanded(
