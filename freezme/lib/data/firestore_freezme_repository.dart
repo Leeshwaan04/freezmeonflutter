@@ -1038,4 +1038,59 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
       rethrow;
     }
   }
+
+  @override
+  Future<List<VibeProfile>> fetchTonightPool({
+    required double lat,
+    required double lng,
+    required String timezone,
+  }) async {
+    try {
+      // Query profiles active in the last 3 hours
+      final threeHoursAgo = DateTime.now().subtract(const Duration(hours: 3));
+      
+      final snapshot = await _firestore
+          .collection('profiles')
+          .where('lastActive', isGreaterThan: threeHoursAgo.toIso8601String())
+          .limit(50)
+          .get();
+
+      final docs = snapshot.docs
+          .map((doc) => VibeProfile.fromJson(doc.data(), documentId: doc.id))
+          .toList();
+
+      if (docs.isNotEmpty) {
+        return docs;
+      }
+    } catch (_) {
+      // fall through
+    }
+    
+    final fallback = _fallback;
+    if (fallback != null) {
+      return fallback.fetchTonightPool(lat: lat, lng: lng, timezone: timezone);
+    }
+    return const [];
+  }
+
+  @override
+  Future<void> updateUserPreferences({
+    required int ageMin,
+    required int ageMax,
+    required double distanceKm,
+    required String bio,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await _firestore.collection('users').doc(user.uid).set({
+      'preferences': {
+        'ageMin': ageMin,
+        'ageMax': ageMax,
+        'distanceKm': distanceKm,
+      },
+      'bio': bio,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 }
