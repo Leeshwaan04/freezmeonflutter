@@ -13,40 +13,40 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String pulseDashboardTitle(String city) {
-    return 'Esta noche en $city';
+    return 'Esta Noche En $city';
   }
 
   @override
-  String get livePaths => 'Rutas en vivo';
+  String get livePaths => 'Rutas Activas';
 
   @override
-  String get tonightPool => 'Grupo de esta noche';
+  String get tonightPool => 'Pool de Esta Noche';
 
   @override
-  String get trendingVibes => 'Vibras tendencia';
+  String get trendingVibes => 'Vibes Tendencia';
 
   @override
   String get onboardingWelcome => 'Bienvenido a Freezme';
 
   @override
-  String get onboardingStep1Title => 'Conexiones espontáneas';
+  String get onboardingStep1Title => 'Conexiones Espontáneas';
 
   @override
   String get onboardingStep1Desc =>
-      'Encuentra personas que están libres esta noche, no solo algún día.';
+      'Encuentra personas libres esta noche, no algún día.';
 
   @override
-  String get onboardingStep2Title => 'Verificación de vibras';
+  String get onboardingStep2Title => 'Vibe Check';
 
   @override
   String get onboardingStep2Desc =>
       'Mira quién coincide con tu energía ahora mismo.';
 
   @override
-  String get profileCompletionTitle => 'Completa tu perfil';
+  String get profileCompletionTitle => 'Completa Tu Perfil';
 
   @override
-  String get saveAndContinue => 'Guardar y continuar';
+  String get saveAndContinue => 'Guardar y Continuar';
 
   @override
   String get nameLabel => 'Nombre';
@@ -55,7 +55,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get ageLabel => 'Edad';
 
   @override
-  String get bioLabel => 'Biografía';
+  String get bioLabel => 'Bio';
 
   @override
   String get distanceLabel => 'Distancia preferida';

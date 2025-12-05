@@ -2,25 +2,25 @@
   "appTitle": "Freezme",
   "pulseDashboardTitle": "الليلة في {city}",
   "@pulseDashboardTitle": {
-    "description": "عنوان الشاشة الرئيسية للوحة النبض",
+    "description": "Title for the Pulse Dashboard home screen",
     "placeholders": {
       "city": {
         "type": "String"
       }
     }
   },
-  "livePaths": "مسارات مباشرة",
+  "livePaths": "المسارات النشطة",
   "tonightPool": "مجموعة الليلة",
   "trendingVibes": "الأجواء الرائجة",
   "onboardingWelcome": "مرحباً بك في Freezme",
   "onboardingStep1Title": "اتصالات عفوية",
   "onboardingStep1Desc": "ابحث عن أشخاص متاحين الليلة، وليس يوماً ما.",
   "onboardingStep2Title": "فحص الأجواء",
-  "onboardingStep2Desc": "اطلع على من يتناسب مع طاقتك الآن.",
+  "onboardingStep2Desc": "شاهد من يتوافق مع طاقتك الآن.",
   "profileCompletionTitle": "أكمل ملفك الشخصي",
   "saveAndContinue": "حفظ ومتابعة",
   "nameLabel": "الاسم",
   "ageLabel": "العمر",
-  "bioLabel": "السيرة الذاتية",
+  "bioLabel": "نبذة",
   "distanceLabel": "المسافة المفضلة"
 }

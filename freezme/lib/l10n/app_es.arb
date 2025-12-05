@@ -1,26 +1,26 @@
 {
   "appTitle": "Freezme",
-  "pulseDashboardTitle": "Esta noche en {city}",
+  "pulseDashboardTitle": "Esta Noche En {city}",
   "@pulseDashboardTitle": {
-    "description": "Título para la pantalla principal del Panel de Pulso",
+    "description": "Title for the Pulse Dashboard home screen",
     "placeholders": {
       "city": {
         "type": "String"
       }
     }
   },
-  "livePaths": "Rutas en vivo",
-  "tonightPool": "Grupo de esta noche",
-  "trendingVibes": "Vibras tendencia",
+  "livePaths": "Rutas Activas",
+  "tonightPool": "Pool de Esta Noche",
+  "trendingVibes": "Vibes Tendencia",
   "onboardingWelcome": "Bienvenido a Freezme",
-  "onboardingStep1Title": "Conexiones espontáneas",
-  "onboardingStep1Desc": "Encuentra personas que están libres esta noche, no solo algún día.",
-  "onboardingStep2Title": "Verificación de vibras",
+  "onboardingStep1Title": "Conexiones Espontáneas",
+  "onboardingStep1Desc": "Encuentra personas libres esta noche, no algún día.",
+  "onboardingStep2Title": "Vibe Check",
   "onboardingStep2Desc": "Mira quién coincide con tu energía ahora mismo.",
-  "profileCompletionTitle": "Completa tu perfil",
-  "saveAndContinue": "Guardar y continuar",
+  "profileCompletionTitle": "Completa Tu Perfil",
+  "saveAndContinue": "Guardar y Continuar",
   "nameLabel": "Nombre",
   "ageLabel": "Edad",
-  "bioLabel": "Biografía",
+  "bioLabel": "Bio",
   "distanceLabel": "Distancia preferida"
 }

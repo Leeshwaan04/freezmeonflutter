@@ -101,6 +101,11 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.authorUid == request.auth.uid;
     }
 
+    // Users (Preferences & Private Data)
+    match /users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
 
     // Default deny
     match /{document=**} {

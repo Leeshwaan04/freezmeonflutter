@@ -17,7 +17,7 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get livePaths => 'مسارات مباشرة';
+  String get livePaths => 'المسارات النشطة';
 
   @override
   String get tonightPool => 'مجموعة الليلة';
@@ -39,7 +39,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get onboardingStep2Title => 'فحص الأجواء';
 
   @override
-  String get onboardingStep2Desc => 'اطلع على من يتناسب مع طاقتك الآن.';
+  String get onboardingStep2Desc => 'شاهد من يتوافق مع طاقتك الآن.';
 
   @override
   String get profileCompletionTitle => 'أكمل ملفك الشخصي';
@@ -54,7 +54,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get ageLabel => 'العمر';
 
   @override
-  String get bioLabel => 'السيرة الذاتية';
+  String get bioLabel => 'نبذة';
 
   @override
   String get distanceLabel => 'المسافة المفضلة';
