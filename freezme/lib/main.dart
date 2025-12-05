@@ -466,6 +466,7 @@ class AppFlowController extends ChangeNotifier {
       replaceStack(<AppStage>[AppStage.authGate]);
       return;
     }
+    if (isSendingAction) return; // debounce cross-tab while actions in flight
     switch (index) {
       case 0:
         openHome();

@@ -110,6 +110,7 @@ class _ChatListPageState extends State<ChatListPage> {
   String _query = '';
   bool _showUnreadOnly = false;
   List<Conversation> _conversations = [];
+  bool _tabLocked = false;
 
   @override
   void dispose() {
@@ -142,6 +143,154 @@ class _ChatListPageState extends State<ChatListPage> {
     }
   }
 
+class _ChatBottomNavBar extends StatelessWidget {
+  const _ChatBottomNavBar({
+    required this.currentIndex,
+    required this.onTap,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _NavItem(
+            icon: Icons.explore_outlined,
+            label: 'Tonight',
+            active: currentIndex == 0,
+            onTap: () => onTap(0),
+          ),
+          _NavItem(
+            icon: Icons.chat_bubble_outline,
+            label: 'Chats',
+            active: currentIndex == 1,
+            onTap: () => onTap(1),
+          ),
+          _NavItem(
+            icon: Icons.favorite_border,
+            label: 'Feed',
+            active: currentIndex == 2,
+            onTap: () => onTap(2),
+          ),
+          _NavItem(
+            icon: Icons.route_outlined,
+            label: 'Paths',
+            active: currentIndex == 3,
+            onTap: () => onTap(3),
+          ),
+          _NavItem(
+            icon: Icons.bolt_outlined,
+            label: 'Blinds',
+            active: currentIndex == 4,
+            onTap: () => onTap(4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? FreezmeColors.primary : FreezmeColors.muted;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? FreezmeColors.primary : FreezmeColors.muted;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: true);
@@ -149,9 +298,16 @@ class _ChatListPageState extends State<ChatListPage> {
     return Scaffold(
       bottomNavigationBar: SafeArea(
         top: false,
-        child: _BottomNavBar(
+        child: _ChatBottomNavBar(
           currentIndex: flow.currentTabIndex,
-          onTap: flow.openTab,
+          onTap: (index) {
+            if (_tabLocked) return;
+            setState(() => _tabLocked = true);
+            flow.openTab(index);
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (mounted) setState(() => _tabLocked = false);
+            });
+          },
         ),
       ),
       body: Container(
@@ -441,9 +597,9 @@ class _ChatListPageState extends State<ChatListPage> {
                                 borderRadius: BorderRadius.circular(16),
                                 onTap: () {
                                   setState(() {
-                                  convo.unread = 0;
-                                  convo.status = _MessageStatus.read;
-                                });
+                                    convo.unread = 0;
+                                    convo.status = _MessageStatus.read;
+                                  });
                                   flow.openChatDetail(
                                     VibeProfile(
                                       uid: convo.chatId,

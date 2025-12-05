@@ -47,7 +47,7 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: FreezmeColors.background,
       bottomNavigationBar: SafeArea(
         top: false,
-        child: _BottomNavBar(
+        child: _HomeBottomNavBar(
           currentIndex: flow.currentTabIndex,
           onTap: flow.openTab,
         ),
@@ -269,6 +269,151 @@ class _LivePathCard extends StatelessWidget {
             style: FreezmeTypography.caption.copyWith(fontSize: 10),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: FreezmeColors.border),
+        boxShadow: kLowMotion
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text(
+            'No vibes yet.',
+            style: TextStyle(
+              color: FreezmeColors.neutral,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Check back soon or explore Paths/Blinds.',
+            style: FreezmeTypography.bodyMuted,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeBottomNavBar extends StatelessWidget {
+  const _HomeBottomNavBar({required this.currentIndex, required this.onTap});
+
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _HomeNavItem(
+            icon: Icons.explore_outlined,
+            label: 'Tonight',
+            active: currentIndex == 0,
+            onTap: () => onTap(0),
+          ),
+          _HomeNavItem(
+            icon: Icons.chat_bubble_outline,
+            label: 'Chats',
+            active: currentIndex == 1,
+            onTap: () => onTap(1),
+          ),
+          _HomeNavItem(
+            icon: Icons.favorite_border,
+            label: 'Feed',
+            active: currentIndex == 2,
+            onTap: () => onTap(2),
+          ),
+          _HomeNavItem(
+            icon: Icons.route_outlined,
+            label: 'Paths',
+            active: currentIndex == 3,
+            onTap: () => onTap(3),
+          ),
+          _HomeNavItem(
+            icon: Icons.bolt_outlined,
+            label: 'Blinds',
+            active: currentIndex == 4,
+            onTap: () => onTap(4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeNavItem extends StatelessWidget {
+  const _HomeNavItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? FreezmeColors.primary : FreezmeColors.muted;
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
