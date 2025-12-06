@@ -17,7 +17,7 @@ class FeedPage extends StatefulWidget {
 
 class _FeedPageState extends State<FeedPage> {
   final _scrollController = ScrollController();
-  bool _isLoadingMore = false;
+  final bool _isLoadingMore = false;
 
   @override
   void initState() {

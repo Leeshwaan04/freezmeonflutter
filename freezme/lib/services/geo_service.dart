@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:geolocator/geolocator.dart';
 
 class GeoService {

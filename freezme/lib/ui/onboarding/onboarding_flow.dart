@@ -4,7 +4,7 @@ import 'package:freezme/ui/onboarding/onboarding_step1.dart';
 import 'package:freezme/ui/onboarding/onboarding_step2.dart';
 
 class OnboardingFlow extends StatefulWidget {
-  const OnboardingFlow({Key? key}) : super(key: key);
+  const OnboardingFlow({super.key});
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();

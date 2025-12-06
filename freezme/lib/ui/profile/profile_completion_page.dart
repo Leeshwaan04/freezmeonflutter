@@ -4,7 +4,7 @@ import 'package:freezme/models/vibe_profile.dart' as models;
 import 'package:freezme/services/photo_upload_service.dart';
 
 class ProfileCompletionPage extends StatefulWidget {
-  const ProfileCompletionPage({Key? key}) : super(key: key);
+  const ProfileCompletionPage({super.key});
 
   @override
   State<ProfileCompletionPage> createState() => _ProfileCompletionPageState();
