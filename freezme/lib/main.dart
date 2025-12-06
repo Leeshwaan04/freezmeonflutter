@@ -25,6 +25,8 @@ import 'services/melt_chat_service.dart';
 import 'services/photo_upload_service.dart';
 
 import 'ui/theme.dart';
+import 'ui/splash/splash_screen.dart';
+import 'ui/auth/auth_gate.dart';
 import 'ui/chat/chat_list_page.dart';
 import 'ui/chat/chat_screen_page.dart';
 import 'ui/feed/create_post_page.dart';
