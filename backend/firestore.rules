@@ -8,7 +8,15 @@ service cloud.firestore {
     // Profiles: users can read any, write only their own document.
     match /profiles/{uid} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && request.auth.uid == uid;
+      allow write: if isSignedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasAll(['name', 'age', 'bio'])
+        && (
+          // Allow writes without geo fields (for backward compatibility)
+          !request.resource.data.keys().hasAny(['lat', 'lng', 'geohash', 'timezone'])
+          // Or require all geo fields if any are present
+          || request.resource.data.keys().hasAll(['lat', 'lng', 'geohash', 'timezone', 'lastActive'])
+        );
     }
 
     // Likes/Skips: direct collections (not nested)
