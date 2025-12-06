@@ -52,7 +52,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
-      final GoogleSignIn googleSignIn = GoogleSignIn();
+      final googleSignIn = GoogleSignIn();
       final googleUser = await googleSignIn.signIn();
       
       if (googleUser == null) {
