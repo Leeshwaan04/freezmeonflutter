@@ -50,9 +50,18 @@ class _AuthGatePageState extends State<AuthGatePage> {
   }
 
   Future<void> _signInWithGoogle() async {
+    // Temporarily disabled - GoogleSignIn configuration needed
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Google Sign-in coming soon!')),
+    );
+    return;
+    
+    /* TODO: Configure GoogleSignIn properly
     setState(() => _isLoading = true);
     try {
-      final googleSignIn = GoogleSignIn();
+      final googleSignIn = GoogleSignIn(
+        scopes: ['email'],
+      );
       final googleUser = await googleSignIn.signIn();
       
       if (googleUser == null) {
@@ -82,6 +91,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
         setState(() => _isLoading = false);
       }
     }
+    */
   }
 
   Future<void> _signInWithEmail() async {

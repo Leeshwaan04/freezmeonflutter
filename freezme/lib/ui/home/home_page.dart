@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import '../../data/freezme_repository.dart';
 import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
+import '../../services/location_service.dart';
 import '../theme.dart';
 
 const bool kLowMotion = false;
@@ -26,16 +28,50 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadData() async {
-    // TODO: Fetch real data using Tonight Algorithm
-    // For now, we'll simulate a delay and use mock data
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
+    if (!mounted) return;
+
+    setState(() => _isLoading = true);
+
+    try {
       final flow = AppFlowScope.of(context, listen: false);
-      final profiles = await flow.repository.fetchDailyProfiles(); // Will be replaced by fetchTonightPool
-      setState(() {
-        _tonightPool = profiles;
-        _isLoading = false;
-      });
+
+      // Get user location
+      final locationService = LocationService();
+      final locationResult = await locationService.getCoarseLocation();
+
+      // Get device timezone
+      final timezone = await FlutterTimezone.getLocalTimezone();
+
+      // Fetch Tonight Pool with location and timezone
+      List<models.VibeProfile> profiles;
+      if (locationResult.denied || locationResult.lat == null || locationResult.lng == null) {
+        // Location denied or unavailable, fallback to basic fetch
+        profiles = await flow.repository.fetchDailyProfiles();
+      } else {
+        // Use enhanced Tonight Pool with geo + timezone
+        profiles = await flow.repository.fetchTonightPool(
+          lat: locationResult.lat!,
+          lng: locationResult.lng!,
+          timezone: timezone,
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _tonightPool = profiles;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Error loading data, use fallback
+      if (mounted) {
+        final flow = AppFlowScope.of(context, listen: false);
+        final profiles = await flow.repository.fetchDailyProfiles();
+        setState(() {
+          _tonightPool = profiles;
+          _isLoading = false;
+        });
+      }
     }
   }
 

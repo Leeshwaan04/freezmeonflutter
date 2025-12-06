@@ -1,12 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../models/vibe_profile.dart';
 import 'freezme_repository.dart';
 import '../models/chat_message.dart';
 import '../models/paths.dart';
 import '../models/blinds.dart';
+import '../services/geo_service.dart';
 
 /// Fetches data from Cloud Firestore.
 ///
@@ -1046,31 +1048,91 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
     required String timezone,
   }) async {
     try {
-      // Query profiles active in the last 3 hours
-      final threeHoursAgo = DateTime.now().subtract(const Duration(hours: 3));
-      
+      final geoService = GeoService();
+
+      // 1. Calculate geohash for user location (precision 5 for ~25km radius)
+      final geohash = geoService.encodeGeohash(lat, lng, precision: 5);
+      final geohashPrefix = geohash.substring(0, 4); // ~40km radius for broader search
+
+      // 2. Calculate timezone offset to determine local 6 PM
+      final now = DateTime.now();
+      tz.Location userTimezone;
+      try {
+        userTimezone = tz.getLocation(timezone);
+      } catch (_) {
+        // Fallback to UTC if timezone is invalid
+        userTimezone = tz.UTC;
+      }
+
+      final userNow = tz.TZDateTime.from(now, userTimezone);
+      final last6PM = tz.TZDateTime(userTimezone, userNow.year, userNow.month, userNow.day, 18);
+
+      // If current time is before 6 PM today, use yesterday's 6 PM
+      final cutoffTime = userNow.hour < 18 ? last6PM.subtract(const Duration(days: 1)) : last6PM;
+
+      // 3. Query Firestore with geo + time constraints
       final snapshot = await _firestore
           .collection('profiles')
-          .where('lastActive', isGreaterThan: threeHoursAgo.toIso8601String())
-          .limit(50)
+          .where('geohash', isGreaterThanOrEqualTo: geohashPrefix)
+          .where('geohash', isLessThan: '$geohashPrefix\uf8ff')
+          .where('lastActive', isGreaterThan: cutoffTime.toUtc().toIso8601String())
+          .orderBy('geohash')
+          .orderBy('lastActive', descending: true)
+          .limit(100)
           .get();
 
-      final docs = snapshot.docs
+      // 4. Filter by distance client-side (Firestore can't do geo + time in one query)
+      final profiles = snapshot.docs
           .map((doc) => VibeProfile.fromJson(doc.data(), documentId: doc.id))
+          .where((profile) {
+            // Check if profile has location data
+            if (profile.lat == null || profile.lng == null) return false;
+            final distance = geoService.distanceBetween(lat, lng, profile.lat!, profile.lng!);
+            return distance <= 50; // 50km radius
+          })
           .toList();
 
-      if (docs.isNotEmpty) {
-        return docs;
-      }
-    } catch (_) {
-      // fall through
+      // 5. Sort by recency + proximity (Tonight Algorithm)
+      profiles.sort((a, b) {
+        final aScore = _calculateTonightScore(a, lat, lng, userNow, geoService);
+        final bScore = _calculateTonightScore(b, lat, lng, userNow, geoService);
+        return bScore.compareTo(aScore);
+      });
+
+      return profiles.take(50).toList();
+    } catch (e) {
+      // fall through to fallback
     }
-    
+
     final fallback = _fallback;
     if (fallback != null) {
       return fallback.fetchTonightPool(lat: lat, lng: lng, timezone: timezone);
     }
     return const [];
+  }
+
+  /// Calculate Tonight score: 60% recency + 40% proximity
+  double _calculateTonightScore(
+    VibeProfile profile,
+    double userLat,
+    double userLng,
+    tz.TZDateTime now,
+    GeoService geoService,
+  ) {
+    // Recency score (0-100): Active in last hour = 100, 24 hours ago = 0
+    final lastActive = profile.lastActive ?? now.subtract(const Duration(days: 1));
+    final hoursSinceActive = now.difference(lastActive).inHours;
+    final recencyScore = (100 - (hoursSinceActive * 4)).clamp(0.0, 100.0);
+
+    // Proximity score (0-100): 0km = 100, 50km = 0
+    double proximityScore = 0;
+    if (profile.lat != null && profile.lng != null) {
+      final distance = geoService.distanceBetween(userLat, userLng, profile.lat!, profile.lng!);
+      proximityScore = (100 - (distance * 2)).clamp(0.0, 100.0);
+    }
+
+    // Weighted average: 60% recency, 40% proximity
+    return (recencyScore * 0.6) + (proximityScore * 0.4);
   }
 
   @override
