@@ -38,6 +38,9 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     // Assume repository has a method to update preferences; using createProfile for demo
     final repo = AppFlowScope.of(context).repository;
     await repo.createProfile(profile);
+    
+    if (!mounted) return; // Check if widget is still mounted
+    
     setState(() => _isSaving = false);
     // Complete onboarding and navigate to home (Pulse dashboard)
     await AppFlowScope.of(context).completeOnboarding();

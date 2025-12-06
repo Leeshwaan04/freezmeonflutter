@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
-import '../theme.dart';
 import '../auth/auth_gate.dart';
 
 class FreezmeSplashScreen extends StatefulWidget {
@@ -98,7 +96,7 @@ class _FreezmeSplashScreenState extends State<FreezmeSplashScreen>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 30,
                           spreadRadius: 5,
                         ),

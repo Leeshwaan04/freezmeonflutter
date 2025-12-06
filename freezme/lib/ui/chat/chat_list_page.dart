@@ -224,7 +224,7 @@ class _ChatListPageState extends State<ChatListPage> {
                               setState(() => _showUnreadOnly = false),
                           label: const Text('All'),
                           selectedColor:
-                              FreezmeColors.primary.withOpacity(0.15),
+                              FreezmeColors.primary.withValues(alpha: 0.15),
                           labelStyle: TextStyle(
                             color: !_showUnreadOnly
                                 ? FreezmeColors.primary
@@ -238,7 +238,7 @@ class _ChatListPageState extends State<ChatListPage> {
                               setState(() => _showUnreadOnly = true),
                           label: const Text('Unread'),
                           selectedColor:
-                              FreezmeColors.primary.withOpacity(0.15),
+                              FreezmeColors.primary.withValues(alpha: 0.15),
                           labelStyle: TextStyle(
                             color: _showUnreadOnly
                                 ? FreezmeColors.primary
@@ -431,8 +431,8 @@ class _ChatListPageState extends State<ChatListPage> {
                             child: Card(
                               elevation: convo.unread > 0 ? 4 : 2,
                               shadowColor: convo.unread > 0
-                                  ? FreezmeColors.primary.withOpacity(0.3)
-                                  : Colors.black.withOpacity(0.1),
+                                  ? FreezmeColors.primary.withValues(alpha: 0.3)
+                                  : Colors.black.withValues(alpha: 0.1),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                                 side: convo.isPinned
@@ -443,7 +443,7 @@ class _ChatListPageState extends State<ChatListPage> {
                                     : BorderSide.none,
                               ),
                               color: convo.isPinned
-                                  ? FreezmeColors.primary.withOpacity(0.05)
+                                  ? FreezmeColors.primary.withValues(alpha: 0.05)
                                   : Colors.white,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(16),
@@ -582,7 +582,7 @@ class _ChatListPageState extends State<ChatListPage> {
                                                   borderRadius: BorderRadius.circular(10),
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: FreezmeColors.error.withOpacity(0.4),
+                                                      color: FreezmeColors.error.withValues(alpha: 0.4),
                                                       blurRadius: 4,
                                                       offset: const Offset(0, 2),
                                                     ),
@@ -785,7 +785,7 @@ class _SkeletonChatCardState extends State<_SkeletonChatCard>
                       end: Alignment.centerRight,
                       colors: [
                         FreezmeColors.border,
-                        FreezmeColors.border.withOpacity(0.5),
+                        FreezmeColors.border.withValues(alpha: 0.5),
                         FreezmeColors.border,
                       ],
                       stops: [
@@ -812,7 +812,7 @@ class _SkeletonChatCardState extends State<_SkeletonChatCard>
                             end: Alignment.centerRight,
                             colors: [
                               FreezmeColors.border,
-                              FreezmeColors.border.withOpacity(0.5),
+                              FreezmeColors.border.withValues(alpha: 0.5),
                               FreezmeColors.border,
                             ],
                             stops: [
@@ -835,7 +835,7 @@ class _SkeletonChatCardState extends State<_SkeletonChatCard>
                             end: Alignment.centerRight,
                             colors: [
                               FreezmeColors.border,
-                              FreezmeColors.border.withOpacity(0.5),
+                              FreezmeColors.border.withValues(alpha: 0.5),
                               FreezmeColors.border,
                             ],
                             stops: [
@@ -865,7 +865,7 @@ class _SkeletonChatCardState extends State<_SkeletonChatCard>
                           end: Alignment.centerRight,
                           colors: [
                             FreezmeColors.border,
-                            FreezmeColors.border.withOpacity(0.5),
+                            FreezmeColors.border.withValues(alpha: 0.5),
                             FreezmeColors.border,
                           ],
                           stops: [
@@ -888,7 +888,7 @@ class _SkeletonChatCardState extends State<_SkeletonChatCard>
                           end: Alignment.centerRight,
                           colors: [
                             FreezmeColors.border,
-                            FreezmeColors.border.withOpacity(0.5),
+                            FreezmeColors.border.withValues(alpha: 0.5),
                             FreezmeColors.border,
                           ],
                           stops: [
@@ -926,7 +926,7 @@ class _ChatBottomNavBar extends StatelessWidget {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, -2),
           ),

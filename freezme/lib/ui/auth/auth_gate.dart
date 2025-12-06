@@ -196,7 +196,7 @@ class _FreezmeAuthGateState extends State<FreezmeAuthGate>
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFF6B6B).withOpacity(0.4),
+                            color: const Color(0xFFFF6B6B).withValues(alpha: 0.4),
                             blurRadius: 30,
                             spreadRadius: 5,
                           ),
@@ -255,8 +255,8 @@ class _FreezmeAuthGateState extends State<FreezmeAuthGate>
                             onTap: _signInWithGoogle,
                             gradient: LinearGradient(
                               colors: [
-                                Colors.white.withOpacity(0.1),
-                                Colors.white.withOpacity(0.05),
+                                Colors.white.withValues(alpha: 0.1),
+                                Colors.white.withValues(alpha: 0.05),
                               ],
                             ),
                             icon: Icons.g_mobiledata,
@@ -280,7 +280,7 @@ class _FreezmeAuthGateState extends State<FreezmeAuthGate>
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white.withOpacity(0.5),
+                        color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -298,9 +298,9 @@ class _FreezmeAuthGateState extends State<FreezmeAuthGate>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -339,7 +339,7 @@ class _FreezmeAuthGateState extends State<FreezmeAuthGate>
           border: borderColor != null ? Border.all(color: borderColor) : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),

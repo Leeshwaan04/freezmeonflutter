@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme.dart';
-import '../../main.dart';
 
 class PathInvitesPage extends StatelessWidget {
   const PathInvitesPage({super.key});
@@ -166,7 +165,7 @@ class _PathInviteCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: FreezmeColors.primary.withOpacity(0.1),
+                    color: FreezmeColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.route, color: FreezmeColors.primary),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'dart:math' as math;
 import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
 import '../theme.dart';
@@ -108,8 +107,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
                       colors: [
-                        FreezmeColors.primary.withOpacity(0.3),
-                        FreezmeColors.primary.withOpacity(0.1),
+                        FreezmeColors.primary.withValues(alpha: 0.3),
+                        FreezmeColors.primary.withValues(alpha: 0.1),
                       ],
                     ),
                   ),
@@ -152,15 +151,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   colors: [
-                    FreezmeColors.primary.withOpacity(0.1),
-                    FreezmeColors.primary.withOpacity(0.05),
+                    FreezmeColors.primary.withValues(alpha: 0.1),
+                    FreezmeColors.primary.withValues(alpha: 0.05),
                   ],
                 ),
               ),
               child: Icon(
                 Icons.nightlight_outlined,
                 size: 60,
-                color: FreezmeColors.primary.withOpacity(0.5),
+                color: FreezmeColors.primary.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 24),
@@ -214,7 +213,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: FreezmeColors.primary.withOpacity(0.3),
+                color: FreezmeColors.primary.withValues(alpha: 0.3),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -257,9 +256,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -282,7 +281,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -360,7 +359,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -474,7 +473,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: FreezmeColors.primary.withOpacity(0.1),
+                        color: FreezmeColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -514,7 +513,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -577,7 +576,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: FreezmeColors.primary.withOpacity(0.3),
+                    color: FreezmeColors.primary.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 4),
                   ),
@@ -628,13 +627,13 @@ class _EnhancedLivePathCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.primaries[index % Colors.primaries.length].withOpacity(0.1),
-            Colors.primaries[index % Colors.primaries.length].withOpacity(0.05),
+            Colors.primaries[index % Colors.primaries.length].withValues(alpha: 0.1),
+            Colors.primaries[index % Colors.primaries.length].withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.primaries[index % Colors.primaries.length].withOpacity(0.3),
+          color: Colors.primaries[index % Colors.primaries.length].withValues(alpha: 0.3),
           width: 2,
         ),
       ),
@@ -653,12 +652,12 @@ class _EnhancedLivePathCard extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         Colors.primaries[index % Colors.primaries.length],
-                        Colors.primaries[index % Colors.primaries.length].withOpacity(0.7),
+                        Colors.primaries[index % Colors.primaries.length].withValues(alpha: 0.7),
                       ],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.primaries[index % Colors.primaries.length].withOpacity(0.4),
+                        color: Colors.primaries[index % Colors.primaries.length].withValues(alpha: 0.4),
                         blurRadius: 12,
                         spreadRadius: 2,
                       ),
@@ -742,7 +741,7 @@ class _EnhancedProfileCardState extends State<_EnhancedProfileCard> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -812,7 +811,7 @@ class _EnhancedProfileCardState extends State<_EnhancedProfileCard> {
                       children: [
                         Icon(Icons.location_on, 
                           size: 14, 
-                          color: FreezmeColors.primary.withOpacity(0.7),
+                          color: FreezmeColors.primary.withValues(alpha: 0.7),
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -829,8 +828,8 @@ class _EnhancedProfileCardState extends State<_EnhancedProfileCard> {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                FreezmeColors.primary.withOpacity(0.1),
-                                FreezmeColors.primary.withOpacity(0.05),
+                                FreezmeColors.primary.withValues(alpha: 0.1),
+                                FreezmeColors.primary.withValues(alpha: 0.05),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(12),
@@ -869,8 +868,8 @@ class _EnhancedProfileCardState extends State<_EnhancedProfileCard> {
                   colors: _isLiked
                       ? [const Color(0xFFFF6B6B), const Color(0xFFFF8E53)]
                       : [
-                          FreezmeColors.primary.withOpacity(0.1),
-                          FreezmeColors.primary.withOpacity(0.05),
+                          FreezmeColors.primary.withValues(alpha: 0.1),
+                          FreezmeColors.primary.withValues(alpha: 0.05),
                         ],
                 ),
                 borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
