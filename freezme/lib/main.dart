@@ -7,12 +7,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'firebase_options.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -25,8 +25,6 @@ import 'services/melt_chat_service.dart';
 import 'services/photo_upload_service.dart';
 
 import 'ui/theme.dart';
-import 'ui/splash/splash_screen.dart';
-import 'ui/auth/auth_gate.dart';
 import 'ui/chat/chat_list_page.dart';
 import 'ui/chat/chat_screen_page.dart';
 import 'ui/feed/create_post_page.dart';
@@ -36,9 +34,7 @@ import 'services/offline_queue_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp();
   runApp(const FreezmeApp());
 }
 
@@ -470,6 +466,7 @@ class AppFlowController extends ChangeNotifier {
       replaceStack(<AppStage>[AppStage.authGate]);
       return;
     }
+    if (isSendingAction) return; // debounce cross-tab while actions in flight
     switch (index) {
       case 0:
         openHome();
@@ -878,19 +875,19 @@ class FlowNavigator extends StatelessWidget {
   Widget _buildStage(BuildContext context, AppStage stage) {
     switch (stage) {
       case AppStage.splash:
-        return const FreezmeSplashScreen();
+        return const SplashScreen();
       case AppStage.authGate:
-        return const FreezmeAuthGate();
+        return const AuthGatePage();
       case AppStage.onboarding:
         return const OnboardingFlowPage();
       case AppStage.profileCompletion:
         return const ProfileCompletionPage();
       case AppStage.dailyPool:
-        return const DailyVibePoolPage();
+        return const HomePage(); // Tonight dashboard
       case AppStage.chatList:
         return const ChatListPage();
       case AppStage.feed:
-        return const HomePage(); // Replaced FeedPage with Pulse Dashboard
+        return const DailyVibePoolPage(); // Feed placeholder / legacy pool
       case AppStage.createPost:
         return const CreatePostPage();
       case AppStage.paths:
@@ -2435,7 +2432,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         // ignore: deprecated_member_use
-        color: color.withValues(alpha: 0.12),
+        color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -2650,7 +2647,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
         if (flow.dailyProfiles.isEmpty) {
           return Scaffold(
             bottomNavigationBar: _BottomNavBar(
-              currentIndex: 0,
+              currentIndex: flow.currentTabIndex,
               onTap: flow.openTab,
             ),
             body: Container(
@@ -2706,7 +2703,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
 
         return Scaffold(
           bottomNavigationBar: _BottomNavBar(
-            currentIndex: 0,
+            currentIndex: flow.currentTabIndex,
             onTap: flow.openTab,
           ),
           body: Container(
