@@ -6,8 +6,7 @@ import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
 import '../../services/location_service.dart';
 import '../theme.dart';
-
-const bool kLowMotion = false;
+import '../shared/state_views.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,6 +17,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
+  bool _hasError = false;
   List<models.VibeProfile> _tonightPool = [];
   // TODO: Add Paths data model
 
@@ -30,7 +30,10 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadData() async {
     if (!mounted) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
 
     try {
       final flow = AppFlowScope.of(context, listen: false);
@@ -60,17 +63,27 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _tonightPool = profiles;
           _isLoading = false;
+          _hasError = false;
         });
       }
     } catch (e) {
       // Error loading data, use fallback
       if (mounted) {
-        final flow = AppFlowScope.of(context, listen: false);
-        final profiles = await flow.repository.fetchDailyProfiles();
-        setState(() {
-          _tonightPool = profiles;
-          _isLoading = false;
-        });
+        try {
+          final flow = AppFlowScope.of(context, listen: false);
+          final profiles = await flow.repository.fetchDailyProfiles();
+          setState(() {
+            _tonightPool = profiles;
+            _isLoading = false;
+            _hasError = true; // show error but keep fallback data
+          });
+        } catch (_) {
+          setState(() {
+            _tonightPool = [];
+            _isLoading = false;
+            _hasError = true;
+          });
+        }
       }
     }
   }
@@ -90,20 +103,25 @@ class _HomePageState extends State<HomePage> {
       ),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                onRefresh: _loadData,
-                child: CustomScrollView(
-                  key: const PageStorageKey('homeScroll'),
-                  slivers: [
-                    _buildHeader(),
-                    _buildLivePathsSection(),
-                    _buildTonightPoolSection(),
-                    _buildTrendingFeedSection(),
-                    const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
-                  ],
-                ),
-              ),
+            ? const LoadingView(message: 'Fetching tonight\'s pool...')
+            : _hasError && _tonightPool.isEmpty
+                ? ErrorView(
+                    message: 'Could not load tonight\'s pool.',
+                    onRetry: _loadData,
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadData,
+                    child: CustomScrollView(
+                      key: const PageStorageKey('homeScroll'),
+                      slivers: [
+                        _buildHeader(),
+                        _buildLivePathsSection(),
+                        _buildTonightPoolSection(),
+                        _buildTrendingFeedSection(),
+                        const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+                      ],
+                    ),
+                  ),
       ),
     );
   }
@@ -201,16 +219,12 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildTonightPoolSection() {
     if (_tonightPool.isEmpty) {
-      return SliverToBoxAdapter(
+      return const SliverToBoxAdapter(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text("TONIGHT'S POOL", style: FreezmeTypography.title),
-              SizedBox(height: 8),
-              _EmptyState(),
-            ],
+          padding: EdgeInsets.all(16.0),
+          child: EmptyView(
+            title: "No vibes yet",
+            subtitle: "Check back closer to 6 PM or adjust your radius.",
           ),
         ),
       );
@@ -303,49 +317,6 @@ class _LivePathCard extends StatelessWidget {
           Text(
             '2km away',
             style: FreezmeTypography.caption.copyWith(fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: FreezmeColors.border),
-        boxShadow: kLowMotion
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            'No vibes yet.',
-            style: TextStyle(
-              color: FreezmeColors.neutral,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'Check back soon or explore Paths/Blinds.',
-            style: FreezmeTypography.bodyMuted,
           ),
         ],
       ),
@@ -467,7 +438,7 @@ class _TonightProfileCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: kLowMotion
+        boxShadow: FreezmeColors.lowMotion
             ? null
             : [
                 BoxShadow(

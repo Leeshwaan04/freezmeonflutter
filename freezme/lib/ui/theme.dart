@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 class FreezmeColors {
   FreezmeColors._();
 
+  /// Global low-motion flag; set true to tone down heavy gradients/shadows.
+  static const bool lowMotion = false;
+
   static const Color primary = Color(0xFF6C4B9C);
   static const Color secondary = Color(0xFFC471ED);
   static const Color accent = Color(0xFFF64F59);

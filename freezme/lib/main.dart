@@ -27,6 +27,7 @@ import 'services/photo_upload_service.dart';
 import 'ui/theme.dart';
 import 'ui/splash/splash_screen.dart';
 import 'ui/auth/auth_gate.dart';
+import 'ui/onboarding/enhanced_onboarding.dart';
 import 'ui/chat/chat_list_page.dart';
 import 'ui/chat/chat_screen_page.dart';
 import 'ui/feed/create_post_page.dart';
@@ -882,7 +883,7 @@ class FlowNavigator extends StatelessWidget {
       case AppStage.authGate:
         return const AuthGatePage();
       case AppStage.onboarding:
-        return const OnboardingFlowPage();
+        return const EnhancedOnboardingFlow();
       case AppStage.profileCompletion:
         return const ProfileCompletionPage();
       case AppStage.dailyPool:

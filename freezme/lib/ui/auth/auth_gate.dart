@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../theme.dart';
 import '../../main.dart';
 
@@ -202,21 +203,31 @@ class _AuthGatePageState extends State<AuthGatePage>
 
   Future<void> _signInWithGoogle() async {
     _hapticFeedback();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.info_outline, color: Colors.white),
-            SizedBox(width: 12),
-            Text('Google Sign-in coming soon!'),
-          ],
-        ),
-        backgroundColor: FreezmeColors.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+    setState(() => _isLoading = true);
+    try {
+      final google = GoogleSignIn.instance;
+      await google.initialize();
+
+      final googleUser = await google.authenticate();
+      if (googleUser == null) return; // cancelled
+
+      final googleAuth = googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      if (mounted) {
+        await _showSuccessAndNavigate();
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Google Sign-in failed');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _signInWithPhone() async {

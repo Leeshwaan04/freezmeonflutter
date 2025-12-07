@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../ui/theme.dart';
+import '../shared/state_views.dart';
 
 
 enum _MessageStatus { pending, sent, delivered, read, failed }
@@ -111,6 +112,8 @@ class _ChatListPageState extends State<ChatListPage> {
   bool _showUnreadOnly = false;
   List<Conversation> _conversations = [];
   bool _tabLocked = false;
+  bool _initialLoading = true;
+  bool _streamError = false;
 
   @override
   void dispose() {

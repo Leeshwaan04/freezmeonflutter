@@ -5,6 +5,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../main.dart';
 import '../../models/feed_post.dart';
 import '../theme.dart';
+import '../shared/state_views.dart';
 import 'post_detail_page.dart';
 
 /// Main feed page displaying social posts
@@ -18,6 +19,7 @@ class FeedPage extends StatefulWidget {
 class _FeedPageState extends State<FeedPage> {
   final _scrollController = ScrollController();
   final bool _isLoadingMore = false;
+  final Set<String> _likeBusy = {};
 
   @override
   void initState() {
@@ -71,52 +73,26 @@ class _FeedPageState extends State<FeedPage> {
         stream: flow.repository.watchFeed(limit: 20),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingView(message: 'Loading feed...');
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: FreezmeColors.error),
-                  const SizedBox(height: 16),
-                  Text('Error loading feed: ${snapshot.error}'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => setState(() {}),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
+            return ErrorView(
+              message: 'Error loading feed',
+              onRetry: () => setState(() {}),
             );
           }
 
           final posts = snapshot.data ?? [];
 
           if (posts.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.photo_library_outlined, size: 80, color: FreezmeColors.textMuted),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No posts yet',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Be the first to share something!',
-                    style: TextStyle(color: FreezmeColors.textMuted),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () => flow.pushIfMissing(AppStage.createPost),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Create Post'),
-                  ),
-                ],
+            return EmptyView(
+              title: 'No posts yet',
+              subtitle: 'Be the first to share something!',
+              action: ElevatedButton.icon(
+                onPressed: () => flow.pushIfMissing(AppStage.createPost),
+                icon: const Icon(Icons.add),
+                label: const Text('Create Post'),
               ),
             );
           }
@@ -143,8 +119,10 @@ class _FeedPageState extends State<FeedPage> {
                   isLikedByMe: postData['isLikedByMe'] as bool? ?? false,
                 );
 
+                final likeBusy = _likeBusy.contains(post.id);
                 return PostCard(
                   post: post,
+                  likeBusy: likeBusy,
                   onLike: () => _toggleLike(post),
                   onComment: () => _openComments(post),
                   onDelete: () => _deletePost(post),
@@ -158,9 +136,10 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Future<void> _toggleLike(FeedPost post) async {
+    if (_likeBusy.contains(post.id)) return;
+    setState(() => _likeBusy.add(post.id));
     try {
       final flow = AppFlowScope.of(context, listen: false);
-      
       if (post.isLikedByMe) {
         await flow.repository.unlikePost(post.id);
       } else {
@@ -171,6 +150,10 @@ class _FeedPageState extends State<FeedPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _likeBusy.remove(post.id));
+      }
     }
   }
 
@@ -232,12 +215,14 @@ class PostCard extends StatelessWidget {
   const PostCard({
     super.key,
     required this.post,
+    this.likeBusy = false,
     required this.onLike,
     required this.onComment,
     required this.onDelete,
   });
 
   final FeedPost post;
+  final bool likeBusy;
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onDelete;
@@ -316,7 +301,7 @@ class PostCard extends StatelessWidget {
                     post.isLikedByMe ? Icons.favorite : Icons.favorite_border,
                     color: post.isLikedByMe ? FreezmeColors.error : null,
                   ),
-                  onPressed: onLike,
+                  onPressed: likeBusy ? null : onLike,
                 ),
                 Text('${post.likeCount}'),
                 const SizedBox(width: 16),
