@@ -30,6 +30,7 @@ import 'ui/auth/auth_gate.dart';
 import 'ui/chat/chat_list_page.dart';
 import 'ui/chat/chat_screen_page.dart';
 import 'ui/feed/create_post_page.dart';
+import 'ui/feed/feed_page.dart';
 import 'ui/home/home_page.dart';
 import 'ui/profile/profile_completion_page.dart';
 import 'services/offline_queue_service.dart';
@@ -889,7 +890,7 @@ class FlowNavigator extends StatelessWidget {
       case AppStage.chatList:
         return const ChatListPage();
       case AppStage.feed:
-        return const DailyVibePoolPage(); // Feed placeholder / legacy pool
+        return const FeedPage(); // Social feed with posts
       case AppStage.createPost:
         return const CreatePostPage();
       case AppStage.paths:

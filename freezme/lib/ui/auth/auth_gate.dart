@@ -163,6 +163,27 @@ class _AuthGatePageState extends State<AuthGatePage> {
     }
   }
 
+  Future<void> _signInAnonymously() async {
+    setState(() => _isLoading = true);
+    try {
+      await FirebaseAuth.instance.signInAnonymously();
+      
+      if (mounted) {
+        AppFlowScope.of(context).startOnboarding();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Guest sign-in failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -267,6 +288,16 @@ class _AuthGatePageState extends State<AuthGatePage> {
                   icon: Icons.mail_outline,
                   label: 'Continue with Email',
                   onPressed: _isLoading ? null : _signInWithEmail,
+                  isPrimary: false,
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Guest/Anonymous Sign-in for testing
+                _buildSignInButton(
+                  icon: Icons.person_outline,
+                  label: 'Continue as Guest',
+                  onPressed: _isLoading ? null : _signInAnonymously,
                   isPrimary: false,
                 ),
                 
