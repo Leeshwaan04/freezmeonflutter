@@ -1102,7 +1102,7 @@ class _AuthGatePageState extends State<AuthGatePage>
                       ),
                     ),
 
-                    const SizedBox(height: 32),
+                   const SizedBox(height: 32),
 
                     // Sign-in buttons
                     SlideTransition(
@@ -1110,29 +1110,40 @@ class _AuthGatePageState extends State<AuthGatePage>
                       child: Column(
                         children: [
                           _buildPremiumButton(
-                            icon: Icons.apple,
-                            label: 'Continue with Apple',
-                            onPressed: _isLoading ? null : _signInWithApple,
+                            icon: Icons.phone,
+                            label: 'Continue with Phone',
+                            onPressed: _isLoading ? null : _signInWithPhone,
                             isPrimary: true,
+                          ),
+                          TextButton(
+                            onPressed: _isLoading
+                                ? null
+                                : () => _showErrorSnackBar(
+                                      'Recovery coming soon. Use your existing number for now.',
+                                    ),
+                            child: const Text(
+                              'I got a new number',
+                              style: TextStyle(color: FreezmeColors.primary),
+                            ),
                           ),
                           const SizedBox(height: 12),
                           Row(
                             children: [
                               Expanded(
                                 child: _buildSmallButton(
-                                  icon: Icons.g_mobiledata_rounded,
-                                  label: 'Google',
+                                  icon: Icons.apple,
+                                  label: 'Apple',
                                   onPressed:
-                                      _isLoading ? null : _signInWithGoogle,
+                                      _isLoading ? null : _signInWithApple,
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildSmallButton(
-                                  icon: Icons.phone,
-                                  label: 'Phone',
+                                  icon: Icons.g_mobiledata_rounded,
+                                  label: 'Google',
                                   onPressed:
-                                      _isLoading ? null : _signInWithPhone,
+                                      _isLoading ? null : _signInWithGoogle,
                                 ),
                               ),
                             ],

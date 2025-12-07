@@ -99,6 +99,7 @@ class AppMatch {
 
 class AppFlowController extends ChangeNotifier {
   static const _kOnboardingCompleteKey = 'onboarding_complete';
+  static const _kGuidelinesAcceptedKey = 'guidelines_accepted';
 
   AppFlowController._(
     this._prefs, {
@@ -175,6 +176,7 @@ class AppFlowController extends ChangeNotifier {
   bool notificationsEnabled = true;
   bool onlineStatusEnabled = true;
   bool readReceiptsEnabled = false;
+  bool guidelinesAccepted = false;
   bool hasBio = false;
   bool hasPreferences = false;
   VibeProfile? activeProfile;
@@ -203,6 +205,8 @@ class AppFlowController extends ChangeNotifier {
   int get matchesCount => matches.length;
   int get uploadedPhotoCount =>
       photoSlots.where((p) => p.status == PhotoSlotStatus.uploaded).length;
+  bool get isProfileComplete =>
+      uploadedPhotoCount >= 3 && hasBio && hasPreferences && guidelinesAccepted;
   int get completionPercent {
     // Simple heuristic: photos (40%), bio (30%), preferences (20%), onboarding (10%).
     final photosScore = (uploadedPhotoCount / photoSlots.length * 40).clamp(0, 40);
@@ -217,6 +221,7 @@ class AppFlowController extends ChangeNotifier {
 
   void _hydrate() {
     final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+    guidelinesAccepted = _prefs?.getBool(_kGuidelinesAcceptedKey) ?? false;
     _stack
       ..clear()
       ..add(completed ? AppStage.dailyPool : AppStage.splash);
@@ -305,8 +310,16 @@ class AppFlowController extends ChangeNotifier {
       _stack.removeLast();
     }
     await _prefs?.setBool(_kOnboardingCompleteKey, true);
+    await _prefs?.setBool(_kGuidelinesAcceptedKey, true);
+    guidelinesAccepted = true;
     await _prefs?.remove('onboarding_progress'); // Clear saved progress
     _stack.add(AppStage.dailyPool);
+    notifyListeners();
+  }
+
+  Future<void> acceptGuidelines() async {
+    guidelinesAccepted = true;
+    await _prefs?.setBool(_kGuidelinesAcceptedKey, true);
     notifyListeners();
   }
 
@@ -468,6 +481,10 @@ class AppFlowController extends ChangeNotifier {
   void openTab(int index) {
     if (!isSignedIn) {
       replaceStack(<AppStage>[AppStage.authGate]);
+      return;
+    }
+    if (!isProfileComplete) {
+      replaceStack(<AppStage>[AppStage.profileCompletion]);
       return;
     }
     if (isSendingAction) return; // debounce cross-tab while actions in flight
