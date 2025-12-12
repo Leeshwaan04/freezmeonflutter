@@ -114,6 +114,7 @@ class _HomePageState extends State<HomePage> {
                     child: CustomScrollView(
                       key: const PageStorageKey('homeScroll'),
                       slivers: [
+                        if (!flow.isProfileComplete) _buildProfileGate(flow),
                         _buildHeader(),
                         _buildLivePathsSection(),
                         _buildTonightPoolSection(),
@@ -122,6 +123,82 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
+      ),
+    );
+  }
+
+  SliverToBoxAdapter _buildProfileGate(AppFlowController flow) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: FreezmeColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.lock_outline,
+                        color: FreezmeColors.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Complete your profile to unlock Tonight',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${flow.completionPercent}% complete · add photos, bio, preferences',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: FreezmeColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        AppFlowScope.of(context, listen: false)
+                            .replaceStack(<AppStage>[AppStage.profileCompletion]),
+                    child: const Text(
+                      'Finish',
+                      style: TextStyle(
+                        color: FreezmeColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -360,20 +437,20 @@ class _HomeBottomNavBar extends StatelessWidget {
             onTap: () => onTap(1),
           ),
           _HomeNavItem(
-            icon: Icons.favorite_border,
-            label: 'Feed',
+            icon: Icons.route_outlined,
+            label: 'Paths',
             active: currentIndex == 2,
             onTap: () => onTap(2),
           ),
           _HomeNavItem(
-            icon: Icons.route_outlined,
-            label: 'Paths',
+            icon: Icons.bolt_outlined,
+            label: 'Blinds',
             active: currentIndex == 3,
             onTap: () => onTap(3),
           ),
           _HomeNavItem(
-            icon: Icons.bolt_outlined,
-            label: 'Blinds',
+            icon: Icons.person_outline,
+            label: 'Profile',
             active: currentIndex == 4,
             onTap: () => onTap(4),
           ),

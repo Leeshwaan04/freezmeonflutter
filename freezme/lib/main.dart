@@ -429,11 +429,13 @@ class AppFlowController extends ChangeNotifier {
       case AppStage.chatList:
       case AppStage.chat:
         return 1;
-      case AppStage.feed:
-        return 2;
       case AppStage.paths:
-        return 3;
+        return 2;
       case AppStage.blinds:
+        return 3;
+      case AppStage.profileSettings:
+      case AppStage.profilePreview:
+      case AppStage.editProfile:
         return 4;
       default:
         return 0;
@@ -496,13 +498,13 @@ class AppFlowController extends ChangeNotifier {
         openChats();
         break;
       case 2:
-        openFeed();
-        break;
-      case 3:
         openPaths();
         break;
-      case 4:
+      case 3:
         openBlinds();
+        break;
+      case 4:
+        openProfileSettings();
         break;
     }
   }
@@ -1750,20 +1752,20 @@ class _BottomNavBar extends StatelessWidget {
               onTap: () => onTap(1),
             ),
             _BottomNavItem(
-              icon: Icons.favorite_border,
-              label: 'Feed',
+              icon: Icons.route_outlined,
+              label: 'Paths',
               active: currentIndex == 2,
               onTap: () => onTap(2),
             ),
             _BottomNavItem(
-              icon: Icons.route_outlined,
-              label: 'Paths',
+              icon: Icons.bolt_outlined,
+              label: 'Blinds',
               active: currentIndex == 3,
               onTap: () => onTap(3),
             ),
             _BottomNavItem(
-              icon: Icons.bolt_outlined,
-              label: 'Blinds',
+              icon: Icons.person_outline,
+              label: 'Profile',
               active: currentIndex == 4,
               onTap: () => onTap(4),
             ),
@@ -5491,6 +5493,7 @@ class _PathsPageState extends State<PathsPage> {
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context);
     return Scaffold(
+      backgroundColor: Colors.red, // DEBUG: Should see red if page renders
       body: Container(
         decoration: const BoxDecoration(
           gradient: FreezmeGradients.backgroundSoft,
@@ -5794,7 +5797,7 @@ class _PathsPageState extends State<PathsPage> {
         ),
       ),
       bottomNavigationBar: _BottomNavBar(
-        currentIndex: 3,
+        currentIndex: flow.currentTabIndex,
         onTap: flow.openTab,
       ),
     );

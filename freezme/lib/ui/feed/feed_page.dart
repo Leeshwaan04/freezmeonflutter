@@ -51,7 +51,19 @@ class _FeedPageState extends State<FeedPage> {
 
   @override
   Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context);
+    final flow = AppFlowScope.of(context, listen: true);
+
+    if (!flow.isProfileComplete) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Feed'),
+          backgroundColor: FreezmeColors.background,
+          foregroundColor: FreezmeColors.text,
+          elevation: 0,
+        ),
+        body: _ProfileGate(flow: flow),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -207,6 +219,100 @@ class _FeedPageState extends State<FeedPage> {
         SnackBar(content: Text('Error deleting post: $e')),
       );
     }
+  }
+}
+
+class _ProfileGate extends StatelessWidget {
+  const _ProfileGate({required this.flow});
+  final AppFlowController flow;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: FreezmeColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.lock_outline,
+                        color: FreezmeColors.primary),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Finish your profile to see the feed',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${flow.completionPercent}% complete · add photos, bio, preferences',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: FreezmeColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => AppFlowScope.of(context, listen: false)
+                      .replaceStack(<AppStage>[AppStage.profileCompletion]),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: FreezmeColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Complete profile',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

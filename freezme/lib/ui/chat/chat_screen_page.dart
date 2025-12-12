@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../../main.dart';
 import '../../models/chat_message.dart';
 import '../../ui/theme.dart';
+import 'freeze_modal.dart' as modal;
+import 'typing_indicator.dart';
 
 enum MessageStatus { pending, sent, delivered, read, failed }
 
@@ -51,6 +53,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   final List<ChatMessageItem> _messages = <ChatMessageItem>[];
   StreamSubscription<List<ChatMessage>>? _msgSub;
   bool _sending = false;
+  bool _simulatedTyping = false;
 
   @override
   void dispose() {
@@ -92,6 +95,29 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
       setState(() {
         message.status = MessageStatus.sent;
       });
+
+      // Simulate typing response for demo
+      if (mounted) {
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            setState(() => _simulatedTyping = true);
+            // Scroll to bottom when typing starts
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+               if (_scrollController.hasClients) {
+                 _scrollController.animateTo(
+                   _scrollController.position.maxScrollExtent,
+                   duration: const Duration(milliseconds: 300),
+                   curve: Curves.easeOut,
+                 );
+               }
+            });
+          }
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) setState(() => _simulatedTyping = false);
+          });
+        });
+      }
+
     } catch (_) {
       setState(() {
         message.status = MessageStatus.failed;
@@ -182,7 +208,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                     ),
                     IconButton(
                       onPressed: () {
-                        // showFreezeModal(context); // Need to import or pass this
+                        modal.showFreezeModal(context);
                       },
                       icon: const Icon(Icons.ac_unit, color: Colors.white),
                     ),
@@ -229,14 +255,29 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                                 ),
                               )
                               .toList();
+                          
+                          // Typing logic
+                          final showTyping = _simulatedTyping;
+                          final itemCount = mapped.length + (showTyping ? 1 : 0);
+
                           return ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 24,
                             ),
-                            itemCount: mapped.length,
+                            itemCount: itemCount,
                             itemBuilder: (context, index) {
+                              if (showTyping && index == mapped.length) {
+                                return const Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Padding(
+                                    padding: EdgeInsets.only(left: 0, top: 4, bottom: 8),
+                                    child: TypingIndicator(),
+                                  ),
+                                );
+                              }
+
                               final msg = mapped[index];
                               final bool isMe = msg.isMe;
                               return Align(
@@ -295,8 +336,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                                           color: isMe
                                               ? Colors.white
                                               : FreezmeColors.neutral,
+                                          ),
                                         ),
-                                      ),
                                       const SizedBox(height: 6),
                                       Row(
                                         mainAxisSize: MainAxisSize.min,

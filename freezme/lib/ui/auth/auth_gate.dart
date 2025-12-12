@@ -1109,98 +1109,25 @@ class _AuthGatePageState extends State<AuthGatePage>
                       position: _slideAnimation,
                       child: Column(
                         children: [
+                          // Primary: Phone Number
                           _buildPremiumButton(
                             icon: Icons.phone,
                             label: 'Continue with Phone',
                             onPressed: _isLoading ? null : _signInWithPhone,
                             isPrimary: true,
                           ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          // Guest mode
                           TextButton(
-                            onPressed: _isLoading
-                                ? null
-                                : () => _showErrorSnackBar(
-                                      'Recovery coming soon. Use your existing number for now.',
-                                    ),
-                            child: const Text(
-                              'I got a new number',
-                              style: TextStyle(color: FreezmeColors.primary),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildSmallButton(
-                                  icon: Icons.apple,
-                                  label: 'Apple',
-                                  onPressed:
-                                      _isLoading ? null : _signInWithApple,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildSmallButton(
-                                  icon: Icons.g_mobiledata_rounded,
-                                  label: 'Google',
-                                  onPressed:
-                                      _isLoading ? null : _signInWithGoogle,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildSmallButton(
-                                  icon: Icons.chat,
-                                  label: 'WhatsApp',
-                                  onPressed:
-                                      _isLoading ? null : _signInWithWhatsApp,
-                                  color: const Color(0xFF25D366),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildSmallButton(
-                                  icon: Icons.email_rounded,
-                                  label: 'Email',
-                                  onPressed:
-                                      _isLoading ? null : _signInWithEmail,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                  child: Divider(color: Colors.grey.shade300)),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text(
-                                  'or',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade500,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                  child: Divider(color: Colors.grey.shade300)),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          TextButton(
-                            onPressed:
-                                _isLoading ? null : _signInAnonymously,
-                            child: const Text(
-                              'Browse as Guest',
+                            onPressed: _isLoading ? null : _signInAnonymously,
+                            child: Text(
+                              'Browse as Guest 👻',
                               style: TextStyle(
+                                color: FreezmeColors.primary,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                color: FreezmeColors.muted,
                               ),
                             ),
                           ),
@@ -1397,6 +1324,35 @@ class _AuthGatePageState extends State<AuthGatePage>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(28),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSecondaryButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      height: 56,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 20),
+        label: Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: FreezmeColors.primary,
+          backgroundColor: Colors.white,
+          side: BorderSide(color: FreezmeColors.primary.withValues(alpha: 0.3), width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
           ),
         ),
       ),
