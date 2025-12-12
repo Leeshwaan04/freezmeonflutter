@@ -5490,309 +5490,269 @@ class _PathsPageState extends State<PathsPage> {
     return '${diff.inDays}d ago';
   }
 
+  static bool _filtersExpanded = false;
+
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context);
+    
+    // Aesthetic: Dynamic header color based on visibility
+    final statusColor = visible ? FreezmeColors.success : FreezmeColors.neutral;
+    final statusText = visible ? 'Discoverable' : 'Hidden';
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: FreezmeGradients.backgroundSoft,
         ),
         child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                key: const PageStorageKey('pathsScroll'),
-                padding: const EdgeInsets.all(16),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minWidth: constraints.maxWidth,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: const [
-                          FreezmeLogo(size: LogoSize.sm, showText: true),
-                          Spacer(),
-                          Text('Paths', style: FreezmeTypography.title),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _surfaceCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          child: RefreshIndicator(
+            onRefresh: () async => _refresh(flow),
+            child: CustomScrollView(
+              key: const PageStorageKey('pathsScroll'),
+              slivers: [
+                // 1. Header & Visibility Status
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Visibility', style: FreezmeTypography.title),
-                            const SizedBox(height: 8),
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              value: visible,
-                              thumbColor:
-                                  WidgetStateProperty.all(FreezmeColors.primary),
-                              trackColor: WidgetStateProperty.all(
-                                FreezmeColors.primary.withValues(alpha: 0.15),
-                              ),
-                              onChanged: (v) {
-                                setState(() => visible = v);
-                                if (v) _refresh(flow);
-                              },
-                              title: const Text(
-                                'Show me on Paths',
-                                style: TextStyle(color: FreezmeColors.neutral),
-                              ),
-                              subtitle: const Text(
-                                'Opt in to be discoverable nearby.',
-                                style: FreezmeTypography.bodyMuted,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Distance: ${radius.round()} km',
-                              style: const TextStyle(color: FreezmeColors.neutral),
-                            ),
-                            Slider(
-                              value: radius,
-                              min: 1,
-                              max: 50,
-                              divisions: 49,
-                              activeColor: FreezmeColors.primary,
-                              onChanged: (v) => setState(() => radius = v),
-                              onChangeEnd: (_) => _refresh(flow),
-                            ),
-                            CheckboxListTile(
-                              contentPadding: EdgeInsets.zero,
-                              value: todayOnly,
-                              onChanged: (v) => setState(() => todayOnly = v ?? true),
-                              title: const Text(
-                                'Visible today only',
-                                style: TextStyle(color: FreezmeColors.neutral),
-                              ),
-                              subtitle: const Text(
-                                'Auto-disables in 24h to keep you private.',
-                                style: FreezmeTypography.bodyMuted,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Chip(
-                                  label: Text(
-                                    '$wavesLeft waves left today',
-                                    style: const TextStyle(
-                                      color: FreezmeColors.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  backgroundColor: FreezmeColors.primary
-                                      .withValues(alpha: 0.12),
-                                ),
-                                const Spacer(),
-                                if (notifyWhenNearby)
-                                  const Icon(Icons.notifications_active,
-                                      size: 16, color: FreezmeColors.primary),
-                              ],
-                            ),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: ['Friends', 'Dates', 'Either'].map((label) {
-                                final selected = intents.contains(label);
-                                return ChoiceChip(
-                                  label: Text(label),
-                                  selected: selected,
-                                  selectedColor:
-                                      FreezmeColors.primary.withValues(alpha: 0.12),
-                                  labelStyle: TextStyle(
-                                    color: selected
-                                        ? FreezmeColors.primary
-                                        : FreezmeColors.neutral,
-                                  ),
-                                  onSelected: (_) {
-                                    setState(() {
-                                      if (selected) {
-                                        intents.remove(label);
-                                      } else {
-                                        intents.add(label);
-                                      }
-                                    });
-                                    _refresh(flow);
-                                  },
-                                );
-                              }).toList(),
-                            ),
+                            const Text('Paths', style: FreezmeTypography.display),
+                             _StatusBadge(visible: visible),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text('Nearby', style: FreezmeTypography.title),
-                      const SizedBox(height: 8),
-                      if (!visible)
-                        const Text(
-                          'Turn on visibility to see people nearby.',
-                          style: FreezmeTypography.bodyMuted,
-                        )
-                      else if (flow.pathsLoading)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 24),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      else if (flow.pathsError != null)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              flow.pathsError!,
-                              style: const TextStyle(
-                                color: FreezmeColors.error,
-                                fontWeight: FontWeight.w600,
+                        const SizedBox(height: 16),
+                        // Main Visibility Card
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              onPressed: () => _refresh(flow),
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Retry'),
-                            ),
-                          ],
-                        )
-                      else if (flow.nearbyPaths.isEmpty)
-                        _emptyNearby()
-                      else
-                        Column(
-                          children: [
-                            for (final person in flow.nearbyPaths) ...[
-                              _surfaceCard(
-                                child: Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: Container(
-                                        width: 72,
-                                        height: 72,
-                                        color: FreezmeColors.surfaceAlt,
-                                        child: const Icon(
-                                          Icons.person,
-                                          color: FreezmeColors.primary,
-                                          size: 32,
-                                        ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              SwitchListTile(
+                                value: visible,
+                                activeColor: FreezmeColors.primary,
+                                title: Text(
+                                  'Show me on Paths',
+                                  style: FreezmeTypography.title.copyWith(fontSize: 18),
+                                ),
+                                subtitle: Text(
+                                  visible 
+                                    ? 'You are visible to others within ${radius.round()}km' 
+                                    : 'Turn on to see who is nearby',
+                                  style: FreezmeTypography.bodyMuted,
+                                ),
+                                onChanged: (v) {
+                                  setState(() => visible = v);
+                                  if (v) _refresh(flow);
+                                },
+                              ),
+                              if (visible) ...[
+                                const Divider(height: 1, indent: 16, endIndent: 16),
+                                // Filters Expansion
+                                Theme(
+                                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                  child: ExpansionTile(
+                                    title: const Text(
+                                      'Filters & Preferences',
+                                      style: TextStyle(
+                                        color: FreezmeColors.primary,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            person.userId,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                              color: FreezmeColors.neutral,
+                                    leading: const Icon(Icons.tune_rounded, color: FreezmeColors.primary),
+                                    initiallyExpanded: _filtersExpanded,
+                                    onExpansionChanged: (exp) => setState(() => _filtersExpanded = exp),
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            // Distance Slider
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                const Text('Distance', style: FreezmeTypography.body),
+                                                Text('${radius.round()} km', style: FreezmeTypography.title.copyWith(fontSize: 18)),
+                                              ],
                                             ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          if (person.lastActiveAt != null)
-                                            Text(
-                                              'Active ${_timeAgo(person.lastActiveAt!)}',
-                                              style: const TextStyle(
-                                                color: FreezmeColors.primary,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                              ),
+                                            Slider(
+                                              value: radius,
+                                              min: 1,
+                                              max: 50,
+                                              divisions: 49,
+                                              activeColor: FreezmeColors.primary,
+                                              inactiveColor: FreezmeColors.primary.withValues(alpha: 0.2),
+                                              onChanged: (v) => setState(() => radius = v),
+                                              onChangeEnd: (_) => _refresh(flow),
                                             ),
-                                          if (person.availability != null)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 4),
-                                              child: Text(
-                                                person.availability!,
-                                                style: FreezmeTypography.bodyMuted,
-                                              ),
-                                            ),
-                                          if (person.interestsSummary != null)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 4),
-                                              child: Text(
-                                                person.interestsSummary!,
-                                                style: FreezmeTypography.bodyMuted,
-                                              ),
-                                            ),
-                                          const SizedBox(height: 6),
-                                          Wrap(
-                                            spacing: 8,
-                                            runSpacing: 8,
-                                            crossAxisAlignment: WrapCrossAlignment.center,
-                                            children: [
-                                              for (final intent in person.intents)
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 6,
+                                            const SizedBox(height: 12),
+                                            // Intents Filter
+                                            const Text('Looking for:', style: FreezmeTypography.bodyMuted),
+                                            const SizedBox(height: 8),
+                                            Wrap(
+                                              spacing: 8,
+                                              children: ['Friends', 'Dates', 'Either'].map((label) {
+                                                final isSelected = intents.contains(label);
+                                                return FilterChip(
+                                                  label: Text(label),
+                                                  selected: isSelected,
+                                                  onSelected: (_) {
+                                                    setState(() {
+                                                      isSelected ? intents.remove(label) : intents.add(label);
+                                                    });
+                                                    _refresh(flow);
+                                                  },
+                                                  selectedColor: FreezmeColors.primary.withValues(alpha: 0.2),
+                                                  labelStyle: TextStyle(
+                                                    color: isSelected ? FreezmeColors.primary : FreezmeColors.neutral,
+                                                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                                                   ),
-                                                  decoration: BoxDecoration(
-                                                    color: FreezmeColors.primary
-                                                        .withValues(alpha: 0.12),
-                                                    borderRadius:
-                                                        BorderRadius.circular(12),
-                                                  ),
-                                                  child: Text(
-                                                    intent,
+                                                  checkmarkColor: FreezmeColors.primary,
+                                                  backgroundColor: Colors.grey.shade100,
+                                                  side: BorderSide.none,
+                                                  shape: const StadiumBorder(),
+                                                );
+                                              }).toList(),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            // Wave Stats
+                                            Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: FreezmeColors.primary.withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.waving_hand_rounded, size: 20, color: FreezmeColors.primary),
+                                                  const SizedBox(width: 8),
+                                                  Text(
+                                                    '$wavesLeft waves remaining today',
                                                     style: const TextStyle(
                                                       color: FreezmeColors.primary,
-                                                      fontSize: 12,
                                                       fontWeight: FontWeight.w600,
                                                     ),
                                                   ),
-                                                ),
-                                              TextButton(
-                                                onPressed: () {
-                                                  _useWave(context);
-                                                  _openChat(flow);
-                                                },
-                                                child: const Text('Wave'),
+                                                ],
                                               ),
-                                              ElevatedButton(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: _buttonColor(
-                                                    inviteStatusByUser[person.userId],
-                                                  ),
-                                                  foregroundColor: Colors.white,
-                                                  minimumSize: const Size(110, 44),
-                                                  shape: const StadiumBorder(),
-                                                ),
-                                                onPressed: () {
-                                                  final status =
-                                                      inviteStatusByUser[person.userId];
-                                                  if (status == 'accepted') {
-                                                    _openChat(flow);
-                                                  } else {
-                                                    _sendInvite(flow, person);
-                                                  }
-                                                },
-                                                child: Text(
-                                                  _inviteLabel(
-                                                    inviteStatusByUser[person.userId],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 12),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              );
-            },
+
+                // 2. Section Title
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                  sliver: SliverToBoxAdapter(
+                    child: Text(
+                      'Nearby',
+                      style: FreezmeTypography.title.copyWith(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+
+                // 3. Content List
+                if (!visible)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildEmptyState(
+                      icon: Icons.visibility_off_outlined,
+                      title: 'You are hidden',
+                      message: 'Turn on visibility above to see who is crossing your path.',
+                    ),
+                  )
+                else if (flow.pathsLoading)
+                  const SliverFillRemaining(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (flow.pathsError != null)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, size: 48, color: FreezmeColors.error),
+                          const SizedBox(height: 16),
+                          Text(flow.pathsError!, style: FreezmeTypography.body),
+                          TextButton(
+                            onPressed: () => _refresh(flow),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (flow.nearbyPaths.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildEmptyState(
+                      icon: Icons.radar_rounded,
+                      title: 'Scanning area...',
+                      message: 'No one matching your filters is nearby right now.\nTry increasing your distance!',
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final person = flow.nearbyPaths[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _NearbyPersonCard(
+                              person: person,
+                              onWave: () {
+                                _useWave(context);
+                                _openChat(flow); // Simulated success
+                              },
+                              onInvite: () {
+                                // Logic for Invite
+                                final status = inviteStatusByUser[person.userId];
+                                if (status == 'accepted') {
+                                  _openChat(flow);
+                                } else {
+                                  _sendInvite(flow, person);
+                                }
+                              },
+                              inviteStatus: inviteStatusByUser[person.userId],
+                            ),
+                          );
+                        },
+                        childCount: flow.nearbyPaths.length,
+                      ),
+                    ),
+                  ),
+                  
+                // Bottom padding for nav bar
+                const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+              ],
+            ),
           ),
         ),
       ),
@@ -5801,6 +5761,216 @@ class _PathsPageState extends State<PathsPage> {
         onTap: flow.openTab,
       ),
     );
+  }
+
+  Widget _buildEmptyState({required IconData icon, required String title, required String message}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 48, color: FreezmeColors.neutral),
+            ),
+            const SizedBox(height: 24),
+            Text(title, style: FreezmeTypography.title.copyWith(fontSize: 20), textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(message, style: FreezmeTypography.subtitle, textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final bool visible;
+  const _StatusBadge({required this.visible});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: visible ? FreezmeColors.success.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: visible ? FreezmeColors.success.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: visible ? FreezmeColors.success : Colors.grey,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            visible ? 'Active' : 'Hidden',
+            style: TextStyle(
+              color: visible ? FreezmeColors.success : Colors.grey,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NearbyPersonCard extends StatelessWidget {
+  final PathsPresence person;
+  final VoidCallback onWave;
+  final VoidCallback onInvite;
+  final String? inviteStatus;
+
+  const _NearbyPersonCard({
+    required this.person,
+    required this.onWave,
+    required this.onInvite,
+    this.inviteStatus,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: FreezmeColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.person, color: FreezmeColors.primary, size: 30),
+          ),
+          const SizedBox(width: 16),
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(person.userId, style: FreezmeTypography.title.copyWith(fontSize: 18)), // Assuming userId is name for mock
+                    if (person.lastActiveAt != null)
+                      Text(
+                        _timeAgo(person.lastActiveAt!),
+                        style: const TextStyle(fontSize: 12, color: FreezmeColors.neutral),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                if (person.availability != null)
+                  Text(person.availability!, style: FreezmeTypography.body),
+                const SizedBox(height: 8),
+                // Tags
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: person.intents.map((intent) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: FreezmeColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      intent,
+                      style: const TextStyle(fontSize: 12, color: FreezmeColors.primary, fontWeight: FontWeight.w500),
+                    ),
+                  )).toList(),
+                ),
+                const SizedBox(height: 12),
+                // Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onWave,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: FreezmeColors.primary,
+                          side: const BorderSide(color: FreezmeColors.primary),
+                          shape: const StadiumBorder(),
+                          padding: const EdgeInsets.symmetric(vertical: 0),
+                        ),
+                        child: const Text('Wave 👋'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: onInvite,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _buttonColor(inviteStatus),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: const StadiumBorder(),
+                          padding: const EdgeInsets.symmetric(vertical: 0),
+                        ),
+                        child: Text(_inviteLabel(inviteStatus)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _buttonColor(String? status) {
+    switch (status) {
+      case 'sent': return Colors.grey;
+      case 'accepted': return FreezmeColors.success;
+      case 'rejected': return FreezmeColors.error;
+      default: return FreezmeColors.primary;
+    }
+  }
+
+  String _inviteLabel(String? status) {
+    switch (status) {
+      case 'sent': return 'Sent';
+      case 'accepted': return 'Chat';
+      case 'rejected': return 'Passed';
+      default: return 'Invite';
+    }
+  }
+
+  String _timeAgo(DateTime time) {
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 }
 
