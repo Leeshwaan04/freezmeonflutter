@@ -485,7 +485,8 @@ class AppFlowController extends ChangeNotifier {
       replaceStack(<AppStage>[AppStage.authGate]);
       return;
     }
-    if (!isProfileComplete) {
+    // Profile completion is only required for Tonight tab
+    if (index == 0 && !isProfileComplete) {
       replaceStack(<AppStage>[AppStage.profileCompletion]);
       return;
     }
@@ -5493,7 +5494,6 @@ class _PathsPageState extends State<PathsPage> {
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context);
     return Scaffold(
-      backgroundColor: Colors.red, // DEBUG: Should see red if page renders
       body: Container(
         decoration: const BoxDecoration(
           gradient: FreezmeGradients.backgroundSoft,
