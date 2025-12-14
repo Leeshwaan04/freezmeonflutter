@@ -25,6 +25,7 @@ import 'services/melt_chat_service.dart';
 import 'services/photo_upload_service.dart';
 
 import 'ui/theme.dart';
+import 'ui/shared/bottom_nav_bar.dart';
 import 'ui/splash/splash_screen.dart';
 import 'ui/auth/auth_gate.dart';
 import 'ui/onboarding/enhanced_onboarding.dart';
@@ -553,17 +554,18 @@ class AppFlowController extends ChangeNotifier {
   }
 
   Future<void> _persistPhotosIfPossible() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final uploadedUrls = photoSlots
-        .where((p) => p.status == PhotoSlotStatus.uploaded && p.imageUrl != null)
-        .map((p) => p.imageUrl!)
-        .toList();
-    if (uploadedUrls.isEmpty) return;
     try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final uploadedUrls = photoSlots
+          .where((p) => p.status == PhotoSlotStatus.uploaded && p.imageUrl != null)
+          .map((p) => p.imageUrl!)
+          .toList();
+      if (uploadedUrls.isEmpty) return;
       await _repository.updateProfilePhotos(uid: uid, photoUrls: uploadedUrls);
     } catch (_) {
       // Ignore persistence errors; user photos remain locally available.
+      // This also handles test environments where Firebase isn't initialized.
     }
   }
 
@@ -875,10 +877,16 @@ class FlowNavigator extends StatelessWidget {
       builder: (context, _) {
         final pages = <Page<dynamic>>[
           for (final stage in flow.stack)
-            MaterialPage<dynamic>(
-              key: ValueKey<AppStage>(stage),
-              child: _buildStage(context, stage),
-            ),
+            if (_isTabStage(stage))
+              _FadePage<dynamic>(
+                key: ValueKey<AppStage>(stage),
+                child: _buildStage(context, stage),
+              )
+            else
+              MaterialPage<dynamic>(
+                key: ValueKey<AppStage>(stage),
+                child: _buildStage(context, stage),
+              ),
         ];
 
         return Navigator(
@@ -895,6 +903,15 @@ class FlowNavigator extends StatelessWidget {
       },
     );
   }
+
+  // Helper to identify the main bottom‑nav tabs that should use the fade transition.
+  bool _isTabStage(AppStage stage) => const {
+    AppStage.dailyPool,
+    AppStage.chatList,
+    AppStage.paths,
+    AppStage.blinds,
+    AppStage.profileSettings,
+  }.contains(stage);
 
   Widget _buildStage(BuildContext context, AppStage stage) {
     switch (stage) {
@@ -935,6 +952,22 @@ class FlowNavigator extends StatelessWidget {
       case AppStage.developerMenu:
         return const DeveloperPreviewScreen();
     }
+  }
+}
+
+// Private page type that fades in/out when used in the Navigator.
+class _FadePage<T> extends Page<T> {
+  final Widget child;
+  const _FadePage({required this.child, super.key});
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    return PageRouteBuilder<T>(
+      settings: this,
+      pageBuilder: (_, __, ___) => child,
+      transitionsBuilder: (_, animation, __, child) =>
+          FadeTransition(opacity: animation, child: child),
+    );
   }
 }
 
@@ -1715,110 +1748,7 @@ class _AuthButton extends StatelessWidget {
   }
 }
 
-class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({required this.currentIndex, required this.onTap});
 
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 12,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _BottomNavItem(
-              icon: Icons.explore_outlined,
-              label: 'Tonight',
-              active: currentIndex == 0,
-              onTap: () => onTap(0),
-            ),
-            _BottomNavItem(
-              icon: Icons.chat_bubble_outline,
-              label: 'Chats',
-              active: currentIndex == 1,
-              onTap: () => onTap(1),
-            ),
-            _BottomNavItem(
-              icon: Icons.route_outlined,
-              label: 'Paths',
-              active: currentIndex == 2,
-              onTap: () => onTap(2),
-            ),
-            _BottomNavItem(
-              icon: Icons.bolt_outlined,
-              label: 'Blinds',
-              active: currentIndex == 3,
-              onTap: () => onTap(3),
-            ),
-            _BottomNavItem(
-              icon: Icons.person_outline,
-              label: 'Profile',
-              active: currentIndex == 4,
-              onTap: () => onTap(4),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BottomNavItem extends StatelessWidget {
-  const _BottomNavItem({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? FreezmeColors.primary : FreezmeColors.muted;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 Widget _surfaceCard({required Widget child}) {
   return Container(
@@ -2670,7 +2600,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
       builder: (context, _) {
         if (flow.dailyProfiles.isEmpty) {
           return Scaffold(
-            bottomNavigationBar: _BottomNavBar(
+            bottomNavigationBar: FreezmeBottomNavBar(
               currentIndex: flow.currentTabIndex,
               onTap: flow.openTab,
             ),
@@ -2726,7 +2656,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
         final int remaining = flow.remainingProfiles;
 
         return Scaffold(
-          bottomNavigationBar: _BottomNavBar(
+          bottomNavigationBar: FreezmeBottomNavBar(
             currentIndex: flow.currentTabIndex,
             onTap: flow.openTab,
           ),
@@ -3051,7 +2981,7 @@ class MatchSuccessPage extends StatelessWidget {
             ),
           ),
         ),
-        bottomNavigationBar: _BottomNavBar(
+        bottomNavigationBar: FreezmeBottomNavBar(
           currentIndex: 3,
           onTap: flow.openTab,
         ),
@@ -3700,61 +3630,9 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 12,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildNavItem(
-                context,
-                icon: Icons.chat_bubble_outline,
-                label: 'Chats',
-                active: false,
-                onTap: () => flow.openChatList(),
-              ),
-              _buildNavItem(
-                context,
-                icon: Icons.favorite_border,
-                label: 'Feed',
-                active: false,
-                onTap: () => flow.openFeed(),
-              ),
-              _buildNavItem(
-                context,
-                icon: Icons.route_outlined,
-                label: 'Paths',
-                active: false,
-                onTap: () => flow.openPaths(),
-              ),
-              _buildNavItem(
-                context,
-                icon: Icons.bolt_outlined,
-                label: 'Blinds',
-                active: false,
-                onTap: () => flow.openBlinds(),
-              ),
-              _buildNavItem(
-                context,
-                icon: Icons.person_outline,
-                label: 'Profile',
-                active: true,
-                onTap: () {},
-              ),
-            ],
-          ),
-        ),
+      bottomNavigationBar: FreezmeBottomNavBar(
+        currentIndex: 4,
+        onTap: flow.openTab,
       ),
     );
   }
@@ -5756,7 +5634,7 @@ class _PathsPageState extends State<PathsPage> {
           ),
         ),
       ),
-      bottomNavigationBar: _BottomNavBar(
+      bottomNavigationBar: FreezmeBottomNavBar(
         currentIndex: flow.currentTabIndex,
         onTap: flow.openTab,
       ),
@@ -6027,294 +5905,226 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
           child: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: constraints.maxWidth),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                Row(
-                  children: const [
-                    FreezmeLogo(size: LogoSize.sm, showText: true),
-                    Spacer(),
-                    Text('Blinds', style: FreezmeTypography.title),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _surfaceCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Ground rules', style: FreezmeTypography.title),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'No sharing contacts, be kind, timed chats auto-end. You can report or block anytime.',
-                        style: FreezmeTypography.bodyMuted,
+                      Row(
+                        children: const [
+                          FreezmeLogo(size: LogoSize.sm, showText: true),
+                          Spacer(),
+                          Text('Blinds', style: FreezmeTypography.title),
+                        ],
                       ),
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: consented,
-                        activeColor: FreezmeColors.primary,
-                        onChanged: (v) => setState(() => consented = v ?? false),
-                        title: const Text('I agree to chat respectfully'),
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        value: revealAllowed,
-                        thumbColor:
-                            WidgetStateProperty.all(FreezmeColors.primary),
-                        trackColor: WidgetStateProperty.all(
-                          FreezmeColors.primary.withValues(alpha: 0.15),
-                        ),
-                        onChanged: (v) => setState(() => revealAllowed = v),
-                        title: const Text('Allow reveal after mutual thumbs up'),
-                        subtitle: const Text(
-                          'We only show photos/profile after both agree.',
-                          style: FreezmeTypography.bodyMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (isSearching) ...[
-                        const LinearProgressIndicator(
-                          minHeight: 6,
-                          color: FreezmeColors.primary,
-                          backgroundColor: FreezmeColors.border,
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Finding someone ready to chat…',
-                          style: FreezmeTypography.bodyMuted,
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      AnimatedBuilder(
-                        animation: _diceController,
-                        builder: (context, child) {
-                          return Transform.rotate(
-                            angle: _diceController.value * 6.28, // Full rotation
-                            child: child,
-                          );
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: consented
-                                ? const LinearGradient(
-                                    colors: [
-                                      FreezmeColors.primary,
-                                      FreezmeColors.secondary,
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  )
-                                : null,
-                            color: consented ? null : FreezmeColors.muted,
-                            borderRadius: BorderRadius.circular(30),
-                            boxShadow: consented
-                                ? [
-                                    BoxShadow(
-                                      color: FreezmeColors.primary.withValues(alpha: 0.4),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                              foregroundColor: Colors.white,
-                              shape: const StadiumBorder(),
-                              minimumSize: const Size.fromHeight(56),
-                            ),
-                            onPressed: consented
-                                ? () {
-                                    _diceController.forward(from: 0);
-                                    setState(() => isSearching = true);
-                                    final messenger = ScaffoldMessenger.of(context);
-                                    Future<void>.delayed(
-                                      const Duration(seconds: 1),
-                                      () {
-                                        if (!mounted) return;
-                                        final targetProfile = flow.activeProfile ??
-                                            (flow.matches.isNotEmpty
-                                                ? flow.matches.first.profile
-                                                : flow.dailyProfiles.isNotEmpty
-                                                    ? flow.dailyProfiles.first
-                                                    : null);
-                                        if (targetProfile != null) {
-                                          flow.openChatDetail(targetProfile);
-                                        } else {
-                                          if (!mounted) return;
-                                          messenger.showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'No partners available right now. We\'ll keep you in queue.',
-                                              ),
-                                              backgroundColor: FreezmeColors.primary,
-                                            ),
-                                          );
-                                        }
-                                        if (!mounted) return;
-                                        setState(() => isSearching = false);
-                                      },
-                                    );
-                                  }
-                                : null,
-                            icon: const Icon(Icons.casino, size: 24),
-                            label: const Text(
-                              'Roll the dice',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (consented) ...[
-                  _surfaceCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Current session', style: FreezmeTypography.title),
-                        const SizedBox(height: 8),
-                        LinearProgressIndicator(
-                          value: sessionProgress,
-                          minHeight: 8,
-                          color: FreezmeColors.primary,
-                          backgroundColor: FreezmeColors.border,
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Blind chats auto-end to keep it fresh. Mutual thumbs up can extend and reveal.',
-                          style: FreezmeTypography.bodyMuted,
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                      const SizedBox(height: 24),
+                      
+                      // Hero Section: Roll the Dice
+                      Center(
+                        child: Column(
                           children: [
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: FreezmeColors.primary,
-                                foregroundColor: Colors.white,
-                                shape: const StadiumBorder(),
-                              ),
-                              onPressed: () {
-                                if (sessionProgress > 0.2) {
-                                  setState(() {
-                                    sessionProgress -= 0.2;
-                                  });
-                                }
-                              },
-                              child: const Text('Thumbs up'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                setState(() => sessionProgress = 0);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Session ended. Roll again when ready.'),
-                                  ),
+                            AnimatedBuilder(
+                              animation: _diceController,
+                              builder: (context, child) {
+                                return Transform.rotate(
+                                  angle: _diceController.value * 6.28,
+                                  child: child,
                                 );
                               },
-                              child: const Text('End & roll again'),
+                              child: GestureDetector(
+                                onTap: consented
+                                    ? () {
+                                        _diceController.forward(from: 0);
+                                        setState(() => isSearching = true);
+                                        Future.delayed(const Duration(seconds: 1), () {
+                                            if (!mounted) return;
+                                            // Mock finding a match logic
+                                            final messenger = ScaffoldMessenger.of(context);
+                                            final targetProfile = flow.activeProfile ??
+                                                (flow.matches.isNotEmpty
+                                                    ? flow.matches.first.profile
+                                                    : flow.dailyProfiles.isNotEmpty
+                                                        ? flow.dailyProfiles.first
+                                                        : null);
+                                            if (targetProfile != null) {
+                                              flow.openChatDetail(targetProfile);
+                                            } else {
+                                              messenger.showSnackBar(
+                                                SnackBar(
+                                                  content: const Text(
+                                                    'No partners available. You are in the queue!',
+                                                    style: TextStyle(color: Colors.white),
+                                                  ),
+                                                  backgroundColor: FreezmeColors.primary,
+                                                  behavior: SnackBarBehavior.floating,
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                ),
+                                              );
+                                            }
+                                            if (mounted) setState(() => isSearching = false);
+                                        });
+                                      }
+                                    : null,
+                                child: Container(
+                                  width: 120,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: consented
+                                        ? const LinearGradient(
+                                            colors: [FreezmeColors.primary, FreezmeColors.secondary],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          )
+                                        : LinearGradient(
+                                            colors: [Colors.grey[300]!, Colors.grey[400]!],
+                                          ),
+                                    boxShadow: consented
+                                        ? [
+                                            BoxShadow(
+                                              color: FreezmeColors.primary.withValues(alpha: 0.4),
+                                              blurRadius: 24,
+                                              offset: const Offset(0, 10),
+                                            ),
+                                          ]
+                                        : [],
+                                  ),
+                                  child: Icon(
+                                    Icons.casino,
+                                    size: 56,
+                                    color: consented ? Colors.white : Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            if (isSearching)
+                              const Text(
+                                'Finding a vibe...',
+                                style: TextStyle(
+                                  color: FreezmeColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              )
+                            else
+                              Text(
+                                consented ? 'Tap to Roll' : 'Agree to rules to play',
+                                style: const TextStyle(
+                                  color: FreezmeColors.neutral,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Ground Rules & Settings Card
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                const Text('Icebreakers', style: FreezmeTypography.title),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: prompts
-                      .map(
-                        (p) => InkWell(
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: FreezmeColors.primary.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.verified_user_outlined, color: FreezmeColors.primary, size: 20),
+                                ),
+                                const SizedBox(width: 12),
+                                const Text('Ground Rules', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Blinds are anonymous. Be kind, don\'t share personal details immediately. Chats auto-end unless you both vibe.',
+                              style: TextStyle(color: FreezmeColors.muted, height: 1.4),
+                            ),
+                            const SizedBox(height: 16),
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              activeColor: FreezmeColors.primary,
+                              title: const Text('I agree to chat respectfully', style: TextStyle(fontWeight: FontWeight.w500)),
+                              value: consented,
+                              onChanged: (v) => setState(() => consented = v ?? false),
+                            ),
+                            const Divider(),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              activeColor: FreezmeColors.primary,
+                              title: const Text('Allow Reveal', style: TextStyle(fontWeight: FontWeight.w500)),
+                              subtitle: const Text('Show profile after mutual thumbs up'),
+                              value: revealAllowed,
+                              onChanged: (v) => setState(() => revealAllowed = v),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Icebreakers
+                      const Text('Icebreakers', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: FreezmeColors.neutral)),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: prompts.map((p) => ActionChip(
+                          elevation: 0,
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: const BorderSide(color: FreezmeColors.border),
+                          ),
+                          avatar: CircleAvatar(
+                            backgroundColor: FreezmeColors.primary.withValues(alpha: 0.1),
+                            child: Icon(p.$2, size: 16, color: FreezmeColors.primary),
+                          ),
+                          label: Text(p.$1, style: const TextStyle(color: FreezmeColors.neutral, fontWeight: FontWeight.w500)),
+                          onPressed: () {
+                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Copied: "${p.$1}"'),
-                                duration: const Duration(seconds: 2),
+                                duration: const Duration(seconds: 1),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                             );
                           },
-                          borderRadius: BorderRadius.circular(24),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: FreezmeColors.border,
-                                width: 1.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: FreezmeColors.primary.withValues(alpha: 0.08),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  p.$2,
-                                  size: 18,
-                                  color: FreezmeColors.primary,
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    p.$1,
-                                    style: const TextStyle(
-                                      color: FreezmeColors.neutral,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-                const SizedBox(height: 24),
-                TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.report_gmailerrorred,
-                      color: FreezmeColors.accent),
-                  label: const Text(
-                    'How we keep Blinds safe',
-                    style: TextStyle(color: FreezmeColors.accent),
+                        )).toList(),
+                      ),
+                      
+                      const SizedBox(height: 40),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
-        );
-      },
-    ),
         ),
       ),
-      bottomNavigationBar: _BottomNavBar(
-        currentIndex: 4,
+      bottomNavigationBar: FreezmeBottomNavBar(
+        currentIndex: 3,
         onTap: flow.openTab,
       ),
     );

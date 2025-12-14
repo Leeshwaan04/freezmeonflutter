@@ -1,8 +1,10 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'dart:io';
 
+import 'package:flutter_test/flutter_test.dart';
 import 'package:freezme/main.dart';
 import 'package:freezme/services/melt_chat_service.dart';
 import 'package:freezme/services/photo_upload_service.dart';
+import 'mocks/fake_freezme_repository.dart';
 
 class _FakePhotoUploadService implements PhotoUploadService {
   _FakePhotoUploadService(this.url);
@@ -15,11 +17,22 @@ class _FakePhotoUploadService implements PhotoUploadService {
     calls++;
     return UploadedPhoto(url: '$url-$slotIndex');
   }
+
+  @override
+  Future<String> uploadPhoto(File file, {required String userId, required int photoIndex}) async {
+    // Simulate upload by returning a dummy URL.
+    return '$url-$photoIndex';
+  }
 }
 
 class _FailingPhotoUploadService implements PhotoUploadService {
   @override
   Future<UploadedPhoto> pickAndUpload({required int slotIndex}) async {
+    throw const PhotoUploadException('failure');
+  }
+
+  @override
+  Future<String> uploadPhoto(File file, {required String userId, required int photoIndex}) async {
     throw const PhotoUploadException('failure');
   }
 }
@@ -62,7 +75,10 @@ void main() {
   group('Photo slots', () {
     test('successful upload updates slot state', () async {
       final uploader = _FakePhotoUploadService('mock');
-      final controller = AppFlowController.test(photoUploadService: uploader);
+      final controller = AppFlowController.test(
+        photoUploadService: uploader,
+        repository: FakeFreezmeRepository(),
+      );
 
       await controller.uploadPhotoForSlot(0);
 
@@ -74,6 +90,7 @@ void main() {
     test('failed upload marks slot failed', () async {
       final controller = AppFlowController.test(
         photoUploadService: _FailingPhotoUploadService(),
+        repository: FakeFreezmeRepository(),
       );
 
       await expectLater(
@@ -91,6 +108,7 @@ void main() {
       final controller = AppFlowController.test(
         photoUploadService: _FakePhotoUploadService('mock'),
         meltChatService: service,
+        repository: FakeFreezmeRepository(),
       );
 
       final result = await controller.sendMeltChatInvite(
@@ -108,6 +126,7 @@ void main() {
       final controller = AppFlowController.test(
         photoUploadService: _FakePhotoUploadService('mock'),
         meltChatService: _FailingMeltChatService(),
+        repository: FakeFreezmeRepository(),
       );
 
       final result = await controller.sendMeltChatInvite(_profile(), 'Tonight');

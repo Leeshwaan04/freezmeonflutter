@@ -69,12 +69,12 @@ void main() {
       });
 
       test('calculates short distances accurately', () {
-        // Two locations 1km apart in NYC
+        // Two locations ~111m apart in NYC (0.001 degrees latitude ≈ 111m)
         final distance = geoService.distanceBetween(40.7128, -74.0060, 40.7138, -74.0060);
 
-        // Should be approximately 1.1 km
-        expect(distance, greaterThan(1.0));
-        expect(distance, lessThan(1.5));
+        // Should be approximately 0.11 km
+        expect(distance, greaterThan(0.1));
+        expect(distance, lessThan(0.15));
       });
 
       test('calculates distance across date line', () {

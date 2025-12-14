@@ -7,6 +7,7 @@ import '../../models/vibe_profile.dart' as models;
 import '../../services/location_service.dart';
 import '../theme.dart';
 import '../shared/state_views.dart';
+import '../shared/bottom_nav_bar.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -96,7 +97,7 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: FreezmeColors.background,
       bottomNavigationBar: SafeArea(
         top: false,
-        child: _HomeBottomNavBar(
+        child: FreezmeBottomNavBar(
           currentIndex: flow.currentTabIndex,
           onTap: flow.openTab,
         ),
@@ -401,107 +402,7 @@ class _LivePathCard extends StatelessWidget {
   }
 }
 
-class _HomeBottomNavBar extends StatelessWidget {
-  const _HomeBottomNavBar({required this.currentIndex, required this.onTap});
 
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _HomeNavItem(
-            icon: Icons.explore_outlined,
-            label: 'Tonight',
-            active: currentIndex == 0,
-            onTap: () => onTap(0),
-          ),
-          _HomeNavItem(
-            icon: Icons.chat_bubble_outline,
-            label: 'Chats',
-            active: currentIndex == 1,
-            onTap: () => onTap(1),
-          ),
-          _HomeNavItem(
-            icon: Icons.route_outlined,
-            label: 'Paths',
-            active: currentIndex == 2,
-            onTap: () => onTap(2),
-          ),
-          _HomeNavItem(
-            icon: Icons.bolt_outlined,
-            label: 'Blinds',
-            active: currentIndex == 3,
-            onTap: () => onTap(3),
-          ),
-          _HomeNavItem(
-            icon: Icons.person_outline,
-            label: 'Profile',
-            active: currentIndex == 4,
-            onTap: () => onTap(4),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomeNavItem extends StatelessWidget {
-  const _HomeNavItem({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? FreezmeColors.primary : FreezmeColors.muted;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _TonightProfileCard extends StatelessWidget {
   final models.VibeProfile profile;

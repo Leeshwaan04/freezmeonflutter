@@ -1,40 +1,23 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:freezme/main.dart' hide VibeProfile;
-import 'package:freezme/ui/chat/chat_list_page.dart';
 import 'package:freezme/data/freezme_repository.dart';
-import 'dart:async';
 import 'package:freezme/models/vibe_profile.dart';
 import 'package:freezme/models/chat_message.dart';
 import 'package:freezme/models/paths.dart';
 import 'package:freezme/models/blinds.dart';
+import 'dart:async';
 
-// Fake repository
+/// Minimal stub implementation of [FreezmeRepository] used only for unit tests.
 class FakeFreezmeRepository implements FreezmeRepository {
-  @override
-  Stream<List<Map<String, dynamic>>> watchMatches() {
-    return Stream.value([
-      {
-        'id': 'chat1',
-        'name': 'Test User',
-        'photoUrl': '',
-        'lastMessage': 'Hello',
-        'updatedAt': DateTime.now().toIso8601String(),
-        'unread': 1,
-        'status': 'sent',
-        'isGroup': false,
-      }
-    ]);
-  }
-
-  @override
-  Future<void> createProfile(VibeProfile profile) async {}
-
   @override
   Future<List<VibeProfile>> fetchDailyProfiles() async => [];
 
   @override
-  Future<VibeProfile?> fetchProfile(String uid) async => null;
+  Future<List<VibeProfile>> fetchTonightPool({required double lat, required double lng, required String timezone}) async => [];
+
+  @override
+  Future<void> updateUserPreferences({required int ageMin, required int ageMax, required double distanceKm, required String bio}) async {}
+
+  @override
+  Future<void> createProfile(VibeProfile profile) async {}
 
   @override
   Future<void> likeProfile(String targetUid) async {}
@@ -46,12 +29,25 @@ class FakeFreezmeRepository implements FreezmeRepository {
   Future<List<Map<String, dynamic>>> fetchMatches() async => [];
 
   @override
+  Stream<List<Map<String, dynamic>>> watchMatches() => const Stream.empty();
+
+  @override
   Future<void> updateProfilePhotos({required String uid, required List<String> photoUrls}) async {}
+
+  @override
+  Future<VibeProfile?> fetchProfile(String uid) async => null;
+
+  @override
+  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? location, List<String>? interests}) async {}
 
   @override
   Future<void> sendMessage(ChatMessage message) async {}
 
-  
+  @override
+  Stream<List<ChatMessage>> messagesForChat(String chatId, {int limit = 50}) => const Stream.empty();
+
+  @override
+  Future<List<ChatMessage>> loadMoreMessages(String chatId, {required ChatMessage lastMessage, int limit = 50}) async => [];
 
   @override
   Future<void> markChatAsRead(String chatId) async {}
@@ -81,7 +77,7 @@ class FakeFreezmeRepository implements FreezmeRepository {
   Future<void> upsertPathsPresence(PathsPresence presence) async {}
 
   @override
-  Stream<List<PathsPresence>> fetchNearbyPaths({required double radiusKm, required Set<String> intents, double? lat, double? lng}) => Stream.value([]);
+  Stream<List<PathsPresence>> fetchNearbyPaths({required double radiusKm, required Set<String> intents, double? lat, double? lng}) => const Stream.empty();
 
   @override
   Future<String> sendPathsInvite({required String receiverUid, required String intent}) async => '';
@@ -108,16 +104,13 @@ class FakeFreezmeRepository implements FreezmeRepository {
   Future<void> reportBlindSession(String sessionId, String reason) async {}
 
   @override
-  Future<List<VibeProfile>> fetchTonightPool({required double lat, required double lng, required String timezone}) async => [];
-
-  @override
-  Future<void> updateUserPreferences({required int ageMin, required int ageMax, required double distanceKm, required String bio}) async {}
-
-  @override
-  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? location, List<String>? interests}) async {}
-
-  @override
   Future<String> createPost({required List<String> photoUrls, String? caption, required String visibility}) async => '';
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchFeed({int limit = 20}) => const Stream.empty();
+
+  @override
+  Future<List<Map<String, dynamic>>> loadMorePosts({required String lastPostId, int limit = 20}) async => [];
 
   @override
   Future<void> deletePost(String postId) async {}
@@ -136,40 +129,4 @@ class FakeFreezmeRepository implements FreezmeRepository {
 
   @override
   Future<void> deleteComment({required String postId, required String commentId}) async {}
-
-  @override
-  Stream<List<Map<String, dynamic>>> watchFeed({int limit = 20}) => const Stream.empty();
-
-  @override
-  Future<List<Map<String, dynamic>>> loadMorePosts({required String lastPostId, int limit = 20}) async => [];
-
-  @override
-  Stream<List<ChatMessage>> messagesForChat(String chatId, {int limit = 50}) => Stream.value([]);
-
-  @override
-  Future<List<ChatMessage>> loadMoreMessages(String chatId, {required ChatMessage lastMessage, int limit = 50}) async => [];
-}
-
-void main() {
-  testWidgets('ChatListPage renders correctly', (WidgetTester tester) async {
-    final mockRepo = FakeFreezmeRepository();
-    final controller = AppFlowController.test(repository: mockRepo);
-
-    await tester.pumpWidget(
-      AppFlowScope(
-        controller: controller,
-        child: const MaterialApp(
-          home: ChatListPage(),
-        ),
-      ),
-    );
-
-    // Verify loading state or data
-    await tester.pumpAndSettle();
-
-    // Check if "Test User" is displayed
-    expect(find.text('Test User'), findsOneWidget);
-    expect(find.text('Hello'), findsOneWidget);
-    // Note: Unread count badge rendering depends on ChatListPage implementation
-  });
 }

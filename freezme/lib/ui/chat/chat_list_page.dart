@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import '../shared/bottom_nav_bar.dart';
 import '../../main.dart';
 import '../../ui/theme.dart';
 import '../shared/state_views.dart';
@@ -112,8 +113,6 @@ class _ChatListPageState extends State<ChatListPage> {
   bool _showUnreadOnly = false;
   List<Conversation> _conversations = [];
   bool _tabLocked = false;
-  bool _initialLoading = true;
-  bool _streamError = false;
 
   @override
   void dispose() {
@@ -146,28 +145,130 @@ class _ChatListPageState extends State<ChatListPage> {
     }
   }
 
+  Widget _buildNewMatchesRail(List<Conversation> matches) {
+    // Filter for "New" matches - e.g., less than 5 messages or specifically marked
+    // For now, allow top 10 matches to appear here for quick access
+    final recent = matches.take(10).toList();
+    if (recent.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Text(
+            'New Matches',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: FreezmeColors.neutral,
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            scrollDirection: Axis.horizontal,
+            itemCount: recent.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final c = recent[index];
+              return GestureDetector(
+                onTap: () => AppFlowScope.of(context, listen: false).openChatDetail(
+                  VibeProfile(
+                    uid: c.chatId,
+                    id: 0,
+                    name: c.displayName,
+                    age: 0,
+                    imageUrl: c.photoUrl,
+                    compatibility: 0,
+                    bio: '',
+                    distance: '',
+                  ),
+                  chatId: c.chatId,
+                ),
+                child: Column(
+                  children: [
+                    Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const LinearGradient(
+                              colors: [FreezmeColors.primary, FreezmeColors.secondary],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: CircleAvatar(
+                              radius: 28,
+                              backgroundColor: FreezmeColors.surfaceAlt,
+                              backgroundImage: c.photoUrl.isNotEmpty
+                                  ? CachedNetworkImageProvider(c.photoUrl)
+                                  : null,
+                              child: c.photoUrl.isEmpty
+                                  ? const Icon(Icons.person, color: FreezmeColors.muted)
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        if (c.isOnline)
+                          Positioned(
+                            right: 2,
+                            bottom: 2,
+                            child: Container(
+                              width: 14,
+                              height: 14,
+                              decoration: BoxDecoration(
+                                color: FreezmeColors.success,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: 64,
+                      child: Text(
+                        c.displayName.split(' ').first,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: FreezmeColors.neutral,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Divider(height: 1),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: true);
 
-    // Profile completion is now optional - users can chat anytime
-    // if (!flow.isProfileComplete) {
-    //   return Scaffold(
-    //     bottomNavigationBar: SafeArea(
-    //       top: false,
-    //       child: _ChatBottomNavBar(
-    //         currentIndex: flow.currentTabIndex,
-    //         onTap: (index) => flow.openTab(index),
-    //       ),
-    //     ),
-    //     body: _ProfileGate(flow: flow),
-    //   );
-    // }
-
     return Scaffold(
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: _ChatBottomNavBar(
+      bottomNavigationBar: FreezmeBottomNavBar(
           currentIndex: flow.currentTabIndex,
           onTap: (index) {
             if (_tabLocked) return;
@@ -177,571 +278,381 @@ class _ChatListPageState extends State<ChatListPage> {
               if (mounted) setState(() => _tabLocked = false);
             });
           },
-        ),
       ),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: FreezmeGradients.backgroundSoft,
-        ),
+        color: Colors.white,
         child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: const [
-                        FreezmeLogo(size: LogoSize.sm, showText: true),
-                        Spacer(),
-                        Text('Chats', style: FreezmeTypography.title),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (value) => setState(() => _query = value),
-                      decoration: InputDecoration(
-                        hintText: 'Search chats or messages',
-                        prefixIcon: const Icon(Icons.search,
-                            color: FreezmeColors.muted),
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide:
-                              const BorderSide(color: FreezmeColors.border),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide:
-                              const BorderSide(color: FreezmeColors.border),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide:
-                              const BorderSide(color: FreezmeColors.primary),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        FilterChip(
-                          selected: !_showUnreadOnly,
-                          onSelected: (_) =>
-                              setState(() => _showUnreadOnly = false),
-                          label: const Text('All'),
-                          selectedColor:
-                              FreezmeColors.primary.withValues(alpha: 0.15),
-                          labelStyle: TextStyle(
-                            color: !_showUnreadOnly
-                                ? FreezmeColors.primary
-                                : FreezmeColors.neutral,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        FilterChip(
-                          selected: _showUnreadOnly,
-                          onSelected: (_) =>
-                              setState(() => _showUnreadOnly = true),
-                          label: const Text('Unread'),
-                          selectedColor:
-                              FreezmeColors.primary.withValues(alpha: 0.15),
-                          labelStyle: TextStyle(
-                            color: _showUnreadOnly
-                                ? FreezmeColors.primary
-                                : FreezmeColors.neutral,
-                          ),
-                        ),
-                        const Spacer(),
-                        const Row(
-                          children: [
-                            Icon(Icons.done_all,
-                                size: 16, color: FreezmeColors.muted),
-                            SizedBox(width: 4),
-                            Text('Read', style: FreezmeTypography.bodyMuted),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: RepaintBoundary( // Wrap expensive list in RepaintBoundary
-                  child: StreamBuilder<List<Map<String, dynamic>>>(
-                    stream: flow.repository.watchMatches(),
-                    builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      // Show skeleton loading for better UX
-                      return ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        itemCount: 5,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (_, __) => const _SkeletonChatItem(),
-                      );
-                    }
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('Could not load chats',
-                                style: FreezmeTypography.bodyMuted),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                setState(() {}); // Trigger rebuild
-                              },
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
+          bottom: false,
+          child: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: flow.repository.watchMatches(),
+            builder: (context, snapshot) {
+              // Start with the Header as a fixed sliver
+              final List<Widget> slivers = [
+                SliverToBoxAdapter(child: _buildHeader()),
+              ];
 
-                    final matches = snapshot.data ?? [];
-                    final mapped = matches.map((m) {
-                      final id = m['id']?.toString() ?? '';
-                      final displayName = m['name']?.toString() ??
-                          (m['otherUserName']?.toString() ?? 'Freezme Match');
-                      final photo = m['photoUrl']?.toString() ?? '';
-                      final lastMsg =
-                          m['lastMessage']?.toString() ?? 'Tap to open chat';
-                      // Use pre-formatted timeLabel from repository
-                      final timeLabel = m['timeLabel']?.toString() ?? '';
-                      final unread = (m['unread'] as num?)?.toInt() ?? 0;
-                      final statusString = m['status']?.toString();
-                      final status = switch (statusString) {
-                        'read' => _MessageStatus.read,
-                        'sent' => _MessageStatus.sent,
-                        _ => _MessageStatus.delivered,
-                      };
-                      return Conversation(
-                        chatId: id,
-                        displayName: displayName,
-                        photoUrl: photo,
-                        lastMessage: lastMsg,
-                        timeLabel: timeLabel,
-                        unread: unread,
-                        status: status,
-                        isGroup: (m['isGroup'] as bool?) ?? false,
-                        isPinned: (m['isPinned'] as bool?) ?? false,
-                        isMuted: (m['isMuted'] as bool?) ?? false,
-                        isArchived: (m['isArchived'] as bool?) ?? false,
-                        isOnline: (m['isOnline'] as bool?) ?? false,
-                        isTyping: (m['isTyping'] as bool?) ?? false,
-                      );
-                    }).toList();
-                    
-                    // Sort: Pinned first, then by date
-                    mapped.sort((a, b) {
-                      if (a.isPinned != b.isPinned) {
-                        return a.isPinned ? -1 : 1;
-                      }
-                      // Assuming original list is already sorted by date
-                      // For now, we assume the stream provides them in a suitable order for non-pinned.
-                      // If not, we'd need a timestamp comparison here.
-                      return 0;
-                    });
+              // Handle loading state
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                slivers.add(SliverToBoxAdapter(child: _buildSkeletonLoader()));
+              }
+              // Handle error state
+              else if (snapshot.hasError) {
+                slivers.add(SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _buildErrorView(),
+                ));
+              }
+              // Handle data state
+              else {
+                final matches = snapshot.data ?? [];
+                final mapped = matches.map((m) {
+                  final id = m['id']?.toString() ?? '';
+                  final displayName = m['name']?.toString() ??
+                      (m['otherUserName']?.toString() ?? 'Freezme Match');
+                  final photo = m['photoUrl']?.toString() ?? '';
+                  final lastMsg = m['lastMessage']?.toString() ?? 'Tap to open chat';
+                  final timeLabel = m['timeLabel']?.toString() ?? '';
+                  final unread = (m['unread'] as num?)?.toInt() ?? 0;
+                  final statusString = m['status']?.toString();
+                  final status = switch (statusString) {
+                    'read' => _MessageStatus.read,
+                    'sent' => _MessageStatus.sent,
+                    _ => _MessageStatus.delivered,
+                  };
+                  return Conversation(
+                    chatId: id,
+                    displayName: displayName,
+                    photoUrl: photo,
+                    lastMessage: lastMsg,
+                    timeLabel: timeLabel,
+                    unread: unread,
+                    status: status,
+                    isGroup: (m['isGroup'] as bool?) ?? false,
+                    isPinned: (m['isPinned'] as bool?) ?? false,
+                    isMuted: (m['isMuted'] as bool?) ?? false,
+                    isArchived: (m['isArchived'] as bool?) ?? false,
+                    isOnline: (m['isOnline'] as bool?) ?? false,
+                    isTyping: (m['isTyping'] as bool?) ?? false,
+                  );
+                }).toList();
+                
+                mapped.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+                _conversations = mapped;
+                final visibleConversations = _filterConversations(_conversations);
 
-                    _conversations = mapped;
+                // Show "New Matches" rail if applicable
+                if (visibleConversations.isNotEmpty && !_showUnreadOnly && _query.isEmpty) {
+                  slivers.add(SliverToBoxAdapter(child: _buildNewMatchesRail(visibleConversations)));
+                }
 
-                    final visibleConversations =
-                        _filterConversations(_conversations);
-
-                    if (visibleConversations.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          'No conversations yet.\nInvite a vibe to start chatting.',
-                          textAlign: TextAlign.center,
-                          style: FreezmeTypography.bodyMuted,
-                        ),
-                      );
-                    }
-
-                    return RefreshIndicator(
-                      onRefresh: () async {
-                        // watchMatches is a stream, so refresh might just be a no-op or re-establishing stream
-                        // But for UI feel we can delay a bit
-                        await Future.delayed(const Duration(seconds: 1));
-                        setState(() {});
-                      },
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        // Performance optimizations for separated lists
-                        addAutomaticKeepAlives: true, // Keep alive for better scroll performance
-                        addRepaintBoundaries: true, // Isolate repaints
-                        cacheExtent: 500, // Cache more items for smoother scrolling
-                        itemCount: visibleConversations.length,
-                        itemBuilder: (context, index) {
-                          final convo = visibleConversations[index];
-                          return Dismissible(
-                            key: ValueKey(convo.chatId), // Use ValueKey for better performance
-                            background: Container(
-                              color: FreezmeColors.primary,
-                              alignment: Alignment.centerLeft,
-                              padding: const EdgeInsets.only(left: 20),
-                              child: const Icon(Icons.archive, color: Colors.white),
-                            ),
-                            secondaryBackground: Container(
-                              color: Colors.red,
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              child: const Icon(Icons.delete, color: Colors.white),
-                            ),
-                            confirmDismiss: (direction) async {
-                              if (direction == DismissDirection.endToStart) {
-                                // Delete
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text('Delete Chat?'),
-                                    content: const Text(
-                                        'This will remove the chat for you. Messages will remain for the other person.'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context, false),
-                                        child: const Text('Cancel'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context, true),
-                                        child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirm == true) {
-                                  await flow.repository.deleteChat(convo.chatId);
-                                  return true;
-                                }
-                                return false;
-                              } else {
-                                // Archive
-                                await flow.repository.archiveChat(convo.chatId, true);
-                                if (!context.mounted) return true;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('${convo.displayName} archived'),
-                                    action: SnackBarAction(
-                                      label: 'Undo',
-                                      onPressed: () => flow.repository.archiveChat(convo.chatId, false),
-                                    ),
-                                  ),
-                                );
-                                return true;
-                              }
-                            },
-                            child: Card(
-                              elevation: convo.unread > 0 ? 4 : 2,
-                              shadowColor: convo.unread > 0
-                                  ? FreezmeColors.primary.withValues(alpha: 0.3)
-                                  : Colors.black.withValues(alpha: 0.1),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: convo.isPinned
-                                    ? const BorderSide(
-                                        color: FreezmeColors.primary,
-                                        width: 1.5,
-                                      )
-                                    : BorderSide.none,
+                if (visibleConversations.isEmpty) {
+                  slivers.add(SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildEmptyView(),
+                  ));
+                } else {
+                  slivers.add(SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final convo = visibleConversations[index];
+                        return InkWell(
+                          onTap: () {
+                            flow.openChatDetail(
+                              VibeProfile(
+                                uid: convo.chatId,
+                                id: 0,
+                                name: convo.displayName,
+                                age: 0,
+                                imageUrl: convo.photoUrl,
+                                compatibility: 0,
+                                bio: '',
+                                distance: '',
                               ),
-                              color: convo.isPinned
-                                  ? FreezmeColors.primary.withValues(alpha: 0.05)
-                                  : Colors.white,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(16),
-                                onTap: () {
-                                  setState(() {
-                                    convo.unread = 0;
-                                    convo.status = _MessageStatus.read;
-                                  });
-                                  flow.openChatDetail(
-                                    VibeProfile(
-                                      uid: convo.chatId,
-                                      id: 0,
-                                      name: convo.displayName,
-                                      age: 0,
-                                      imageUrl: convo.photoUrl,
-                                      compatibility: 0,
-                                      bio: '',
-                                      distance: '',
+                              chatId: convo.chatId,
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            child: Row(
+                              children: [
+                                Stack(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 28,
+                                      backgroundColor: FreezmeColors.surfaceAlt,
+                                      backgroundImage: convo.photoUrl.isNotEmpty
+                                          ? CachedNetworkImageProvider(convo.photoUrl)
+                                          : null,
+                                      child: convo.photoUrl.isEmpty
+                                          ? const Icon(Icons.person, color: FreezmeColors.muted)
+                                          : null,
                                     ),
-                                    chatId: convo.chatId,
-                                  );
-                                },
-                                onLongPress: () {
-                                  showModalBottomSheet(
-                                    context: context,
-                                    shape: const RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                                    ),
-                                    builder: (context) => Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 20),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Container(
-                                            width: 40,
-                                            height: 4,
-                                            decoration: BoxDecoration(
-                                              color: FreezmeColors.border,
-                                              borderRadius: BorderRadius.circular(2),
-                                            ),
+                                    if (convo.unread > 0)
+                                      Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: FreezmeColors.primary,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white, width: 2),
                                           ),
-                                          const SizedBox(height: 20),
-                                          ListTile(
-                                            leading: Icon(
-                                              convo.isPinned ? Icons.push_pin_outlined : Icons.push_pin,
-                                              color: FreezmeColors.primary,
-                                            ),
-                                            title: Text(convo.isPinned ? 'Unpin Chat' : 'Pin Chat'),
-                                            subtitle: Text(
-                                              convo.isPinned
-                                                  ? 'Remove from top'
-                                                  : 'Keep at top of chat list',
-                                              style: FreezmeTypography.bodyMuted,
-                                            ),
-                                            onTap: () {
-                                              Navigator.pop(context);
-                                              flow.repository.pinChat(convo.chatId, !convo.isPinned);
-                                            },
-                                          ),
-                                          const Divider(),
-                                          ListTile(
-                                            leading: Icon(
-                                              convo.isMuted ? Icons.notifications_active : Icons.notifications_off,
-                                              color: FreezmeColors.accent,
-                                            ),
-                                            title: Text(convo.isMuted ? 'Unmute Chat' : 'Mute Chat'),
-                                            subtitle: Text(
-                                              convo.isMuted
-                                                  ? 'Turn on notifications'
-                                                  : 'Stop receiving notifications',
-                                              style: FreezmeTypography.bodyMuted,
-                                            ),
-                                            onTap: () {
-                                              Navigator.pop(context);
-                                              flow.repository.muteChat(convo.chatId, !convo.isMuted);
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    children: [
-                                      Stack(
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              border: convo.unread > 0
-                                                  ? Border.all(
-                                                      color: FreezmeColors.primary,
-                                                      width: 2.5,
-                                                    )
-                                                  : null,
-                                            ),
-                                            child: convo.photoUrl.isNotEmpty
-                                                ? CachedNetworkImage(
-                                                    imageUrl: convo.photoUrl,
-                                                    imageBuilder: (context, imageProvider) => CircleAvatar(
-                                                      backgroundImage: imageProvider,
-                                                      radius: 28,
-                                                    ),
-                                                    placeholder: (context, url) => const CircleAvatar(
-                                                      radius: 28,
-                                                      child: Icon(Icons.person, size: 28),
-                                                    ),
-                                                    errorWidget: (context, url, error) => const CircleAvatar(
-                                                      radius: 28,
-                                                      child: Icon(Icons.person, size: 28),
-                                                    ),
-                                                    memCacheWidth: 150,
-                                                    memCacheHeight: 150,
-                                                    maxWidthDiskCache: 150,
-                                                    maxHeightDiskCache: 150,
-                                                  )
-                                                : const CircleAvatar(
-                                                    radius: 28,
-                                                    child: Icon(Icons.person, size: 28),
-                                                  ),
-                                          ),
-                                          if (convo.unread > 0)
-                                            Positioned(
-                                              right: -4,
-                                              top: -4,
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 3,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: FreezmeColors.error,
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: FreezmeColors.error.withValues(alpha: 0.4),
-                                                      blurRadius: 4,
-                                                      offset: const Offset(0, 2),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: Text(
-                                                  convo.unread > 9 ? '9+' : '${convo.unread}',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          if (convo.isOnline)
-                                            Positioned(
-                                              right: 0,
-                                              bottom: 0,
-                                              child: Container(
-                                                width: 14,
-                                                height: 14,
-                                                decoration: BoxDecoration(
-                                                  color: FreezmeColors.success,
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(
-                                                    color: Colors.white,
-                                                    width: 2.5,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    convo.displayName,
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.w700,
-                                                      fontSize: 16,
-                                                      color: FreezmeColors.neutral,
-                                                      letterSpacing: -0.3,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                if (convo.isPinned)
-                                                  Icon(
-                                                    Icons.push_pin,
-                                                    size: 16,
-                                                    color: FreezmeColors.primary,
-                                                  ),
-                                                if (convo.isMuted)
-                                                  Icon(
-                                                    Icons.notifications_off,
-                                                    size: 16,
-                                                    color: FreezmeColors.muted,
-                                                  ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    convo.isTyping ? 'Typing...' : convo.lastMessage,
-                                                    style: TextStyle(
-                                                      color: convo.isTyping
-                                                          ? FreezmeColors.primary
-                                                          : (convo.unread > 0
-                                                              ? FreezmeColors.neutral
-                                                              : FreezmeColors.muted),
-                                                      fontWeight: convo.unread > 0 || convo.isTyping
-                                                          ? FontWeight.w600
-                                                          : FontWeight.normal,
-                                                      fontStyle: convo.isTyping
-                                                          ? FontStyle.italic
-                                                          : FontStyle.normal,
-                                                      fontSize: 14,
-                                                    ),
-                                                    maxLines: 2,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                  ],
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
+                                          Text(
+                                            convo.displayName,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: convo.unread > 0 ? FontWeight.w700 : FontWeight.w600,
+                                              color: FreezmeColors.neutral,
+                                            ),
+                                          ),
                                           Text(
                                             convo.timeLabel,
                                             style: TextStyle(
-                                              color: convo.unread > 0
-                                                  ? FreezmeColors.primary
-                                                  : FreezmeColors.muted,
                                               fontSize: 12,
-                                              fontWeight: convo.unread > 0
-                                                  ? FontWeight.w600
-                                                  : FontWeight.normal,
+                                              color: convo.unread > 0 ? FreezmeColors.primary : FreezmeColors.muted,
+                                              fontWeight: convo.unread > 0 ? FontWeight.w600 : FontWeight.normal,
                                             ),
                                           ),
-                                          const SizedBox(height: 6),
-                                          Icon(
-                                            _statusIcon(convo.status),
-                                            size: 16,
-                                            color: convo.status == _MessageStatus.read
-                                                ? FreezmeColors.primary
-                                                : FreezmeColors.muted,
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          if (convo.status == _MessageStatus.read)
+                                              const Padding(
+                                                padding: EdgeInsets.only(right: 4),
+                                                child: Icon(Icons.done_all, size: 16, color: FreezmeColors.primary),
+                                              ),
+                                          Expanded(
+                                            child: Text(
+                                              convo.lastMessage,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: convo.unread > 0 ? FreezmeColors.neutral : FreezmeColors.muted,
+                                                fontWeight: convo.unread > 0 ? FontWeight.w500 : FontWeight.normal,
+                                              ),
+                                            ),
                                           ),
+                                          if (convo.isPinned)
+                                              const Icon(Icons.push_pin, size: 14, color: FreezmeColors.muted),
                                         ],
                                       ),
                                     ],
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                          );
-                        },
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                      ),
-                    );
-                  },
-                ),
-                ),
+                          ),
+                        );
+                      },
+                      childCount: visibleConversations.length,
+                    ),
+                  ));
+                }
+              }
+
+              slivers.add(const SliverPadding(padding: EdgeInsets.only(bottom: 100)));
+
+              return CustomScrollView(
+                slivers: slivers,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Chats', style: FreezmeTypography.display),
+              IconButton(
+                icon: const Icon(Icons.edit_square, color: FreezmeColors.primary),
+                onPressed: () {},
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _searchController,
+            onChanged: (value) => setState(() => _query = value),
+            decoration: InputDecoration(
+              hintText: 'Search chats...',
+              prefixIcon: const Icon(Icons.search, color: FreezmeColors.muted),
+              filled: true,
+              fillColor: FreezmeColors.surfaceAlt,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+          ),
+           const SizedBox(height: 16),
+           SingleChildScrollView(
+             scrollDirection: Axis.horizontal,
+             child: Row(
+              children: [
+                 FilterChip(
+                  label: const Text('All'), 
+                  selected: !_showUnreadOnly,
+                  onSelected: (v) => setState(() => _showUnreadOnly = false),
+                  backgroundColor: Colors.transparent,
+                  selectedColor: FreezmeColors.primary.withValues(alpha: 0.1),
+                  side: BorderSide(
+                    color: !_showUnreadOnly ? FreezmeColors.primary : FreezmeColors.border,
+                  ),
+                  labelStyle: TextStyle(
+                    color: !_showUnreadOnly ? FreezmeColors.primary : FreezmeColors.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Unread'), 
+                  selected: _showUnreadOnly,
+                  onSelected: (v) => setState(() => _showUnreadOnly = true),
+                   backgroundColor: Colors.transparent,
+                  selectedColor: FreezmeColors.primary.withValues(alpha: 0.1),
+                  side: BorderSide(
+                    color: _showUnreadOnly ? FreezmeColors.primary : FreezmeColors.border,
+                  ),
+                  labelStyle: TextStyle(
+                    color: _showUnreadOnly ? FreezmeColors.primary : FreezmeColors.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
+              ],
+             ),
+           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSkeletonLoader() {
+     return ListView.separated(
+       padding: const EdgeInsets.symmetric(horizontal: 20),
+       shrinkWrap: true,
+       physics: const NeverScrollableScrollPhysics(),
+       itemCount: 6,
+       separatorBuilder: (_, __) => const SizedBox(height: 24),
+       itemBuilder: (_, __) => Row(
+         children: [
+           Container(
+             width: 56, height: 56,
+             decoration: BoxDecoration(
+               color: FreezmeColors.surfaceAlt,
+               shape: BoxShape.circle,
+             ),
+           ),
+           const SizedBox(width: 16),
+           Expanded(
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               children: [
+                 Container(width: 120, height: 16, decoration: BoxDecoration(color: FreezmeColors.surfaceAlt, borderRadius: BorderRadius.circular(4))),
+                 const SizedBox(height: 8),
+                 Container(width: double.infinity, height: 12, decoration: BoxDecoration(color: FreezmeColors.surfaceAlt, borderRadius: BorderRadius.circular(4))),
+               ],
+             ),
+           ),
+         ],
+       ),
+     );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: FreezmeColors.surfaceAlt,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.cloud_off_rounded, size: 48, color: FreezmeColors.muted),
+          ),
+          const SizedBox(height: 24),
+          const Text('Connection Issue', style: FreezmeTypography.title),
+          const SizedBox(height: 8),
+          const Text(
+            'We couldn\'t load your chats.\nPlease check your connection and try again.',
+            textAlign: TextAlign.center,
+            style: FreezmeTypography.bodyMuted,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => setState(() {}),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: FreezmeColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              shape: const StadiumBorder(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: FreezmeColors.surfaceAlt,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.chat_bubble_outline, size: 48, color: FreezmeColors.muted),
+          ),
+           const SizedBox(height: 16),
+           const Text(
+             'No conversations found',
+             style: TextStyle(
+               fontSize: 18,
+               fontWeight: FontWeight.w600,
+               color: FreezmeColors.neutral,
+             ),
+           ),
+           const SizedBox(height: 8),
+           const Text(
+             'Try adjusting your filters or say hi to someone new!',
+             textAlign: TextAlign.center,
+             style: FreezmeTypography.bodyMuted,
+           ),
+        ],
       ),
     );
   }
@@ -1026,107 +937,3 @@ class _SkeletonChatCardState extends State<_SkeletonChatCard>
   }
 }
 
-class _ChatBottomNavBar extends StatelessWidget {
-  const _ChatBottomNavBar({
-    required this.currentIndex,
-    required this.onTap,
-  });
-
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _NavItem(
-            icon: Icons.explore_outlined,
-            label: 'Tonight',
-            active: currentIndex == 0,
-            onTap: () => onTap(0),
-          ),
-          _NavItem(
-            icon: Icons.chat_bubble_outline,
-            label: 'Chats',
-            active: currentIndex == 1,
-            onTap: () => onTap(1),
-          ),
-          _NavItem(
-            icon: Icons.route_outlined,
-            label: 'Paths',
-            active: currentIndex == 2,
-            onTap: () => onTap(2),
-          ),
-          _NavItem(
-            icon: Icons.bolt_outlined,
-            label: 'Blinds',
-            active: currentIndex == 3,
-            onTap: () => onTap(3),
-          ),
-          _NavItem(
-            icon: Icons.person_outline,
-            label: 'Profile',
-            active: currentIndex == 4,
-            onTap: () => onTap(4),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? FreezmeColors.primary : FreezmeColors.muted;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 24),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
