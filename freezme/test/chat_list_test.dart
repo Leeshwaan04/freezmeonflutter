@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:freezme/main.dart' hide VibeProfile;
+import 'package:freezme/main.dart';
 import 'package:freezme/ui/chat/chat_list_page.dart';
 import 'package:freezme/data/freezme_repository.dart';
 import 'dart:async';
@@ -112,6 +112,9 @@ class FakeFreezmeRepository implements FreezmeRepository {
 
   @override
   Future<void> updateUserPreferences({required int ageMin, required int ageMax, required double distanceKm, required String bio}) async {}
+
+  @override
+  Future<Map<String, dynamic>> fetchUserPreferences() async => {};
 
   @override
   Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? location, List<String>? interests}) async {}

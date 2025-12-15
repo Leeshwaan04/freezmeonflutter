@@ -116,6 +116,11 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
   }
 
   @override
+  Future<Map<String, dynamic>> fetchUserPreferences() {
+    return _fallback.fetchUserPreferences();
+  }
+
+  @override
   Future<void> createProfile(VibeProfile profile) async {
     try {
       await _functions

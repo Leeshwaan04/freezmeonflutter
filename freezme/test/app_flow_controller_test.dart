@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:freezme/main.dart';
+import 'package:freezme/models/vibe_profile.dart'; // Added
 import 'package:freezme/services/melt_chat_service.dart';
 import 'package:freezme/services/photo_upload_service.dart';
 import 'mocks/fake_freezme_repository.dart';
@@ -60,6 +61,7 @@ class _FailingMeltChatService implements MeltChatService {
 }
 
 VibeProfile _profile() => const VibeProfile(
+  uid: 'test_uid',
   id: 42,
   name: 'Test',
   age: 25,

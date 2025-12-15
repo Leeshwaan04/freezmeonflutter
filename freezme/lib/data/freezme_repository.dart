@@ -20,6 +20,8 @@ abstract class FreezmeRepository {
     required String bio,
   });
 
+  Future<Map<String, dynamic>> fetchUserPreferences();
+
   Future<void> createProfile(VibeProfile profile);
   Future<void> likeProfile(String targetUid);
   Future<void> skipProfile(String targetUid);

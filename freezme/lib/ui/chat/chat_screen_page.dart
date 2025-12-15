@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../main.dart';
 import '../../models/chat_message.dart';
-import '../../ui/theme.dart';
+import '../design_system.dart';
 import 'freeze_modal.dart' as modal;
 import 'typing_indicator.dart';
 
@@ -156,31 +156,45 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
         child: SafeArea(
           child: Column(
             children: [
+              // Header
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 16,
                 ),
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [FreezmeColors.primary, FreezmeColors.secondary],
-                  ),
+                  gradient: FreezmeGradients.primary,
                   borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(24),
+                    bottom: Radius.circular(32),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
                     IconButton(
                       onPressed: flow.exitChat,
-                      icon: const Icon(Icons.chevron_left, color: Colors.white),
+                      icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
                     ),
-                    const SizedBox(width: 12),
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundImage: NetworkImage(
-                        profile?.imageUrl ??
-                            'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=320',
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white24,
+                      ),
+                      child: CircleAvatar(
+                        radius: 22,
+                        backgroundColor: Colors.white24,
+                        backgroundImage: NetworkImage(
+                          profile?.imageUrl ??
+                              'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=320',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -190,9 +204,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                         children: [
                           Text(
                             profile?.name ?? 'Match',
-                            style: const TextStyle(
+                            style: FreezmeDesignSystem.h3.copyWith(
                               color: Colors.white,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -201,6 +214,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -215,12 +229,16 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                   ],
                 ),
               ),
+
+              // Chat Area
               Expanded(
                 child: chatId == null
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           'No chat selected.',
-                          style: FreezmeTypography.bodyMuted,
+                          style: FreezmeDesignSystem.body.copyWith(
+                            color: FreezmeDesignSystem.textSecondary,
+                          ),
                         ),
                       )
                     : StreamBuilder<List<ChatMessage>>(
@@ -229,7 +247,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
                             return const Center(
-                                child: CircularProgressIndicator());
+                                child: CircularProgressIndicator(color: FreezmeDesignSystem.primary));
                           }
                           if (snapshot.hasError) {
                             return const Center(
@@ -263,8 +281,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                           return ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 24,
+                              horizontal: FreezmeDesignSystem.spaceLg,
+                              vertical: FreezmeDesignSystem.spaceLg,
                             ),
                             itemCount: itemCount,
                             itemBuilder: (context, index) {
@@ -293,36 +311,41 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                                   ),
                                   constraints: BoxConstraints(
                                     maxWidth:
-                                        MediaQuery.of(context).size.width * 0.7,
+                                        MediaQuery.of(context).size.width * 0.75,
                                   ),
                                   decoration: BoxDecoration(
                                     gradient: isMe
                                         ? const LinearGradient(
                                             colors: [
-                                              FreezmeColors.primary,
-                                              FreezmeColors.secondary,
+                                              FreezmeDesignSystem.primary,
+                                              FreezmeDesignSystem.secondary,
                                             ],
                                           )
                                         : null,
                                     color: isMe ? null : Colors.white,
                                     borderRadius: BorderRadius.only(
-                                      topLeft: const Radius.circular(24),
+                                      topLeft: const Radius.circular(20),
                                       topRight: isMe
-                                          ? const Radius.circular(8)
-                                          : const Radius.circular(24),
+                                          ? const Radius.circular(4)
+                                          : const Radius.circular(20),
                                       bottomLeft: isMe
-                                          ? const Radius.circular(24)
-                                          : const Radius.circular(8),
-                                      bottomRight: const Radius.circular(24),
+                                          ? const Radius.circular(20)
+                                          : const Radius.circular(4),
+                                      bottomRight: const Radius.circular(20),
                                     ),
                                     boxShadow: isMe
-                                        ? null
+                                        ? [
+                                            BoxShadow(
+                                              color: FreezmeDesignSystem.primary.withValues(alpha: 0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            )
+                                          ]
                                         : [
                                             BoxShadow(
-                                              color: Colors.black
-                                                  .withValues(alpha: 0.05),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 6),
+                                              color: Colors.black.withValues(alpha: 0.05),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
                                             ),
                                           ],
                                   ),
@@ -332,13 +355,14 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                                     children: [
                                       Text(
                                         msg.text,
-                                        style: TextStyle(
+                                        style: FreezmeDesignSystem.body.copyWith(
                                           color: isMe
                                               ? Colors.white
-                                              : FreezmeColors.neutral,
-                                          ),
+                                              : FreezmeDesignSystem.textPrimary,
+                                          fontSize: 15,
                                         ),
-                                      const SizedBox(height: 6),
+                                      ),
+                                      const SizedBox(height: 4),
                                       Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -347,15 +371,16 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                                             style: TextStyle(
                                               color: isMe
                                                   ? Colors.white70
-                                                  : FreezmeColors.muted,
-                                              fontSize: 11,
+                                                  : FreezmeDesignSystem.textTertiary,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                           if (isMe) ...[
-                                            const SizedBox(width: 6),
+                                            const SizedBox(width: 4),
                                             Icon(
                                               _statusIcon(msg.status),
-                                              size: 14,
+                                              size: 12,
                                               color: Colors.white70,
                                             ),
                                           ],
@@ -370,62 +395,81 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                         },
                       ),
               ),
+
+              // Input Area
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 16,
+                  vertical: 12,
                 ),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
                   boxShadow: [
                     BoxShadow(
-                      color: Color(0x1F000000),
-                      blurRadius: 10,
-                      offset: Offset(0, -2),
+                      color: Color(0x0A000000),
+                      blurRadius: 16,
+                      offset: Offset(0, -4),
                     ),
                   ],
                 ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.emoji_emotions_outlined,
-                        color: FreezmeColors.primary,
+                child: SafeArea(
+                  top: false,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(
+                          Icons.emoji_emotions_outlined,
+                          color: FreezmeDesignSystem.textSecondary,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        onSubmitted: (_) => _handleSend(),
-                        decoration: InputDecoration(
-                          hintText: 'Type a message...',
-                          filled: true,
-                          fillColor: FreezmeColors.surface,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(28),
-                            borderSide: BorderSide.none,
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: FreezmeDesignSystem.surface,
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: TextField(
+                            controller: _controller,
+                            onSubmitted: (_) => _handleSend(),
+                            style: FreezmeDesignSystem.body,
+                            decoration: InputDecoration(
+                              hintText: 'Type a message...',
+                              hintStyle: FreezmeDesignSystem.body.copyWith(
+                                color: FreezmeDesignSystem.textTertiary,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.mic_none,
-                        color: FreezmeColors.primary,
+                      const SizedBox(width: 8),
+                      // Mic icon if text empty, Send if not
+                      // _controller logic would be better with setState listener but using simple logic here
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(
+                          Icons.mic_none,
+                          color: FreezmeDesignSystem.textSecondary,
+                        ),
                       ),
-                    ),
-                    IconButton.filled(
-                      onPressed: _handleSend,
-                      style: IconButton.styleFrom(
-                        backgroundColor: FreezmeColors.primary,
-                        foregroundColor: Colors.white,
+                      GestureDetector(
+                        onTap: _handleSend,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: const BoxDecoration(
+                            gradient: FreezmeGradients.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                        ),
                       ),
-                      icon: const Icon(Icons.send),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -435,3 +479,4 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
     );
   }
 }
+

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import '../models/blinds.dart';
 import '../models/chat_message.dart';
 import '../models/paths.dart';
@@ -32,6 +33,16 @@ class MockFreezmeRepository implements FreezmeRepository {
   }) async {
     // Mock implementation: do nothing or print
     debugPrint('Mock: Updated preferences: age $ageMin-$ageMax, dist $distanceKm, bio $bio');
+  }
+
+  @override
+  Future<Map<String, dynamic>> fetchUserPreferences() async {
+    return {
+      'ageMin': 18,
+      'ageMax': 35,
+      'distanceKm': 10.0,
+      'intents': ['Friends', 'Dates'],
+    };
   }
 
 

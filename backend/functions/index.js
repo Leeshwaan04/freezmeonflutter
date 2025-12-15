@@ -5,14 +5,14 @@ admin.initializeApp();
 const db = admin.firestore();
 
 /**
- * getTonightPool - Returns profiles active in the last 3 hours within a geo-radius
+ * getTonightPool - Returns profiles active in the last 3 hours
  */
 exports.getTonightPool = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "User must be signed in");
   }
 
-  const { lat, lng, timezone } = data;
+  const { lat, lng } = data; // Unused for now, but good for future geo-querying
   const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
 
   try {
@@ -30,19 +30,20 @@ exports.getTonightPool = functions.https.onCall(async (data, context) => {
     return { profiles };
   } catch (error) {
     console.error("Error fetching tonight pool:", error);
-    throw new functions.https.HttpsError("internal", "Failed to fetch tonight pool");
+    // Return empty list instead of throwing to prevent app crash if index missing
+    return { profiles: [] };
   }
 });
 
 /**
- * updateUserPreferences - Saves user preferences to Firestore
+ * updateUserPreferences - Saves user preferences
  */
 exports.updateUserPreferences = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "User must be signed in");
   }
 
-  const { ageMin, ageMax, distanceKm, bio } = data;
+  const { ageMin, ageMax, distanceKm, bio, interests } = data;
   const uid = context.auth.uid;
 
   try {
@@ -50,9 +51,19 @@ exports.updateUserPreferences = functions.https.onCall(async (data, context) => 
       {
         preferences: { ageMin, ageMax, distanceKm },
         bio,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        interests,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
+    );
+    // Also update public profile
+    await db.collection("profiles").doc(uid).set(
+        {
+          bio,
+          interests,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
     );
 
     return { success: true };
@@ -63,51 +74,183 @@ exports.updateUserPreferences = functions.https.onCall(async (data, context) => 
 });
 
 /**
- * acceptPathInvite - Handles Paths invite acceptance
+ * upsertPathsPresence - Updates user's active status in Paths
  */
-exports.acceptPathInvite = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be signed in");
-  }
+exports.upsertPathsPresence = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
 
-  const { inviteId } = data;
-  const uid = context.auth.uid;
+    const uid = context.auth.uid;
+    const { intents, radiusKm, visibleUntil, lat, lng, geohash, availability, interestsSummary } = data;
 
-  try {
-    const inviteRef = db.collection("path_invites").doc(inviteId);
-    const inviteDoc = await inviteRef.get();
-
-    if (!inviteDoc.exists) {
-      throw new functions.https.HttpsError("not-found", "Invite not found");
+    try {
+        await db.collection('paths_presence').doc(uid).set({
+            uid,
+            intents,
+            radiusKm,
+            visibleUntil: new Date(visibleUntil),
+            lat,
+            lng,
+            geohash,
+            availability,
+            interestsSummary,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { success: true };
+    } catch (e) {
+        console.error("Error upserting presence:", e);
+        throw new functions.https.HttpsError("internal", e.message);
     }
-
-    const inviteData = inviteDoc.data();
-    if (inviteData.receiver_uid !== uid) {
-      throw new functions.https.HttpsError("permission-denied", "Not your invite");
-    }
-
-    // Update invite status
-    await inviteRef.update({
-      status: "accepted",
-      acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // Add user to path participants
-    const pathRef = db.collection("paths").doc(inviteData.path_id);
-    await pathRef.update({
-      participants: admin.firestore.FieldValue.arrayUnion(uid),
-    });
-
-    return { success: true, pathId: inviteData.path_id };
-  } catch (error) {
-    console.error("Error accepting invite:", error);
-    throw new functions.https.HttpsError("internal", "Failed to accept invite");
-  }
 });
 
 /**
- * sendPushNotification - Sends push notifications
+ * getNearbyPaths - Fetches nearby users in Paths
  */
+exports.getNearbyPaths = functions.https.onCall(async (data, context) => {
+    const { radiusKm, lat, lng } = data;
+    // Real impl would use geohash query. For now, return all recent presences
+    // to simulate activity.
+    try {
+        const now = new Date();
+        const snapshot = await db.collection('paths_presence')
+            .where('visibleUntil', '>', now)
+            .limit(20)
+            .get();
+        
+        const profiles = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            // Convert timestamps back to strings/dates for transport if needed
+            visibleUntil: doc.data().visibleUntil.toDate().toISOString()
+        }));
+        
+        // Filter out self
+        const filtered = process.env.FUNCTIONS_EMULATOR 
+          ? profiles 
+          : context.auth ? profiles.filter(p => p.id !== context.auth.uid) : profiles;
+
+        return { profiles: filtered };
+    } catch (e) {
+         console.error("Error getting nearby paths:", e);
+         return { profiles: [] };
+    }
+});
+
+/**
+ * sendPathsInvite - Sends an invite to a nearby user
+ */
+exports.sendPathsInvite = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+    const { receiverUid, intent } = data;
+    const senderUid = context.auth.uid;
+
+    try {
+        const ref = await db.collection('path_invites').add({
+            senderUid,
+            receiverUid,
+            intent,
+            status: 'pending',
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { id: ref.id };
+    } catch(e) {
+        console.error("Error sending invite:", e);
+        throw new functions.https.HttpsError("internal", "Failed to send invite");
+    }
+});
+
+/**
+ * respondPathsInvite - Accept or Cancel
+ */
+exports.respondPathsInvite = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+    const { inviteId, action } = data; // 'accept' or 'cancel' or 'decline'
+    
+    try {
+        await db.collection('path_invites').doc(inviteId).update({
+            status: action === 'cancel' ? 'cancelled' : (action === 'accept' ? 'accepted' : 'declined'),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { success: true };
+    } catch(e) {
+         throw new functions.https.HttpsError("internal", "Failed to respond");
+    }
+});
+
+/**
+ * enqueueBlind - Adapts to Blinds queue
+ */
+exports.enqueueBlind = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+    const uid = context.auth.uid;
+    const { intent, distanceBucket, interests, availableUntil } = data;
+
+    try {
+        await db.collection('blind_queue').doc(uid).set({
+            uid,
+            intent,
+            distanceBucket,
+            interests,
+            availableUntil: availableUntil ? new Date(availableUntil) : null,
+            queuedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        
+        // Attempt match immediately (naive)
+        // In real world, use a Firestore trigger or scheduled function
+        
+        return { success: true };
+    } catch(e) {
+        throw new functions.https.HttpsError("internal", "Queue failed");
+    }
+});
+
+/**
+ * dequeueBlind - Leaves the queue
+ */
+exports.dequeueBlind = functions.https.onCall(async (data, context) => {
+    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+    await db.collection('blind_queue').doc(context.auth.uid).delete();
+    return { success: true };
+});
+
+/**
+ * createBlindSession - Creates a session (usually called by matching logic)
+ */
+exports.createBlindSession = functions.https.onCall(async (data, context) => {
+    // This arguably should be server-side logic only, but for dev we might allow it
+    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+    const { partnerUid } = data;
+    const uid = context.auth.uid;
+    
+    // Create chat
+    const ref = await db.collection('blinds_sessions').add({
+       userA: uid,
+       userB: partnerUid,
+       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+       status: 'active', 
+    });
+    
+    return { sessionId: ref.id };
+});
+
+/**
+ * reportBlindSession
+ */
+exports.reportBlindSession = functions.https.onCall(async (data, context) => {
+     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+     const { sessionId, reason } = data;
+     
+     await db.collection('reports').add({
+         reporter: context.auth.uid,
+         type: 'blind_session',
+         targetId: sessionId,
+         reason,
+         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+     });
+     
+     return { success: true };
+});
+
+// Existing push notification logic
 exports.sendPushNotification = functions.firestore
   .document("chats/{chatId}/messages/{messageId}")
   .onCreate(async (snap, context) => {
@@ -115,7 +258,6 @@ exports.sendPushNotification = functions.firestore
     const { chatId } = context.params;
 
     try {
-      // Get chat members
       const chatDoc = await db.collection("chats").doc(chatId).get();
       if (!chatDoc.exists) return;
 
@@ -124,14 +266,12 @@ exports.sendPushNotification = functions.firestore
 
       if (!recipientUid) return;
 
-      // Get recipient's FCM token
       const userDoc = await db.collection("users").doc(recipientUid).get();
       if (!userDoc.exists) return;
 
       const fcmToken = userDoc.data().fcmToken;
       if (!fcmToken) return;
 
-      // Send notification
       await admin.messaging().send({
         token: fcmToken,
         notification: {

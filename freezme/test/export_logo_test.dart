@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:freezme/main.dart';
+import 'package:freezme/ui/components/freezme_logo.dart';
 
 void main() {
   // This test doubles as a manual utility for regenerating large PNG exports.

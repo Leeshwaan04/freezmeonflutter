@@ -1155,4 +1155,32 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
       'lastUpdated': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
+
+  @override
+  Future<Map<String, dynamic>> fetchUserPreferences() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return {};
+
+    try {
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        final prefs = data['preferences'] as Map<String, dynamic>? ?? {};
+        // Add bio if it's there
+        if (data.containsKey('bio')) prefs['bio'] = data['bio'];
+        if (data.containsKey('interests')) prefs['intents'] = data['interests']; // Mapping 'interests' to intents logic for now
+        
+        return prefs;
+      }
+    } catch (_) {
+      // Fallback or empty
+    }
+    
+    // Fallback defaults
+    return {
+      'ageMin': 18,
+      'ageMax': 35,
+      'distanceKm': 10.0,
+    };
+  }
 }

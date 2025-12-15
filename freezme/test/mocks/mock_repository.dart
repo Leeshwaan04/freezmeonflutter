@@ -43,6 +43,9 @@ class MockFreezmeRepository implements FreezmeRepository {
   Future<void> updateUserPreferences({required int ageMin, required int ageMax, required double distanceKm, required String bio}) async {}
 
   @override
+  Future<Map<String, dynamic>> fetchUserPreferences() async => {};
+
+  @override
   Future<void> createProfile(VibeProfile profile) async {}
 
   @override
