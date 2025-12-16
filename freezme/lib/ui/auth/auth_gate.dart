@@ -983,7 +983,20 @@ class _AuthGatePageState extends State<AuthGatePage>
                       ),
                     ),
 
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 16),
+
+                    // Brand Text
+                    const Text(
+                      'FREEZME',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 4.0,
+                        color: FreezmeColors.primary,
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
 
                     // Big Headline - Intentional dating
                     const Text(
