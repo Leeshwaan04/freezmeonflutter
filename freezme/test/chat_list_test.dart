@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:freezme/main.dart';
 import 'package:freezme/ui/chat/chat_list_page.dart';
 import 'package:freezme/data/freezme_repository.dart';
+import 'package:freezme/services/photo_upload_service.dart';
 import 'dart:async';
 import 'package:freezme/models/vibe_profile.dart';
 import 'package:freezme/models/chat_message.dart';
@@ -117,7 +118,7 @@ class FakeFreezmeRepository implements FreezmeRepository {
   Future<Map<String, dynamic>> fetchUserPreferences() async => {};
 
   @override
-  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? location, List<String>? interests}) async {}
+  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? gender, String? location, List<String>? interests}) async {}
 
   @override
   Future<String> createPost({required List<String> photoUrls, String? caption, required String visibility}) async => '';
@@ -153,10 +154,15 @@ class FakeFreezmeRepository implements FreezmeRepository {
   Future<List<ChatMessage>> loadMoreMessages(String chatId, {required ChatMessage lastMessage, int limit = 50}) async => [];
 }
 
+
+
 void main() {
   testWidgets('ChatListPage renders correctly', (WidgetTester tester) async {
     final mockRepo = FakeFreezmeRepository();
-    final controller = AppFlowController.test(repository: mockRepo);
+    final controller = AppFlowController.test(
+      repository: mockRepo,
+      photoUploadService: MockPhotoUploadService(),
+    );
 
     await tester.pumpWidget(
       AppFlowScope(

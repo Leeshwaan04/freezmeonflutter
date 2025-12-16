@@ -11,9 +11,9 @@ class FreezmeDesignSystem {
   // ============================================================================
   
   // Primary - Soft purple (main brand color)
-  static const Color primary = Color(0xFF7C3AED);
-  static const Color primaryLight = Color(0xFFEDE9FE); // Very soft lavender
-  static const Color primaryDark = Color(0xFF5B21B6);
+  static const Color primary = Color(0xFF6C4B9C); // Deeper Purple (Logo Match)
+  static const Color primaryLight = Color(0xFFF0EBF8); // Lighter tint
+  static const Color primaryDark = Color(0xFF4A306D); // Darker shade
   
   // Secondary - Soft pink (accent)
   static const Color secondary = Color(0xFFEC4899);
@@ -194,7 +194,7 @@ class FreezmeDesignSystem {
   
   static List<BoxShadow> get shadowSm => [
     BoxShadow(
-      color: textPrimary.withOpacity(0.03),
+      color: textPrimary.withValues(alpha: 0.03),
       blurRadius: 4,
       offset: const Offset(0, 2),
     ),
@@ -202,7 +202,7 @@ class FreezmeDesignSystem {
   
   static List<BoxShadow> get shadowMd => [
     BoxShadow(
-      color: textPrimary.withOpacity(0.05),
+      color: textPrimary.withValues(alpha: 0.05),
       blurRadius: 8,
       offset: const Offset(0, 4),
     ),
@@ -210,7 +210,7 @@ class FreezmeDesignSystem {
   
   static List<BoxShadow> get shadowLg => [
     BoxShadow(
-      color: textPrimary.withOpacity(0.08),
+      color: textPrimary.withValues(alpha: 0.08),
       blurRadius: 16,
       offset: const Offset(0, 8),
     ),
@@ -218,7 +218,7 @@ class FreezmeDesignSystem {
   
   static List<BoxShadow> get shadowXl => [
     BoxShadow(
-      color: textPrimary.withOpacity(0.1),
+      color: textPrimary.withValues(alpha: 0.1),
       blurRadius: 24,
       offset: const Offset(0, 12),
     ),
@@ -467,5 +467,12 @@ class FreezmeGradients {
     colors: [FreezmeDesignSystem.primary, Color(0xFF8B5CF6)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
+  );
+
+  /// Main Action Gradient (Purple -> Pink/Red)
+  static const LinearGradient buttonGradient = LinearGradient(
+    colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
   );
 }

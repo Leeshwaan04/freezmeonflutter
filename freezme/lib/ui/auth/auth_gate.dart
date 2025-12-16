@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../theme.dart';
 import '../../main.dart';
+import '../components/freezme_logo.dart';
+import '../components/premium_components.dart';
 
 class AuthGatePage extends StatefulWidget {
   const AuthGatePage({super.key});
@@ -972,28 +974,11 @@ class _AuthGatePageState extends State<AuthGatePage>
                     // Animated Logo
                     ScaleTransition(
                       scale: _pulseAnimation,
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [FreezmeColors.primary, Color(0xFF8B5CF6)],
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: FreezmeColors.primary.withValues(alpha: 0.4),
-                              blurRadius: 30,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.ac_unit_rounded,
-                          size: 50,
-                          color: Colors.white,
+                      child: const Hero(
+                        tag: 'freezme_logo_auth',
+                        child: FreezmeLogo(
+                          size: LogoSize.lg,
+                          variant: LogoVariant.primary,
                         ),
                       ),
                     ),
@@ -1047,37 +1032,35 @@ class _AuthGatePageState extends State<AuthGatePage>
                       child: Column(
                         children: [
                           // Continue with Apple
-                          _buildSocialButton(
+                          PremiumButton(
                             icon: Icons.apple,
                             label: 'Continue with Apple',
                             onPressed: _isLoading ? null : _signInWithApple,
-                            backgroundColor: Colors.black,
-                            textColor: Colors.white,
+                            fullWidth: true,
+                            // Uses default gradient
                           ),
                           
                           const SizedBox(height: 12),
                           
                           // Continue with Google
-                          _buildSocialButton(
+                          PremiumButton(
+                            variant: ButtonVariant.outlined,
                             icon: Icons.g_mobiledata_rounded,
                             label: 'Continue with Google',
                             onPressed: _isLoading ? null : _signInWithGoogle,
-                            backgroundColor: Colors.white,
-                            textColor: Colors.black87,
-                            borderColor: Colors.grey.shade300,
+                            fullWidth: true,
+                            textColor: const Color(0xFF6B7280), // Grey text for Google
                           ),
                           
                           const SizedBox(height: 12),
                           
                           // Continue with Email
-                          _buildSocialButton(
+                          PremiumButton(
                             icon: Icons.email_rounded,
                             label: 'Continue with Email',
                             onPressed: _isLoading ? null : _signInWithEmail,
-                            backgroundColor: Colors.white,
-                            textColor: FreezmeColors.primary,
-                            borderColor: FreezmeColors.primary,
-                            useGradientText: true,
+                            fullWidth: true,
+                            // Uses default gradient
                           ),
                           
                           const SizedBox(height: 20),

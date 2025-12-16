@@ -275,6 +275,7 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
     String? displayName,
     String? bio,
     int? age,
+    String? gender,
     String? location,
     List<String>? interests,
   }) async {
@@ -283,6 +284,7 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
       if (displayName != null) updates['displayName'] = displayName;
       if (bio != null) updates['bio'] = bio;
       if (age != null) updates['age'] = age;
+      if (gender != null) updates['gender'] = gender;
       if (location != null) updates['location'] = location;
       if (interests != null) updates['interests'] = interests;
       updates['updatedAt'] = FieldValue.serverTimestamp();
@@ -299,6 +301,7 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
           displayName: displayName,
           bio: bio,
           age: age,
+          gender: gender,
           location: location,
           interests: interests,
         );

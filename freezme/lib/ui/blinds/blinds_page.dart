@@ -279,7 +279,7 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                           const Divider(color: FreezmeDesignSystem.border),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            activeColor: FreezmeDesignSystem.primary,
+                            activeTrackColor: FreezmeDesignSystem.primary,
                             title: const Text('Allow Reveal', style: TextStyle(fontWeight: FontWeight.w500)),
                             subtitle: const Text('Show profile after mutual thumbs up'),
                             value: revealAllowed,

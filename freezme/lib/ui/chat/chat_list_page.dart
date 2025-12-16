@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../shared/bottom_nav_bar.dart';
 import '../../main.dart';
 import '../components/premium_components.dart';
-import '../components/skeleton_loaders.dart';
+
 import '../design_system.dart';
 import 'message_status.dart';
 import '../../models/vibe_profile.dart';

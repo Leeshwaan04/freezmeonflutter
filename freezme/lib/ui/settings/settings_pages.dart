@@ -74,10 +74,12 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
     );
 
     if (confirmed == true) {
+      if (!mounted) return;
       try {
         setState(() => _blockedUsers.remove(blockedUid));
         PremiumSnackBar.show(context, 'User unblocked', type: SnackBarType.success);
       } catch (e) {
+        if (!mounted) return;
         PremiumSnackBar.show(context, 'Error unblocking user', type: SnackBarType.error);
       }
     }
@@ -108,6 +110,7 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
     );
 
     if (confirmed == true) {
+      if (!mounted) return;
       try {
         final flow = AppFlowScope.of(context, listen: false);
         await flow.signOut();
@@ -271,7 +274,7 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
       title: Text(title, style: FreezmeDesignSystem.bodyMedium),
       subtitle: Text(subtitle, style: FreezmeDesignSystem.captionMedium),
       value: value,
-      activeColor: FreezmeDesignSystem.primary,
+      activeTrackColor: FreezmeDesignSystem.primary,
       onChanged: (newValue) {
         HapticFeedback.selectionClick();
         onChanged(newValue);

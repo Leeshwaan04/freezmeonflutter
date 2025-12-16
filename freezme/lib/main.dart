@@ -26,6 +26,7 @@ import 'models/vibe_profile.dart'; // Added
 import 'services/location_service.dart';
 import 'services/melt_chat_service.dart';
 import 'services/photo_upload_service.dart';
+import 'services/push_notification_service.dart';
 
 import 'ui/theme.dart';
 import 'ui/shared/bottom_nav_bar.dart';
@@ -34,8 +35,7 @@ import 'ui/auth/auth_gate.dart';
 import 'ui/onboarding/enhanced_onboarding.dart';
 import 'ui/chat/chat_list_page.dart';
 import 'ui/chat/chat_screen_page.dart';
-import 'ui/feed/create_post_page.dart';
-import 'ui/feed/feed_page.dart';
+
 import 'ui/home/home_page.dart';
 import 'ui/paths/paths_page.dart';
 import 'ui/blinds/blinds_page.dart';
@@ -52,6 +52,7 @@ import 'services/offline_queue_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+  await PushNotificationService().initialize();
   runApp(const FreezmeApp());
 }
 
@@ -62,8 +63,7 @@ enum AppStage {
   profileCompletion, // NEW: Profile completion after onboarding
   dailyPool,
   chatList,
-  feed,
-  createPost, // NEW: Create post page
+
   paths,
   blinds,
   matchSuccess,
@@ -101,7 +101,7 @@ class AppFlowController extends ChangeNotifier {
     FreezmeRepository? repository,
     LocationService? locationService,
     bool skipHydrate = false,
-  }) : _photoUploadService = photoUploadService ?? MockPhotoUploadService(),
+  }) : _photoUploadService = photoUploadService ?? FirebasePhotoUploadService(),
        _meltChatService = meltChatService ?? MockMeltChatService(),
        _repository = repository ?? FirestoreFreezmeRepository(fallback: MockFreezmeRepository()),
        _locationService = locationService ?? LocationService(),
@@ -199,7 +199,7 @@ class AppFlowController extends ChangeNotifier {
   int get uploadedPhotoCount =>
       photoSlots.where((p) => p.status == PhotoSlotStatus.uploaded).length;
   bool get isProfileComplete =>
-      uploadedPhotoCount >= 3 && hasBio && hasPreferences && guidelinesAccepted;
+      uploadedPhotoCount >= 2 && hasBio && hasPreferences && guidelinesAccepted;
   int get completionPercent {
     // Simple heuristic: photos (40%), bio (30%), preferences (20%), onboarding (10%).
     final photosScore = (uploadedPhotoCount / photoSlots.length * 40).clamp(0, 40);
@@ -297,15 +297,38 @@ class AppFlowController extends ChangeNotifier {
     PhotoSlot? photoSlot,
     int? photoIndex,
   }) {
-    if (hasBio != null) this.hasBio = hasBio;
-    if (hasPreferences != null) this.hasPreferences = hasPreferences;
     if (photoSlot != null && photoIndex != null && photoIndex >= 0 && photoIndex < photoSlots.length) {
       photoSlots[photoIndex] = photoSlot;
     }
     notifyListeners();
   }
 
+  Future<void> updateProfile({
+    String? name,
+    String? bio,
+    List<String>? interests,
+    int? age,
+    String? gender,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
 
+    if (name != null) profileName = name;
+    if (bio != null) hasBio = bio.isNotEmpty;
+    
+    // Update local state immediately for UX
+    notifyListeners();
+
+    // Persist to backend
+    await _repository.updateProfile(
+      uid: uid,
+      displayName: name,
+      bio: bio,
+      interests: interests,
+      age: age,
+      gender: gender,
+    );
+  }
 
   Map<String, dynamic>? getOnboardingProgress() {
     final json = _prefs?.getString('onboarding_progress');
@@ -501,9 +524,7 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.chat]);
   }
 
-  void openFeed() {
-    replaceStack(<AppStage>[AppStage.feed]);
-  }
+
 
   void openPaths() {
     replaceStack(<AppStage>[AppStage.paths]);
@@ -975,10 +996,7 @@ class FlowNavigator extends StatelessWidget {
         return const HomePage(); // Tonight dashboard
       case AppStage.chatList:
         return const ChatListPage();
-      case AppStage.feed:
-        return const FeedPage(); // Social feed with posts
-      case AppStage.createPost:
-        return const CreatePostPage();
+
       case AppStage.paths:
         return const PathsPage();
       case AppStage.blinds:

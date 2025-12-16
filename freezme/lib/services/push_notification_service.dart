@@ -11,18 +11,32 @@ class PushNotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
   Future<void> initialize() async {
-    // Request permission
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    try {
+      // Request permission
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('Push notifications authorized');
-      await _saveFcmToken();
-      _setupTokenRefresh();
-      _setupForegroundHandler();
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        debugPrint('Push notifications authorized');
+        
+        // Save token initially if logged in
+        await _saveFcmToken();
+        
+        // Listen for auth changes to save token on login
+        FirebaseAuth.instance.authStateChanges().listen((user) {
+          if (user != null) {
+            _saveFcmToken();
+          }
+        });
+
+        _setupTokenRefresh();
+        _setupForegroundHandler();
+      }
+    } catch (e) {
+      debugPrint('Push notification initialization failed: $e');
     }
   }
 

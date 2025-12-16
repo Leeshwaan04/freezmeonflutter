@@ -9,6 +9,7 @@ class VibeProfile {
     required this.compatibility,
     this.interests = const <String>[],
     required this.bio,
+    this.gender = '',
     required this.distance,
     this.lat,
     this.lng,
@@ -24,8 +25,9 @@ class VibeProfile {
   final String imageUrl;
   final List<String> photoUrls;
   final int compatibility;
-  final List<String> interests; // Added
+  final List<String> interests;
   final String bio;
+  final String gender;
   final String distance;
   final double? lat;
   final double? lng;
@@ -87,6 +89,7 @@ class VibeProfile {
       compatibility: (json['compatibility'] as num?)?.toInt() ?? 0,
       interests: (json['interests'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
       bio: json['bio'] as String? ?? '',
+      gender: json['gender'] as String? ?? '',
       distance: json['distance'] as String? ?? '',
       lat: (json['lat'] as num?)?.toDouble(),
       lng: (json['lng'] as num?)?.toDouble(),
@@ -106,6 +109,7 @@ class VibeProfile {
     'compatibility': compatibility,
     'interests': interests,
     'bio': bio,
+    'gender': gender,
     'distance': distance,
     if (lat != null) 'lat': lat,
     if (lng != null) 'lng': lng,

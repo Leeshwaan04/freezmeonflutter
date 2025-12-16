@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../design_system.dart';
@@ -17,6 +18,7 @@ class PremiumButton extends StatelessWidget {
     this.fullWidth = false,
     this.backgroundColor,
     this.textColor,
+    this.gradient,
   });
 
   final String label;
@@ -28,6 +30,7 @@ class PremiumButton extends StatelessWidget {
   final bool fullWidth;
   final Color? backgroundColor;
   final Color? textColor;
+  final Gradient? gradient;
 
   void _handlePress() {
     HapticFeedback.lightImpact();
@@ -71,6 +74,39 @@ class PremiumButton extends StatelessWidget {
 
     switch (variant) {
       case ButtonVariant.filled:
+        final shouldUseGradient = gradient != null || backgroundColor == null;
+        final effectiveGradient = gradient ?? (shouldUseGradient ? FreezmeGradients.buttonGradient : null);
+
+        if (effectiveGradient != null) {
+          return Container(
+            width: fullWidth ? double.infinity : null,
+            decoration: BoxDecoration(
+              gradient: effectiveGradient,
+              borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
+              boxShadow: [
+                BoxShadow(
+                  color: FreezmeDesignSystem.primary.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ElevatedButton(
+              onPressed: loading ? null : (onPressed != null ? _handlePress : null),
+              style: ElevatedButton.styleFrom(
+                padding: padding,
+                backgroundColor: Colors.transparent,
+                foregroundColor: textColor ?? Colors.white,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
+                ),
+              ),
+              child: buttonChild,
+            ),
+          );
+        }
+
         return SizedBox(
           width: fullWidth ? double.infinity : null,
           child: ElevatedButton(
@@ -79,6 +115,9 @@ class PremiumButton extends StatelessWidget {
               padding: padding,
               backgroundColor: backgroundColor,
               foregroundColor: textColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
+              ),
             ),
             child: buttonChild,
           ),
@@ -783,6 +822,15 @@ class UserAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    ImageProvider? imageProvider;
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      if (imageUrl!.startsWith('http')) {
+        imageProvider = NetworkImage(imageUrl!);
+      } else {
+        imageProvider = FileImage(File(imageUrl!));
+      }
+    }
+
     return Stack(
       children: [
         // Avatar
@@ -792,9 +840,9 @@ class UserAvatar extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: FreezmeDesignSystem.primaryLight,
-            image: imageUrl != null && imageUrl!.isNotEmpty
+            image: imageProvider != null
                 ? DecorationImage(
-                    image: NetworkImage(imageUrl!),
+                    image: imageProvider,
                     fit: BoxFit.cover,
                   )
                 : null,

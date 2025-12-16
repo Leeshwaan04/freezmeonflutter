@@ -39,6 +39,7 @@ abstract class FreezmeRepository {
     String? displayName,
     String? bio,
     int? age,
+    String? gender,
     String? location,
     List<String>? interests,
   });

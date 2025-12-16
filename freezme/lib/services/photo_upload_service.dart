@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -53,7 +54,10 @@ class FirebasePhotoUploadService implements PhotoUploadService {
         throw const PhotoUploadException('picker_cancelled');
       }
       final file = File(picked.path);
-      final fileName = 'onboarding/${_uuid.v4()}';
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw const PhotoUploadException('not_authenticated');
+      
+      final fileName = 'uploads/${user.uid}/photos/${_uuid.v4()}.jpg';
       final ref = _storage.ref(fileName);
       await ref.putFile(file);
       final downloadUrl = await ref.getDownloadURL();
@@ -76,7 +80,7 @@ class FirebasePhotoUploadService implements PhotoUploadService {
   @override
   Future<String> uploadPhoto(File file, {required String userId, required int photoIndex}) async {
     try {
-      final fileName = 'posts/$userId/${_uuid.v4()}';
+      final fileName = 'uploads/$userId/posts/${_uuid.v4()}.jpg';
       final ref = _storage.ref(fileName);
       await ref.putFile(file);
       return await ref.getDownloadURL();
@@ -113,7 +117,23 @@ class MockPhotoUploadService implements PhotoUploadService {
 
   @override
   Future<UploadedPhoto> pickAndUpload({required int slotIndex}) async {
+    // delay to simulate network
     await Future<void>.delayed(delay);
+    
+    // Try to pick a real image so the UI feels real
+    try {
+       final XFile? picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+       if (picked != null) {
+         // Return local path as URL so UserAvatar handles it as a file
+         return UploadedPhoto(
+           url: picked.path, 
+           localPath: picked.path
+         );
+       }
+    } catch (_) {
+      // If picker fails (e.g. on some simulators without gallery), fall back to random url
+    }
+
     final url = _demoUrls[_index % _demoUrls.length];
     _index++;
     return UploadedPhoto(url: url);

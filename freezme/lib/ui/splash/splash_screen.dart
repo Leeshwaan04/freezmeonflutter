@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../../main.dart';
+import '../components/freezme_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -84,31 +85,12 @@ class _SplashScreenState extends State<SplashScreen>
                     // Animated Logo - matching Auth page style
                     ScaleTransition(
                       scale: _pulseAnimation,
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              FreezmeColors.primary,
-                              Color(0xFF8B5CF6),
-                            ],
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: FreezmeColors.primary.withValues(alpha: 0.4),
-                              blurRadius: 40,
-                              spreadRadius: 8,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.ac_unit_rounded,
-                          size: 60,
-                          color: Colors.white,
+                      child: Transform.scale(
+                        scale: 1.5,
+                        child: const FreezmeLogo(
+                          size: LogoSize.lg, 
+                          variant: LogoVariant.primary,
+                          showText: false,
                         ),
                       ),
                     ),

@@ -271,6 +271,7 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
     String? displayName,
     String? bio,
     int? age,
+    String? gender,
     String? location,
     List<String>? interests,
   }) =>
@@ -279,6 +280,7 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
         displayName: displayName,
         bio: bio,
         age: age,
+        gender: gender,
         location: location,
         interests: interests,
       );

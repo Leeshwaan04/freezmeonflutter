@@ -120,7 +120,7 @@ void main() {
 
       expect(result, isTrue);
       expect(service.invites, [
-        {'uid': 'profile_42', 'slot': 'Tonight 9 PM'},
+        {'uid': 'test_uid', 'slot': 'Tonight 9 PM'},
       ]);
     });
 

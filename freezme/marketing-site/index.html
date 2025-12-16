@@ -1,87 +1,192 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Freezme is the intentional dating app that focuses on one mindful vibe at a time." />
-  <title>Freezme | Slow Dating, Real Connections</title>
+  <title>Freezme | Intentional Dating for Soulful Connections</title>
+  <meta name="description"
+    content="Freezme is the dating app for slow, mindful connections. One match a day. No endless swiping." />
+
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="styles.css" />
-  <link rel="icon" href="freezme-logo.png" />
+  <link rel="icon" href="freezme-logo.svg" />
 </head>
+
 <body>
-  <header>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <img src="freezme-logo.png" alt="Freezme logo" height="56" />
-      <strong>Freezme</strong>
+
+  <!-- Navigation -->
+  <header id="header">
+    <div class="container header-inner">
+      <a href="#" class="logo">
+        <img src="freezme-logo.svg" alt="Freezme Logo" height="40" />
+        Freezme
+      </a>
+      <nav class="nav-links">
+        <a href="#mission">Our Mission</a>
+        <a href="#how-it-works">How It Works</a>
+        <a href="#safety">Safety</a>
+      </nav>
+      <a href="#download" class="btn btn-primary">Download App</a>
     </div>
-    <nav>
-      <a href="#features">Why Freezme</a>
-      <a href="#how-it-works">How it works</a>
-      <a href="#safety">Safety</a>
-      <a href="#contact">Contact</a>
-    </nav>
   </header>
 
   <main>
+    <!-- Hero Section -->
     <section class="hero">
-      <div>
-        <span style="color:#f64f59;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;">Mindful dating</span>
-        <h1>Freeze the noise. Feel each vibe.</h1>
-        <p>Freezme curates a single intentional connection at a time so you can slow down, listen to your intuition, and meet people who align with your energy.</p>
-        <div style="margin-top:24px;">
-          <a class="btn btn-primary" href="#contact">Join the waitlist</a>
-          <a class="btn btn-outline" href="privacy-policy.html" target="_blank" rel="noopener">Privacy Policy</a>
+      <div class="container hero-grid">
+        <div class="hero-content animate-fade-in">
+          <span
+            style="color: var(--secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Mindful
+            Dating</span>
+          <h1>Freeze the noise.<br>Find your person.</h1>
+          <p>The antidote to swipe culture. We curate one high-compatibility match for you each day, so you can focus on
+            quality over quantity.</p>
+
+          <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <a href="#" class="btn btn-primary pulse">Download for iOS</a>
+            <a href="#" class="btn btn-outline">Join Waitlist</a>
+          </div>
+
+          <div style="margin-top: 40px; display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex;">
+              <div style="width: 32px; height: 32px; background: #ddd; border-radius: 50%; border: 2px solid white;">
+              </div>
+              <div
+                style="width: 32px; height: 32px; background: #ccc; border-radius: 50%; border: 2px solid white; margin-left: -10px;">
+              </div>
+              <div
+                style="width: 32px; height: 32px; background: #bbb; border-radius: 50%; border: 2px solid white; margin-left: -10px;">
+              </div>
+            </div>
+            <span style="font-size: 0.9rem; color: var(--text-muted);">Trusted by 10,000+ mindful daters</span>
+          </div>
+        </div>
+
+        <div class="hero-mockup animate-fade-in animate-float" style="animation-delay: 0.2s;">
+          <!-- Placeholder for App Screenshot -->
+          <div
+            style="background: white; border-radius: 40px; padding: 12px; box-shadow: var(--shadow-lg); display: inline-block;">
+            <img src="freezme-logo.svg" alt="App Interface" style="background: var(--background); display: block;" />
+          </div>
         </div>
       </div>
-      <img src="freezme-logo.png" class="mockup" alt="Freezme interface" />
     </section>
 
-    <section id="features">
-      <h2>Designed for slow, quality dating</h2>
-      <p>Every part of Freezme is built to encourage presence, not swipes.</p>
-      <div class="features">
-        <article class="card">
-          <h3>Intent-first onboarding</h3>
-          <p>Share your dating intention, energy, and vibe. We match you with people moving at the same pace.</p>
-        </article>
-        <article class="card">
-          <h3>Daily pool</h3>
-          <p>Receive one curated vibe per day. Take a moment to read their story before taking action.</p>
-        </article>
-        <article class="card">
-          <h3>Invite to vibe</h3>
-          <p>Send a 20-minute video date invitation to break the ice without pressure.</p>
-        </article>
-        <article class="card">
-          <h3>Safety & accountability</h3>
-          <p>Identity is verified and all data travels through encrypted Firebase services.</p>
-        </article>
+    <!-- Mission / Features -->
+    <section id="mission" class="features">
+      <div class="container">
+        <div class="text-center" style="max-width: 700px; margin: 0 auto;">
+          <h2>Dating designed to be human</h2>
+          <p>We believe connection happens when you slow down. Freezme removes the gamification so you can feel the
+            vibe.</p>
+        </div>
+
+        <div class="features-grid reveal">
+          <div class="feature-card">
+            <span class="feature-icon">🧊</span>
+            <h3>The Daily Freeze</h3>
+            <p>One curated profile every day at noon. No swiping addiction, just one moment of possibility.</p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">✨</span>
+            <h3>Vibe Checks</h3>
+            <p>Connect based on energy and intention, not just photos. Our onboarding helps you showcase your true self.
+            </p>
+          </div>
+          <div class="feature-card">
+            <span class="feature-icon">🔒</span>
+            <h3>Verified & Safe</h3>
+            <p>Every profile is verified. We prioritize safety and respectful interactions above all else.</p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section id="how-it-works">
-      <h2>How it works</h2>
-      <div class="steps">
-        <div class="step">Answer mindful prompts, add three photos, and craft a bio rooted in intention.</div>
-        <div class="step">Receive your daily pool. Freeze the noise, skip politely, or like with a purpose.</div>
-        <div class="step">Schedule a mini video date or chat once there’s a mutual vibe.</div>
+    <!-- How It Works -->
+    <section id="how-it-works" class="steps-section">
+      <div class="container">
+        <h2 class="text-center">How Freezme works</h2>
+
+        <div class="steps-grid reveal">
+          <div class="step-card">
+            <div class="step-number">1</div>
+            <h3>Create your profile</h3>
+            <p>Share your story, your photos, and your vibe type. It takes 2 minutes to get real.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">2</div>
+            <h3>Get your Daily</h3>
+            <p>Receive one highly compatible match daily. You have 24 hours to decide.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">3</div>
+            <h3>Break the Ice</h3>
+            <p>If you both vibe, the chat opens. Or extend a video invite to see the chemistry live.</p>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section id="safety">
-      <h2>Privacy & safety</h2>
-      <p>Freezme is powered by Firebase Authentication, Firestore, and Cloud Functions. All traffic is encrypted in transit. You can request account deletion anytime and we’ll remove your profile, photos, and matches from our systems.</p>
-      <p><a href="privacy-policy.html" target="_blank" rel="noopener">Read the full Privacy Policy</a></p>
+    <!-- CTA -->
+    <section id="download" class="cta-section">
+      <div class="container container-sm">
+        <div class="cta-box">
+          <h2>Ready to find your person?</h2>
+          <p style="margin-bottom: 32px; opacity: 0.9;">Join the community of intentional daters today.</p>
+          <a href="#" class="btn btn-secondary" style="color: var(--primary);">Download Now</a>
+        </div>
+      </div>
     </section>
   </main>
 
-  <footer id="contact">
-    <p>Freezme • Slow dating for intentional humans.</p>
-    <p>Contact us: <a href="mailto:support@freezme.app">support@freezme.app</a></p>
-    <p style="margin-top:12px;font-size:0.9rem;">© <span id="year"></span> Freezme. All rights reserved.</p>
+  <!-- Footer -->
+  <footer>
+    <div class="container footer-content">
+      <div class="logo">
+        <img src="freezme-logo.png" alt="Freezme" height="32" />
+        Freezme
+      </div>
+      <div style="color: var(--text-muted); font-size: 0.9rem;">
+        &copy; <span id="year"></span> Freezme Inc. All rights reserved.
+      </div>
+      <div class="nav-links" style="gap: 20px; font-size: 0.9rem;">
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Contact</a>
+      </div>
+    </div>
   </footer>
+
   <script>
+    // Dynamic Year
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Scroll Effect
+    window.addEventListener('scroll', () => {
+      const header = document.getElementById('header');
+      if (window.scrollY > 50) {
+        header.classList.add('scrolled');
+      } else {
+        header.classList.remove('scrolled');
+      }
+    });
+
+    // Motion Reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('active');
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
   </script>
 </body>
+
 </html>

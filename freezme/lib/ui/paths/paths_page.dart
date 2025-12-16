@@ -153,7 +153,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
                           children: [
                             SwitchListTile(
                               value: visible,
-                              activeColor: FreezmeDesignSystem.primary,
+                              activeTrackColor: FreezmeDesignSystem.primary,
                               title: Text(
                                 'Show me on Paths',
                                 style: FreezmeDesignSystem.h3.copyWith(fontSize: 18),
