@@ -315,7 +315,7 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceMd),
           SizedBox(
-            height: 140,
+            height: 130,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
@@ -462,28 +462,33 @@ class _LivePathCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 120,
+      width: 100,
+      height: 120,
       margin: const EdgeInsets.only(right: FreezmeDesignSystem.spaceMd),
       child: PremiumCard(
-        padding: EdgeInsets.all(FreezmeDesignSystem.spaceMd),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         onTap: () {},
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisSize: MainAxisSize.max,
           children: [
             CircleAvatar(
-              radius: 24,
+              radius: 20,
               backgroundColor: FreezmeDesignSystem.primary.withValues(alpha: 0.1),
-              child: Text('U$index', style: const TextStyle(fontWeight: FontWeight.bold, color: FreezmeDesignSystem.primary)),
+              child: Text('U$index', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: FreezmeDesignSystem.primary)),
             ),
-            const SizedBox(height: FreezmeDesignSystem.spaceSm),
-            Text(
-              'Grabbing Drinks',
-              style: FreezmeDesignSystem.caption.copyWith(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+            Flexible(
+              child: Text(
+                'Grabbing Drinks',
+                style: FreezmeDesignSystem.caption.copyWith(fontWeight: FontWeight.bold, fontSize: 10),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             Text(
               '2km away',
-              style: FreezmeDesignSystem.caption.copyWith(fontSize: 10, color: FreezmeDesignSystem.textSecondary),
+              style: FreezmeDesignSystem.caption.copyWith(fontSize: 9, color: FreezmeDesignSystem.textSecondary),
             ),
           ],
         ),
@@ -539,30 +544,31 @@ class _TonightProfileCard extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(FreezmeDesignSystem.spaceMd),
+                padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceMd, vertical: FreezmeDesignSystem.spaceSm),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       '${profile.name}, ${profile.age}',
-                      style: FreezmeDesignSystem.h3,
+                      style: FreezmeDesignSystem.h3.copyWith(fontSize: 16),
                     ),
-                    const SizedBox(height: FreezmeDesignSystem.spaceXs),
+                    const SizedBox(height: 2),
                     Text(
                       profile.bio,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: FreezmeDesignSystem.caption,
+                      style: FreezmeDesignSystem.caption.copyWith(fontSize: 12),
                     ),
-                    const SizedBox(height: FreezmeDesignSystem.spaceSm),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         const Icon(Icons.location_on, size: 12, color: FreezmeDesignSystem.primary),
                         const SizedBox(width: 4),
                         Text(
                           profile.distance,
-                          style: FreezmeDesignSystem.caption.copyWith(color: FreezmeDesignSystem.primary),
+                          style: FreezmeDesignSystem.caption.copyWith(fontSize: 11, color: FreezmeDesignSystem.primary),
                         ),
                       ],
                     ),
