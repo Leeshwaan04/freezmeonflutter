@@ -289,108 +289,196 @@ class _ChatListPageState extends State<ChatListPage> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final convo = visibleConversations[index];
-                        return InkWell(
-                          onTap: () {
-                            HapticFeedback.mediumImpact();
-                            flow.openChatDetail(
-                              VibeProfile(
-                                uid: convo.chatId,
-                                id: 0,
-                                name: convo.displayName,
-                                age: 0,
-                                imageUrl: convo.photoUrl,
-                                compatibility: 0,
-                                bio: '',
-                                distance: '',
-                              ),
-                              chatId: convo.chatId,
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: FreezmeDesignSystem.spaceLg,
-                              vertical: FreezmeDesignSystem.spaceMd
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: FreezmeDesignSystem.spaceMd,
+                            vertical: FreezmeDesignSystem.spaceXs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: convo.unread > 0 
+                                ? FreezmeDesignSystem.primary.withValues(alpha: 0.03)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusMd),
+                            border: Border.all(
+                              color: convo.unread > 0 
+                                  ? FreezmeDesignSystem.primary.withValues(alpha: 0.15)
+                                  : FreezmeDesignSystem.border.withValues(alpha: 0.5),
+                              width: 1,
                             ),
-                            child: Row(
-                              children: [
-                                Stack(
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusMd),
+                              onTap: () {
+                                HapticFeedback.mediumImpact();
+                                flow.openChatDetail(
+                                  VibeProfile(
+                                    uid: convo.chatId,
+                                    id: 0,
+                                    name: convo.displayName,
+                                    age: 0,
+                                    imageUrl: convo.photoUrl,
+                                    compatibility: 0,
+                                    bio: '',
+                                    distance: '',
+                                  ),
+                                  chatId: convo.chatId,
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(FreezmeDesignSystem.spaceMd),
+                                child: Row(
                                   children: [
-                                    CircleAvatar(
-                                      radius: 28,
-                                      backgroundColor: FreezmeDesignSystem.surfaceAlt,
-                                      backgroundImage: convo.photoUrl.isNotEmpty
-                                          ? CachedNetworkImageProvider(convo.photoUrl)
-                                          : null,
-                                      child: convo.photoUrl.isEmpty
-                                          ? const Icon(Icons.person, color: FreezmeDesignSystem.textTertiary)
-                                          : null,
-                                    ),
-                                    if (convo.unread > 0)
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            color: FreezmeDesignSystem.primary,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(color: FreezmeDesignSystem.background, width: 2),
-                                          ),
-                                        ),
+                                    // Avatar with gradient border for unread
+                                    Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: convo.unread > 0 
+                                            ? const LinearGradient(
+                                                colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
+                                              )
+                                            : null,
+                                        border: convo.unread == 0 
+                                            ? Border.all(color: FreezmeDesignSystem.border, width: 1)
+                                            : null,
                                       ),
+                                      child: CircleAvatar(
+                                        radius: 26,
+                                        backgroundColor: FreezmeDesignSystem.surfaceAlt,
+                                        backgroundImage: convo.photoUrl.isNotEmpty
+                                            ? CachedNetworkImageProvider(convo.photoUrl)
+                                            : null,
+                                        child: convo.photoUrl.isEmpty
+                                            ? const Icon(Icons.person, color: FreezmeDesignSystem.textTertiary)
+                                            : null,
+                                      ),
+                                    ),
+                                    const SizedBox(width: FreezmeDesignSystem.spaceMd),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  convo.displayName,
+                                                  style: FreezmeDesignSystem.bodyMedium.copyWith(
+                                                    fontWeight: convo.unread > 0 ? FontWeight.w700 : FontWeight.w600,
+                                                    color: FreezmeDesignSystem.textPrimary,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: convo.unread > 0 
+                                                      ? FreezmeDesignSystem.primary.withValues(alpha: 0.1)
+                                                      : Colors.transparent,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                                child: Text(
+                                                  convo.timeLabel,
+                                                  style: FreezmeDesignSystem.small.copyWith(
+                                                    color: convo.unread > 0 ? FreezmeDesignSystem.primary : FreezmeDesignSystem.textTertiary,
+                                                    fontWeight: convo.unread > 0 ? FontWeight.w600 : FontWeight.normal,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              if (convo.status == MessageStatus.read)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(right: 4),
+                                                  child: Icon(
+                                                    Icons.done_all,
+                                                    size: 14,
+                                                    color: FreezmeDesignSystem.primary.withValues(alpha: 0.7),
+                                                  ),
+                                                ),
+                                              if (convo.isTyping)
+                                                Container(
+                                                  margin: const EdgeInsets.only(right: 4),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: FreezmeDesignSystem.success.withValues(alpha: 0.1),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Text(
+                                                    'typing...',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: FreezmeDesignSystem.success,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                )
+                                              else
+                                                Expanded(
+                                                  child: Text(
+                                                    convo.lastMessage,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: FreezmeDesignSystem.caption.copyWith(
+                                                      color: convo.unread > 0 
+                                                          ? FreezmeDesignSystem.textPrimary 
+                                                          : FreezmeDesignSystem.textSecondary,
+                                                      fontWeight: convo.unread > 0 ? FontWeight.w500 : FontWeight.normal,
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (convo.isPinned)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(left: 8),
+                                                  child: Icon(
+                                                    Icons.push_pin_rounded,
+                                                    size: 14,
+                                                    color: FreezmeDesignSystem.primary.withValues(alpha: 0.5),
+                                                  ),
+                                                ),
+                                              if (convo.unread > 0)
+                                                Container(
+                                                  margin: const EdgeInsets.only(left: 8),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    gradient: const LinearGradient(
+                                                      colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(10),
+                                                  ),
+                                                  child: Text(
+                                                    '${convo.unread}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 ),
-                                const SizedBox(width: FreezmeDesignSystem.spaceMd),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            convo.displayName,
-                                            style: FreezmeDesignSystem.bodyMedium.copyWith(
-                                              fontWeight: convo.unread > 0 ? FontWeight.w700 : FontWeight.w600,
-                                              color: FreezmeDesignSystem.textPrimary,
-                                            ),
-                                          ),
-                                          Text(
-                                            convo.timeLabel,
-                                            style: FreezmeDesignSystem.small.copyWith(
-                                              color: convo.unread > 0 ? FreezmeDesignSystem.primary : FreezmeDesignSystem.textSecondary,
-                                              fontWeight: convo.unread > 0 ? FontWeight.w600 : FontWeight.normal,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: FreezmeDesignSystem.spaceXs),
-                                      Row(
-                                        children: [
-                                          if (convo.status == MessageStatus.read)
-                                              const Padding(
-                                                padding: EdgeInsets.only(right: 4),
-                                                child: Icon(Icons.done_all, size: 16, color: FreezmeDesignSystem.primary),
-                                              ),
-                                          Expanded(
-                                            child: Text(
-                                              convo.lastMessage,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: FreezmeDesignSystem.caption.copyWith(
-                                                color: convo.unread > 0 ? FreezmeDesignSystem.textPrimary : FreezmeDesignSystem.textSecondary,
-                                                fontWeight: convo.unread > 0 ? FontWeight.w500 : FontWeight.normal,
-                                              ),
-                                            ),
-                                          ),
-                                          if (convo.isPinned)
-                                              const Icon(Icons.push_pin, size: 14, color: FreezmeDesignSystem.textTertiary),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         );

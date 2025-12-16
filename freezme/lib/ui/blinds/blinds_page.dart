@@ -124,56 +124,118 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                             builder: (context, child) {
                               return Transform.rotate(
                                 angle: _diceController.value * 6.28,
-                                child: child,
+                                child: Transform.scale(
+                                  scale: 1.0 + (0.05 * (1 - (_diceController.value - 0.5).abs() * 2)),
+                                  child: child,
+                                ),
                               );
                             },
                             child: GestureDetector(
                               onTap: () => _onDiceTap(flow),
                               child: Container(
-                                width: 120,
-                                height: 120,
+                                width: 140,
+                                height: 140,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   gradient: consented
-                                      ? FreezmeGradients.primary
+                                      ? const LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            FreezmeDesignSystem.primary,
+                                            FreezmeDesignSystem.secondary,
+                                          ],
+                                        )
                                       : LinearGradient(
                                           colors: [Colors.grey[300]!, Colors.grey[400]!],
                                         ),
                                   boxShadow: consented
                                       ? [
                                           BoxShadow(
-                                            color: FreezmeDesignSystem.primary.withValues(alpha: 0.4),
-                                            blurRadius: 24,
+                                            color: FreezmeDesignSystem.primary.withValues(alpha: 0.5),
+                                            blurRadius: 30,
+                                            spreadRadius: 2,
                                             offset: const Offset(0, 10),
                                           ),
+                                          BoxShadow(
+                                            color: FreezmeDesignSystem.secondary.withValues(alpha: 0.3),
+                                            blurRadius: 40,
+                                            spreadRadius: 5,
+                                            offset: const Offset(0, 15),
+                                          ),
                                         ]
-                                      : [],
+                                      : [
+                                          BoxShadow(
+                                            color: Colors.grey.withValues(alpha: 0.3),
+                                            blurRadius: 15,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
                                 ),
-                                child: Icon(
-                                  Icons.casino,
-                                  size: 56,
-                                  color: consented ? Colors.white : Colors.grey[600],
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Inner circle for depth
+                                    Container(
+                                      width: 120,
+                                      height: 120,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: consented
+                                              ? [
+                                                  Colors.white.withValues(alpha: 0.2),
+                                                  Colors.transparent,
+                                                ]
+                                              : [
+                                                  Colors.white.withValues(alpha: 0.3),
+                                                  Colors.transparent,
+                                                ],
+                                        ),
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.casino_rounded,
+                                      size: 64,
+                                      color: consented ? Colors.white : Colors.grey[600],
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(height: FreezmeDesignSystem.spaceLg),
                           if (isSearching)
-                            const Text(
-                              'Finding a vibe...',
-                              style: TextStyle(
-                                color: FreezmeDesignSystem.primary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                              ),
+                            Column(
+                              children: [
+                                const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(FreezmeDesignSystem.primary),
+                                  ),
+                                ),
+                                const SizedBox(height: FreezmeDesignSystem.spaceSm),
+                                Text(
+                                  'Finding someone special...',
+                                  style: FreezmeDesignSystem.body.copyWith(
+                                    color: FreezmeDesignSystem.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             )
                           else
                             Text(
-                              consented ? 'Tap to Roll' : 'Agree to rules to play',
-                              style: const TextStyle(
-                                color: FreezmeDesignSystem.textSecondary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
+                              consented ? 'Tap the dice to find a match!' : 'Agree to rules to play',
+                              style: FreezmeDesignSystem.body.copyWith(
+                                color: consented 
+                                    ? FreezmeDesignSystem.textPrimary 
+                                    : FreezmeDesignSystem.textSecondary,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                         ],

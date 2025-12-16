@@ -357,8 +357,8 @@ class _EmptyStateViewState extends State<EmptyStateView> with SingleTickerProvid
   }
 }
 
-/// Error State View
-class ErrorStateView extends StatelessWidget {
+/// Error State View - Enhanced with animations
+class ErrorStateView extends StatefulWidget {
   const ErrorStateView({
     super.key,
     required this.message,
@@ -369,48 +369,134 @@ class ErrorStateView extends StatelessWidget {
   final VoidCallback? onRetry;
 
   @override
+  State<ErrorStateView> createState() => _ErrorStateViewState();
+}
+
+class _ErrorStateViewState extends State<ErrorStateView> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _bounceAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _bounceAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(FreezmeDesignSystem.spaceXl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: FreezmeDesignSystem.error.withOpacity(0.1),
-                shape: BoxShape.circle,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Opacity(
+            opacity: _fadeAnimation.value,
+            child: Transform.scale(
+              scale: 0.8 + (_bounceAnimation.value * 0.2),
+              child: child,
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(FreezmeDesignSystem.spaceXl),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Animated error icon container
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      FreezmeDesignSystem.error.withValues(alpha: 0.15),
+                      FreezmeDesignSystem.warning.withValues(alpha: 0.1),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: FreezmeDesignSystem.error.withValues(alpha: 0.3),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FreezmeDesignSystem.error.withValues(alpha: 0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  size: 48,
+                  color: FreezmeDesignSystem.error,
+                ),
               ),
-              child: const Icon(
-                Icons.error_outline,
-                size: 40,
-                color: FreezmeDesignSystem.error,
-              ),
-            ),
-            const SizedBox(height: FreezmeDesignSystem.spaceLg),
-            Text(
-              'Oops!',
-              style: FreezmeDesignSystem.h3,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: FreezmeDesignSystem.spaceSm),
-            Text(
-              message,
-              style: FreezmeDesignSystem.caption,
-              textAlign: TextAlign.center,
-            ),
-            if (onRetry != null) ...[
               const SizedBox(height: FreezmeDesignSystem.spaceLg),
-              PremiumButton(
-                label: 'Try Again',
-                onPressed: onRetry,
-                variant: ButtonVariant.outlined,
-                icon: Icons.refresh,
+              Text(
+                'Oops!',
+                style: FreezmeDesignSystem.h2.copyWith(
+                  color: FreezmeDesignSystem.textPrimary,
+                ),
+                textAlign: TextAlign.center,
               ),
+              const SizedBox(height: FreezmeDesignSystem.spaceSm),
+              Text(
+                widget.message,
+                style: FreezmeDesignSystem.body.copyWith(
+                  color: FreezmeDesignSystem.textSecondary,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (widget.onRetry != null) ...[
+                const SizedBox(height: FreezmeDesignSystem.spaceLg),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: FreezmeDesignSystem.primary.withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: TextButton.icon(
+                    onPressed: widget.onRetry,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    icon: const Icon(Icons.refresh_rounded, color: FreezmeDesignSystem.primary),
+                    label: Text(
+                      'Try Again',
+                      style: FreezmeDesignSystem.button.copyWith(
+                        color: FreezmeDesignSystem.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
