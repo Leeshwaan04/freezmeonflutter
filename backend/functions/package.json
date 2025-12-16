@@ -2,7 +2,7 @@
   "name": "freezme-functions",
   "description": "Cloud Functions for Freezme",
   "engines": {
-    "node": "18"
+    "node": "20"
   },
   "main": "index.js",
   "dependencies": {
