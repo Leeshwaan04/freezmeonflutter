@@ -983,7 +983,7 @@ class _AuthGatePageState extends State<AuthGatePage>
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 48),
 
                     // Big Headline - Intentional dating
                     const Text(

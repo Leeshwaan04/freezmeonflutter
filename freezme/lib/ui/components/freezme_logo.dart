@@ -22,7 +22,7 @@ class FreezmeLogo extends StatelessWidget {
     LogoSize.md: (heart: 32.0, snowflake: 16.0, text: 20.0),
     LogoSize.lg: (heart: 48.0, snowflake: 24.0, text: 28.0),
     LogoSize.xl: (heart: 96.0, snowflake: 36.0, text: 40.0),
-    LogoSize.hero: (heart: 128.0, snowflake: 48.0, text: 56.0),
+    LogoSize.hero: (heart: 160.0, snowflake: 64.0, text: 56.0),
   };
 
   static final _colorMap = {
