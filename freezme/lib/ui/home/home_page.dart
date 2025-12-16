@@ -148,7 +148,7 @@ class _HomePageState extends State<HomePage> {
             key: const PageStorageKey('homeScroll'),
             slivers: [
               _buildHeader(),
-              if (!flow.isProfileComplete) _buildProfileGate(flow),
+              // Profile completion prompt moved to Profile page - no longer a blocker here
               if (_isLoading) ...[
                  _buildLivePathsSkeleton(),
                  _buildTonightPoolSkeleton(),
