@@ -116,25 +116,25 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         icon: Icons.tune,
         label: 'Preferences',
         description: 'Age range, distance, interests',
-        action: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PreferencesPage())),
+        action: () => Navigator.of(context).push(SmoothPageRoute(page: const PreferencesPage())),
       ),
       (
         icon: Icons.star_outline,
         label: 'Freezme+',
         description: 'See who likes you & more',
-        action: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FreezmePlusPage())),
+        action: () => Navigator.of(context).push(SmoothPageRoute(page: const FreezmePlusPage())),
       ),
       (
         icon: Icons.security,
         label: 'Safety & Privacy',
         description: 'Manage your data and safety',
-        action: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SafetyPrivacyPage())),
+        action: () => Navigator.of(context).push(SmoothPageRoute(page: const SafetyPrivacyPage())),
       ),
       (
         icon: Icons.help_outline,
         label: 'Help & Support',
         description: 'FAQ and contact us',
-        action: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HelpSupportPage())),
+        action: () => Navigator.of(context).push(SmoothPageRoute(page: const HelpSupportPage())),
       ),
     ];
 

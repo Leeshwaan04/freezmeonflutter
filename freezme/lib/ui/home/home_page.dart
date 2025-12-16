@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'dart:async'; // Added
@@ -492,6 +493,7 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
     
     return GestureDetector(
       onTap: () {
+        HapticFeedback.selectionClick();
         // TODO: Navigate to profile or send wave
       },
       child: Container(
