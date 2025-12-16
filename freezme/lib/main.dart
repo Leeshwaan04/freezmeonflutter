@@ -534,11 +534,8 @@ class AppFlowController extends ChangeNotifier {
       replaceStack(<AppStage>[AppStage.authGate]);
       return;
     }
-    // Profile completion is only required for Tonight tab
-    if (index == 0 && !isProfileComplete) {
-      replaceStack(<AppStage>[AppStage.profileCompletion]);
-      return;
-    }
+    // Profile completion is no longer a blocker - users can browse Tonight without completing
+    // The profile completion prompt is shown on the Profile page instead
     if (isSendingAction) return; // debounce cross-tab while actions in flight
     switch (index) {
       case 0:

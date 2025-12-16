@@ -343,9 +343,7 @@ class _ChatListPageState extends State<ChatListPage> {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         gradient: convo.unread > 0 
-                                            ? const LinearGradient(
-                                                colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
-                                              )
+                                            ? FreezmeGradients.header
                                             : null,
                                         border: convo.unread == 0 
                                             ? Border.all(color: FreezmeDesignSystem.border, width: 1)
