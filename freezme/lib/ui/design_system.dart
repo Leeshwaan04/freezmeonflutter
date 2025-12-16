@@ -1,43 +1,50 @@
 import 'package:flutter/material.dart';
 
 /// Freezme Design System
-/// Premium, consistent design tokens used throughout the app
+/// Clean, frozen creamy theme - soft and consistent across all pages
 
 class FreezmeDesignSystem {
   FreezmeDesignSystem._();
 
   // ============================================================================
-  // COLOR PALETTE
+  // COLOR PALETTE - Frozen Creamy Theme (Soft, Consistent)
   // ============================================================================
   
-  static const Color primary = Color(0xFF7C3AED); // Purple
-  static const Color primaryLight = Color(0xFF9F67FF);
+  // Primary - Soft purple (main brand color)
+  static const Color primary = Color(0xFF7C3AED);
+  static const Color primaryLight = Color(0xFFEDE9FE); // Very soft lavender
   static const Color primaryDark = Color(0xFF5B21B6);
   
-  static const Color secondary = Color(0xFFEC4899); // Pink
-  static const Color secondaryLight = Color(0xFFF472B6);
+  // Secondary - Soft pink (accent)
+  static const Color secondary = Color(0xFFEC4899);
+  static const Color secondaryLight = Color(0xFFFCE7F3); // Very soft pink
   static const Color secondaryDark = Color(0xFFBE185D);
   
-  static const Color accent = Color(0xFFF59E0B); // Amber
-  static const Color accentLight = Color(0xFFFBBF24);
+  // Accent - Warm tone
+  static const Color accent = Color(0xFFF59E0B);
+  static const Color accentLight = Color(0xFFFEF3C7);
   static const Color accentDark = Color(0xFFD97706);
   
-  static const Color success = Color(0xFF10B981); // Green
-  static const Color warning = Color(0xFFF59E0B); // Amber
-  static const Color error = Color(0xFFEF4444); // Red
-  static const Color info = Color(0xFF3B82F6); // Blue
+  // Semantic colors (kept simple)
+  static const Color success = Color(0xFF10B981);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color error = Color(0xFFEF4444);
+  static const Color info = Color(0xFF3B82F6);
   
-  static const Color surface = Color(0xFFF8F7FF); // Light lavender
-  static const Color surfaceAlt = Color(0xFFF3F4F6);
-  static const Color surfaceContrast = Color(0xFF1F2937); // Dark surface for contrast (snackbars etc)
+  // Surfaces - Cream/soft whites
+  static const Color surface = Color(0xFFFAF9FF); // Creamy white with slight purple tint
+  static const Color surfaceAlt = Color(0xFFF5F3FF); // Slightly more purple
+  static const Color surfaceContrast = Color(0xFF1F2937);
   static const Color background = Color(0xFFFFFFFF);
   static const Color backgroundDark = Color(0xFF1F2937);
   
+  // Text - Clean grays
   static const Color textPrimary = Color(0xFF1F2937);
   static const Color textSecondary = Color(0xFF6B7280);
   static const Color textTertiary = Color(0xFF9CA3AF);
   static const Color textDisabled = Color(0xFFD1D5DB);
   
+  // Borders - Very subtle
   static const Color border = Color(0xFFE5E7EB);
   static const Color borderLight = Color(0xFFF3F4F6);
   static const Color borderDark = Color(0xFF9CA3AF);
@@ -237,26 +244,41 @@ class FreezmeDesignSystem {
   static const int zNotification = 50;
 
   // ============================================================================
-  // COMMON DECORATIONS
+  // COMMON DECORATIONS - Simple, consistent styling
   // ============================================================================
   
+  /// Standard card - clean with subtle border and light shadow
   static BoxDecoration get cardDecoration => BoxDecoration(
     color: background,
     borderRadius: BorderRadius.circular(radiusLg),
     border: Border.all(color: border, width: 1),
-    boxShadow: shadowMd,
+    boxShadow: shadowSm,
   );
   
+  /// Flat card - no shadow
   static BoxDecoration get cardDecorationFlat => BoxDecoration(
     color: background,
     borderRadius: BorderRadius.circular(radiusLg),
     border: Border.all(color: border, width: 1),
   );
   
+  /// Soft card - creamy background
+  static BoxDecoration get cardDecorationSoft => BoxDecoration(
+    color: surface,
+    borderRadius: BorderRadius.circular(radiusLg),
+  );
+  
+  /// Pill decoration for tags/badges
   static BoxDecoration get pillDecoration => BoxDecoration(
     color: surface,
     borderRadius: BorderRadius.circular(radiusFull),
     border: Border.all(color: border, width: 1),
+  );
+  
+  /// Pill with primary accent
+  static BoxDecoration get pillDecorationPrimary => BoxDecoration(
+    color: primaryLight,
+    borderRadius: BorderRadius.circular(radiusFull),
   );
   
   static BoxDecoration inputDecoration({bool focused = false}) => BoxDecoration(
