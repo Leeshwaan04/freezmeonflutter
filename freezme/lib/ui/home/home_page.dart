@@ -315,7 +315,7 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceMd),
           SizedBox(
-            height: 130,
+            height: 140,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
@@ -454,41 +454,155 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _LivePathCard extends StatelessWidget {
+class _LivePathCard extends StatefulWidget {
   final int index;
 
   const _LivePathCard({required this.index});
 
   @override
+  State<_LivePathCard> createState() => _LivePathCardState();
+}
+
+class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 100,
-      height: 120,
-      margin: const EdgeInsets.only(right: FreezmeDesignSystem.spaceMd),
-      child: PremiumCard(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        onTap: () {},
+    final activities = ['Grabbing Drinks', 'Coffee Date', 'Evening Walk', 'Chilling', 'Out Tonight'];
+    final distances = ['0.5km', '1.2km', '2km', '3.5km', '5km'];
+    
+    return GestureDetector(
+      onTap: () {
+        // TODO: Navigate to profile or send wave
+      },
+      child: Container(
+        width: 110,
+        height: 125,
+        margin: const EdgeInsets.only(right: FreezmeDesignSystem.spaceMd),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusLg),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              FreezmeDesignSystem.primary.withValues(alpha: 0.1),
+              FreezmeDesignSystem.secondary.withValues(alpha: 0.05),
+            ],
+          ),
+          border: Border.all(
+            color: FreezmeDesignSystem.primary.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: FreezmeDesignSystem.primary.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: FreezmeDesignSystem.primary.withValues(alpha: 0.1),
-              child: Text('U$index', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: FreezmeDesignSystem.primary)),
+            // Avatar with online pulse
+            Stack(
+              children: [
+                AnimatedBuilder(
+                  animation: _pulseAnimation,
+                  builder: (context, child) {
+                    return Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: FreezmeDesignSystem.success.withValues(alpha: 0.3 + (_pulseAnimation.value * 0.4)),
+                          width: 2,
+                        ),
+                      ),
+                      child: child,
+                    );
+                  },
+                  child: CircleAvatar(
+                    radius: 22,
+                    backgroundColor: FreezmeDesignSystem.primary.withValues(alpha: 0.15),
+                    child: Text(
+                      'U${widget.index}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: FreezmeDesignSystem.primary,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: FreezmeDesignSystem.success,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            Flexible(
-              child: Text(
-                'Grabbing Drinks',
-                style: FreezmeDesignSystem.caption.copyWith(fontWeight: FontWeight.bold, fontSize: 10),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            const SizedBox(height: 8),
+            // Activity
             Text(
-              '2km away',
-              style: FreezmeDesignSystem.caption.copyWith(fontSize: 9, color: FreezmeDesignSystem.textSecondary),
+              activities[widget.index % activities.length],
+              style: FreezmeDesignSystem.caption.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                color: FreezmeDesignSystem.textPrimary,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            // Distance with icon
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.location_on,
+                  size: 10,
+                  color: FreezmeDesignSystem.primary.withValues(alpha: 0.7),
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  distances[widget.index % distances.length],
+                  style: FreezmeDesignSystem.caption.copyWith(
+                    fontSize: 10,
+                    color: FreezmeDesignSystem.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -506,89 +620,201 @@ class _TonightProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PremiumCard(
-      padding: EdgeInsets.zero,
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => ProfileDetailPage(profile: profile),
+    return Container(
+      margin: const EdgeInsets.only(bottom: FreezmeDesignSystem.spaceSm),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusLg),
+        boxShadow: [
+          BoxShadow(
+            color: FreezmeDesignSystem.primary.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
-        );
-      },
-      child: SizedBox(
-        height: 110,
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(FreezmeDesignSystem.radiusLg)),
-              child: CachedNetworkImage(
-                imageUrl: profile.imageUrl,
-                width: 100,
-                height: 110,
-                fit: BoxFit.cover,
-                memCacheWidth: 200,
-                memCacheHeight: 200,
-                placeholder: (context, _) => Container(
-                  width: 100,
-                  height: 110,
-                  color: FreezmeDesignSystem.surfaceAlt,
-                  child: const Icon(Icons.person, color: FreezmeDesignSystem.textTertiary),
-                ),
-                errorWidget: (context, _, __) => Container(
-                  width: 100,
-                  height: 110,
-                  color: FreezmeDesignSystem.surfaceAlt,
-                  child: const Icon(Icons.person, color: FreezmeDesignSystem.textTertiary),
-                ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+        border: Border.all(
+          color: FreezmeDesignSystem.border.withValues(alpha: 0.5),
+          width: 1,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusLg),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ProfileDetailPage(profile: profile),
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceMd, vertical: FreezmeDesignSystem.spaceSm),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
+            );
+          },
+          child: SizedBox(
+            height: 120,
+            child: Row(
+              children: [
+                // Profile Image with gradient overlay
+                Stack(
                   children: [
-                    Text(
-                      '${profile.name}, ${profile.age}',
-                      style: FreezmeDesignSystem.h3.copyWith(fontSize: 16),
+                    ClipRRect(
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(FreezmeDesignSystem.radiusLg)),
+                      child: CachedNetworkImage(
+                        imageUrl: profile.imageUrl,
+                        width: 110,
+                        height: 120,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 220,
+                        memCacheHeight: 240,
+                        placeholder: (context, _) => Container(
+                          width: 110,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                FreezmeDesignSystem.primary.withValues(alpha: 0.2),
+                                FreezmeDesignSystem.secondary.withValues(alpha: 0.2),
+                              ],
+                            ),
+                          ),
+                          child: const Icon(Icons.person, color: Colors.white54, size: 40),
+                        ),
+                        errorWidget: (context, _, __) => Container(
+                          width: 110,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                FreezmeDesignSystem.primary.withValues(alpha: 0.3),
+                                FreezmeDesignSystem.secondary.withValues(alpha: 0.3),
+                              ],
+                            ),
+                          ),
+                          child: const Icon(Icons.person, color: Colors.white70, size: 40),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      profile.bio,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: FreezmeDesignSystem.caption.copyWith(fontSize: 12),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
+                    // Compatibility badge
+                    if (profile.compatibility > 0)
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.flash_on, size: 10, color: Colors.white),
+                              Text(
+                                '${profile.compatibility}%',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                // Profile Info
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(FreezmeDesignSystem.spaceMd),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.location_on, size: 12, color: FreezmeDesignSystem.primary),
-                        const SizedBox(width: 4),
                         Text(
-                          profile.distance,
-                          style: FreezmeDesignSystem.caption.copyWith(fontSize: 11, color: FreezmeDesignSystem.primary),
+                          '${profile.name}, ${profile.age}',
+                          style: FreezmeDesignSystem.h3.copyWith(fontSize: 17),
+                        ),
+                        const SizedBox(height: 4),
+                        if (profile.bio.isNotEmpty)
+                          Text(
+                            profile.bio,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: FreezmeDesignSystem.caption.copyWith(
+                              fontSize: 12,
+                              color: FreezmeDesignSystem.textSecondary,
+                              height: 1.3,
+                            ),
+                          ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: FreezmeDesignSystem.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.location_on,
+                                    size: 12,
+                                    color: FreezmeDesignSystem.primary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    profile.distance,
+                                    style: FreezmeDesignSystem.caption.copyWith(
+                                      fontSize: 11,
+                                      color: FreezmeDesignSystem.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                // Like Button
+                Container(
+                  margin: const EdgeInsets.only(right: FreezmeDesignSystem.spaceMd),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        FreezmeDesignSystem.secondary.withValues(alpha: 0.1),
+                        FreezmeDesignSystem.primary.withValues(alpha: 0.1),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.favorite_border_rounded),
+                    iconSize: 24,
+                    onPressed: () {
+                       final flow = AppFlowScope.of(context, listen: false);
+                       flow.repository.likeProfile(profile.uid);
+                       PremiumSnackBar.show(context, 'You liked ${profile.name}! 💜', type: SnackBarType.success);
+                    },
+                    color: FreezmeDesignSystem.secondary,
+                  ),
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.only(right: FreezmeDesignSystem.spaceSm),
-              child: IconButton(
-                icon: const Icon(Icons.favorite_border),
-                onPressed: () {
-                   final flow = AppFlowScope.of(context, listen: false);
-                   flow.repository.likeProfile(profile.uid);
-                   PremiumSnackBar.show(context, 'You liked ${profile.name}!', type: SnackBarType.success);
-                },
-                color: FreezmeDesignSystem.primary,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

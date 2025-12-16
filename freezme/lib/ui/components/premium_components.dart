@@ -199,8 +199,8 @@ class PremiumTextField extends StatelessWidget {
   }
 }
 
-/// Empty State View
-class EmptyStateView extends StatelessWidget {
+/// Empty State View - Enhanced with animations
+class EmptyStateView extends StatefulWidget {
   const EmptyStateView({
     super.key,
     required this.icon,
@@ -217,51 +217,140 @@ class EmptyStateView extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
+  State<EmptyStateView> createState() => _EmptyStateViewState();
+}
+
+class _EmptyStateViewState extends State<EmptyStateView> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(FreezmeDesignSystem.spaceXl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: FreezmeDesignSystem.surface,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: FreezmeDesignSystem.border,
-                  width: 1,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Opacity(
+            opacity: _fadeAnimation.value,
+            child: Transform.scale(
+              scale: _scaleAnimation.value,
+              child: child,
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(FreezmeDesignSystem.spaceXl),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Animated gradient icon container
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      FreezmeDesignSystem.primary.withValues(alpha: 0.15),
+                      FreezmeDesignSystem.secondary.withValues(alpha: 0.1),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: FreezmeDesignSystem.primary.withValues(alpha: 0.2),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FreezmeDesignSystem.primary.withValues(alpha: 0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  widget.icon,
+                  size: 44,
+                  color: FreezmeDesignSystem.primary,
                 ),
               ),
-              child: Icon(
-                icon,
-                size: 40,
-                color: FreezmeDesignSystem.textSecondary,
-              ),
-            ),
-            const SizedBox(height: FreezmeDesignSystem.spaceLg),
-            Text(
-              title,
-              style: FreezmeDesignSystem.h3,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: FreezmeDesignSystem.spaceSm),
-            Text(
-              subtitle,
-              style: FreezmeDesignSystem.caption,
-              textAlign: TextAlign.center,
-            ),
-            if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: FreezmeDesignSystem.spaceLg),
-              PremiumButton(
-                label: actionLabel!,
-                onPressed: onAction,
-                variant: ButtonVariant.outlined,
+              Text(
+                widget.title,
+                style: FreezmeDesignSystem.h2.copyWith(
+                  color: FreezmeDesignSystem.textPrimary,
+                ),
+                textAlign: TextAlign.center,
               ),
+              const SizedBox(height: FreezmeDesignSystem.spaceSm),
+              Text(
+                widget.subtitle,
+                style: FreezmeDesignSystem.body.copyWith(
+                  color: FreezmeDesignSystem.textSecondary,
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (widget.actionLabel != null && widget.onAction != null) ...[
+                const SizedBox(height: FreezmeDesignSystem.spaceLg),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: FreezmeDesignSystem.primary.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton(
+                    onPressed: widget.onAction,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    child: Text(
+                      widget.actionLabel!,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

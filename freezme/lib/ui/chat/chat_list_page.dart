@@ -271,12 +271,17 @@ class _ChatListPageState extends State<ChatListPage> {
                 }
 
                 if (visibleConversations.isEmpty) {
-                  slivers.add(const SliverFillRemaining(
+                  slivers.add(SliverFillRemaining(
                     hasScrollBody: false,
                     child: EmptyStateView(
-                      icon: Icons.chat_bubble_outline,
-                      title: 'No conversations found',
-                      subtitle: 'Try adjusting your filters or say hi to someone new!',
+                      icon: Icons.chat_bubble_outline_rounded,
+                      title: 'No Matches Yet',
+                      subtitle: 'Start exploring to find your perfect match! Your conversations will appear here.',
+                      actionLabel: 'Explore Tonight',
+                      onAction: () {
+                        // Navigate to Tonight tab
+                        flow.openTab(0);
+                      },
                     ),
                   ));
                 } else {
