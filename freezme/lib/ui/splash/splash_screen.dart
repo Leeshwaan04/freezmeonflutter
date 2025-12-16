@@ -86,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ScaleTransition(
                       scale: _pulseAnimation,
                       child: const FreezmeLogo(
-                        size: LogoSize.xl, 
+                        size: LogoSize.hero, 
                         variant: LogoVariant.primary,
                         showText: false,
                       ),
