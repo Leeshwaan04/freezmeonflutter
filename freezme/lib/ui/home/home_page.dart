@@ -504,8 +504,8 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              FreezmeDesignSystem.primary.withValues(alpha: 0.1),
-              FreezmeDesignSystem.secondary.withValues(alpha: 0.05),
+              FreezmeDesignSystem.primary.withValues(alpha: 0.08),
+              FreezmeDesignSystem.primaryLight.withValues(alpha: 0.3),
             ],
           ),
           border: Border.all(
@@ -673,27 +673,17 @@ class _TonightProfileCard extends StatelessWidget {
                           width: 110,
                           height: 120,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                FreezmeDesignSystem.primary.withValues(alpha: 0.2),
-                                FreezmeDesignSystem.secondary.withValues(alpha: 0.2),
-                              ],
-                            ),
+                            color: FreezmeDesignSystem.primaryLight,
                           ),
-                          child: const Icon(Icons.person, color: Colors.white54, size: 40),
+                          child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
                         ),
                         errorWidget: (context, _, __) => Container(
                           width: 110,
                           height: 120,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                FreezmeDesignSystem.primary.withValues(alpha: 0.3),
-                                FreezmeDesignSystem.secondary.withValues(alpha: 0.3),
-                              ],
-                            ),
+                            color: FreezmeDesignSystem.primaryLight,
                           ),
-                          child: const Icon(Icons.person, color: Colors.white70, size: 40),
+                          child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
                         ),
                       ),
                     ),
@@ -705,9 +695,7 @@ class _TonightProfileCard extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
-                            ),
+                            color: FreezmeDesignSystem.primary,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -791,14 +779,7 @@ class _TonightProfileCard extends StatelessWidget {
                 Container(
                   margin: const EdgeInsets.only(right: FreezmeDesignSystem.spaceMd),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        FreezmeDesignSystem.secondary.withValues(alpha: 0.1),
-                        FreezmeDesignSystem.primary.withValues(alpha: 0.1),
-                      ],
-                    ),
+                    color: FreezmeDesignSystem.primaryLight,
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
@@ -809,7 +790,7 @@ class _TonightProfileCard extends StatelessWidget {
                        flow.repository.likeProfile(profile.uid);
                        PremiumSnackBar.show(context, 'You liked ${profile.name}! 💜', type: SnackBarType.success);
                     },
-                    color: FreezmeDesignSystem.secondary,
+                    color: FreezmeDesignSystem.primary,
                   ),
                 ),
               ],

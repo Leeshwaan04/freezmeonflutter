@@ -161,11 +161,7 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(FreezmeDesignSystem.spaceLg),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
-                ),
+                gradient: FreezmeGradients.header,
                 borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusLg),
               ),
               child: Column(

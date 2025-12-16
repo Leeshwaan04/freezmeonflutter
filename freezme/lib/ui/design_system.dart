@@ -448,15 +448,24 @@ class FreezmeDesignSystem {
 }
 
 class FreezmeGradients {
+  /// Primary gradient - uses only purple shades for consistency
   static const LinearGradient primary = LinearGradient(
-    colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
+    colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.primaryDark],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
+  /// Soft background gradient
   static const LinearGradient backgroundSoft = LinearGradient(
     colors: [FreezmeDesignSystem.background, FreezmeDesignSystem.surface],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
+  );
+  
+  /// Subtle purple gradient for headers
+  static const LinearGradient header = LinearGradient(
+    colors: [FreezmeDesignSystem.primary, Color(0xFF8B5CF6)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
   );
 }

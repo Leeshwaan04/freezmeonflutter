@@ -308,17 +308,13 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
-          ),
+          gradient: FreezmeGradients.header,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: FreezmeDesignSystem.primary.withValues(alpha: 0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
+              color: FreezmeDesignSystem.primary.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
