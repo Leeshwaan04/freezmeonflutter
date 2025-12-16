@@ -163,7 +163,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                   vertical: 16,
                 ),
                 decoration: const BoxDecoration(
-                  gradient: FreezmeGradients.primary,
+                  color: Colors.white,
                   borderRadius: BorderRadius.vertical(
                     bottom: Radius.circular(32),
                   ),
@@ -179,18 +179,18 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                   children: [
                     IconButton(
                       onPressed: flow.exitChat,
-                      icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
+                      icon: const Icon(Icons.chevron_left, color: FreezmeDesignSystem.primary, size: 28),
                     ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white24,
+                        color: FreezmeDesignSystem.primary.withValues(alpha: 0.1),
                       ),
                       child: CircleAvatar(
                         radius: 22,
-                        backgroundColor: Colors.white24,
+                        backgroundColor: FreezmeDesignSystem.surfaceAlt,
                         backgroundImage: NetworkImage(
                           profile?.imageUrl ??
                               'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=320',
@@ -205,14 +205,14 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                           Text(
                             profile?.name ?? 'Match',
                             style: FreezmeDesignSystem.h3.copyWith(
-                              color: Colors.white,
+                              color: FreezmeDesignSystem.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           const Text(
                             'Online',
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: FreezmeDesignSystem.success,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -224,7 +224,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                       onPressed: () {
                         modal.showFreezeModal(context);
                       },
-                      icon: const Icon(Icons.ac_unit, color: Colors.white),
+                      icon: const Icon(Icons.ac_unit, color: FreezmeDesignSystem.primary),
                     ),
                   ],
                 ),

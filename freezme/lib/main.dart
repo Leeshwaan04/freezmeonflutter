@@ -1494,7 +1494,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
                     _AuthButton(
                       label: _busy ? 'Please wait…' : 'Continue with Apple',
                       icon: Icons.apple,
-                      gradient: FreezmeGradients.primary,
+                      gradient: FreezmeGradients.buttonGradient,
                       foreground: Colors.white,
                       enabled: !_busy,
                       onTap: () => _signInWithApple(flow),
@@ -1516,7 +1516,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
                     _AuthButton(
                       label: _busy ? 'Loading…' : 'Continue with Email',
                       icon: Icons.mail_outline,
-                      gradient: FreezmeGradients.primary,
+                      gradient: FreezmeGradients.buttonGradient,
                       foreground: Colors.white,
                       enabled: !_busy,
                       onTap: () => _signInWithEmail(flow),
@@ -1785,6 +1785,15 @@ class _AuthButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
             border: borderSide != null
                 ? Border.fromBorderSide(borderSide)
+                : null,
+            boxShadow: (enabled && gradient != null)
+                ? [
+                    BoxShadow(
+                      color: FreezmeColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
                 : null,
           ),
           padding: const EdgeInsets.symmetric(

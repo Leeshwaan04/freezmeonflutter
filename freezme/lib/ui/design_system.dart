@@ -15,10 +15,10 @@ class FreezmeDesignSystem {
   static const Color primaryLight = Color(0xFFF0EBF8); // Lighter tint
   static const Color primaryDark = Color(0xFF4A306D); // Darker shade
   
-  // Secondary - Soft pink (accent)
-  static const Color secondary = Color(0xFFEC4899);
-  static const Color secondaryLight = Color(0xFFFCE7F3); // Very soft pink
-  static const Color secondaryDark = Color(0xFFBE185D);
+  // Secondary - Now same as Primary (Purple)
+  static const Color secondary = Color(0xFF6C4B9C);
+  static const Color secondaryLight = Color(0xFFF0EBF8); // Same as primaryLight
+  static const Color secondaryDark = Color(0xFF4A306D); // Same as primaryDark
   
   // Accent - Warm tone
   static const Color accent = Color(0xFFF59E0B);

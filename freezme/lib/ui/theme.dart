@@ -8,7 +8,7 @@ class FreezmeColors {
   static const bool lowMotion = false;
 
   static const Color primary = Color(0xFF6C4B9C);
-  static const Color secondary = Color(0xFFC471ED);
+  static const Color secondary = Color(0xFF6C4B9C); // Now same as primary for All Purple theme
   static const Color accent = Color(0xFFF64F59);
   static const Color neutral = Color(0xFF2D2D2D);
   static const Color muted = Color(0xFF8B7A9A);
@@ -49,6 +49,12 @@ class FreezmeGradients {
     colors: [FreezmeColors.secondary, Color(0xFFE7E9FF)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient buttonGradient = LinearGradient(
+    colors: [FreezmeColors.primary, FreezmeColors.secondary],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
   );
 }
 

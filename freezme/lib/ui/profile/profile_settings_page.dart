@@ -151,16 +151,12 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                decoration: const BoxDecoration(
-                  gradient: FreezmeGradients.primary,
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
-                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const FreezmeLogo(
                       size: LogoSize.sm,
-                      variant: LogoVariant.white,
+                      variant: LogoVariant.primary,
                       showText: true,
                     ),
                     const SizedBox(height: 16),
@@ -169,8 +165,10 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                         IconButton.filled(
                           onPressed: flow.pop,
                           style: IconButton.styleFrom(
-                            backgroundColor: Colors.white24,
-                            foregroundColor: Colors.white,
+                            backgroundColor: Colors.white,
+                            foregroundColor: FreezmeDesignSystem.primary,
+                            side: const BorderSide(color: FreezmeDesignSystem.border),
+                            elevation: 0,
                           ),
                           icon: const Icon(Icons.chevron_left),
                         ),
@@ -178,7 +176,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                         const Text(
                           'Profile & Settings',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: FreezmeDesignSystem.primary,
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
                           ),

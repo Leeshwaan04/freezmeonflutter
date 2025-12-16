@@ -51,28 +51,14 @@ class FreezmeLogo extends StatelessWidget {
         SizedBox(
           width: metrics.heart,
           height: metrics.heart,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              if (variant == LogoVariant.gradient)
-                ShaderMask(
-                  shaderCallback: (rect) =>
-                      FreezmeGradients.primary.createShader(rect),
-                  blendMode: BlendMode.srcIn,
-                  child: Icon(
-                    Icons.favorite,
-                    size: metrics.heart,
-                    color: Colors.white,
-                  ),
-                )
-              else
-                Icon(Icons.favorite, size: metrics.heart, color: colors.heart),
-              Icon(
-                Icons.ac_unit,
-                size: metrics.snowflake,
-                color: colors.snowflake,
-              ),
-            ],
+          child: Image.asset(
+            'assets/images/logo.png',
+            width: metrics.heart,
+            height: metrics.heart,
+            fit: BoxFit.contain,
+            color: variant == LogoVariant.white ? Colors.white : null,
+            colorBlendMode:
+                variant == LogoVariant.white ? BlendMode.srcIn : null,
           ),
         ),
         if (showText) ...[
