@@ -74,9 +74,27 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     _VibeTypeItem('ambitious', '💼', 'Ambitious', 'Focused on goals and growth'),
   ];
 
+  // State for Bio Step
+  final List<String> _bioPrompts = [
+    "I usually spend my Sundays...",
+    "I'm obsessed with...",
+    "My golden rule is...",
+    "A secret talent of mine...",
+    "I'm looking for someone who...",
+  ];
+  bool _isGeneratingBio = false;
+  late TextEditingController _bioController;
+
   @override
   void initState() {
     super.initState();
+    _bioController = TextEditingController(text: _bio);
+    _bioController.addListener(() {
+      setState(() {
+        _bio = _bioController.text;
+      });
+    });
+    // ... rest of initState
     _progressController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -91,6 +109,7 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
   @override
   void dispose() {
     _pageController.dispose();
+    _bioController.dispose();
     _progressController.dispose();
     _fadeController.dispose();
     super.dispose();
@@ -716,45 +735,138 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
 
   // Step 5: Bio (New)
   Widget _buildBioStep() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
-          _buildTitle("Written Bio", "Tell us a bit about yourself."),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: TextField(
-              onChanged: (value) => setState(() => _bio = value),
-              maxLines: 5,
-              maxLength: 150,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                hintText: "I usually spend my Sundays... \nI'm obsessed with...",
-                border: InputBorder.none,
-                counterText: "",
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            Center(child: _buildTitle("Written Bio", "Tell us a bit about yourself.")),
+            const SizedBox(height: 24),
+      
+            // AI Generator Button
+            Center(
+              child: OutlinedButton.icon(
+                onPressed: _isGeneratingBio ? null : _generateAiBio,
+                icon: _isGeneratingBio 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.auto_awesome, size: 18),
+                label: Text(_isGeneratingBio ? "Writing..." : "Generate with AI"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: FreezmeColors.primary,
+                  side: const BorderSide(color: FreezmeColors.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${_bio.length}/150',
-              style: TextStyle(
-                color: _bio.length >= 10 ? FreezmeColors.success : Colors.grey,
-                fontWeight: FontWeight.w500,
+            const SizedBox(height: 16),
+      
+            // Prompts
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _bioPrompts.map((prompt) {
+                return ActionChip(
+                  label: Text(prompt, style: const TextStyle(fontSize: 12)),
+                  backgroundColor: Colors.white,
+                  surfaceTintColor: Colors.white,
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  onPressed: () {
+                    final currentText = _bioController.text;
+                    final newText = (currentText.isNotEmpty && !currentText.endsWith(' ') && !currentText.endsWith('\n'))
+                        ? '$currentText\n\n$prompt '
+                        : '$currentText$prompt ';
+                    
+                    _bioController.text = newText;
+                    // Move cursor to end
+                    _bioController.selection = TextSelection.fromPosition(TextPosition(offset: newText.length));
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+      
+            // Text Area
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    spreadRadius: 1,
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _bioController,
+                maxLines: 6,
+                maxLength: 150,
+                textCapitalization: TextCapitalization.sentences,
+                style: const TextStyle(fontSize: 16, height: 1.4),
+                decoration: InputDecoration(
+                  hintText: "Start typing or pick a prompt...",
+                  hintStyle: TextStyle(color: Colors.grey.shade400),
+                  border: InputBorder.none,
+                  counterText: "",
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                '${_bio.length}/150',
+                style: TextStyle(
+                  color: _bio.length >= 10 ? FreezmeColors.success : Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: 40), // Bottom padding
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _generateAiBio() async {
+    setState(() => _isGeneratingBio = true);
+    
+    // Simulate Backend AI Call
+    await Future.delayed(const Duration(seconds: 2));
+    
+    // Mock Logic based on state
+    final interests = _selectedInterests.take(3).toList();
+    final vibeStrings = {
+      'chill': 'chill vibes',
+      'adventure': 'adventure seeking',
+      'deep': 'deep conversations',
+      'fun': 'fun times',
+    };
+    
+    String interestStr = interests.isNotEmpty ? "I love ${interests.join(', ')}." : "I love trying new things.";
+    
+    // Simple template generator
+    final templates = [
+      "Running on caffeine and $interestStr Swipe right if you're into spontaneous trips!",
+      "$interestStr Looking for someone to share good vibes and better food.",
+      "Professional over-thinker. $interestStr Let's skip the small talk.",
+    ];
+    
+    setState(() {
+      _bioController.text = templates[DateTime.now().millisecond % templates.length];
+      _isGeneratingBio = false;
+    });
   }
 
   // Step 6: Looking For

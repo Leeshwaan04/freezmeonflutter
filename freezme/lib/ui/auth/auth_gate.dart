@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../theme.dart';
 import '../../main.dart';
 import '../components/freezme_logo.dart';
+import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
 
 class AuthGatePage extends StatefulWidget {
@@ -919,25 +920,14 @@ class _AuthGatePageState extends State<AuthGatePage>
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Animated gradient background - Frozen Creamy Theme
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFFAF9FF), // creamy white with purple tint
-                  Color(0xFFEDE9FE), // soft lavender
-                  Color(0xFFF3E8FF), // very soft purple
-                ],
-                stops: [0.0, 0.5, 1.0],
-              ),
-            ),
-          ),
+      body: AuroraBackground(
+        child: Stack(
+          children: [
+            // Animated gradient background - Frozen Creamy Theme
+            // Static background removed to show AuroraBackground
+            const SizedBox.expand(),
 
-          // Floating decorative circles
+
           AnimatedBuilder(
             animation: _floatAnimation,
             builder: (context, child) => Stack(
@@ -982,8 +972,6 @@ class _AuthGatePageState extends State<AuthGatePage>
                         ),
                       ),
                     ),
-
-                    const SizedBox(height: 16),
 
                     // Brand Text
                     const Text(
@@ -1202,7 +1190,8 @@ class _AuthGatePageState extends State<AuthGatePage>
             ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildDecorativeCircle(double size, double opacity) {
