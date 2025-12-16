@@ -85,13 +85,10 @@ class _SplashScreenState extends State<SplashScreen>
                     // Animated Logo - matching Auth page style
                     ScaleTransition(
                       scale: _pulseAnimation,
-                      child: Transform.scale(
-                        scale: 1.5,
-                        child: const FreezmeLogo(
-                          size: LogoSize.lg, 
-                          variant: LogoVariant.primary,
-                          showText: false,
-                        ),
+                      child: const FreezmeLogo(
+                        size: LogoSize.xl, 
+                        variant: LogoVariant.primary,
+                        showText: false,
                       ),
                     ),
 

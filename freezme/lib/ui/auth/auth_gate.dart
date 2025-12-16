@@ -977,7 +977,7 @@ class _AuthGatePageState extends State<AuthGatePage>
                       child: const Hero(
                         tag: 'freezme_logo_auth',
                         child: FreezmeLogo(
-                          size: LogoSize.lg,
+                          size: LogoSize.xl,
                           variant: LogoVariant.primary,
                         ),
                       ),

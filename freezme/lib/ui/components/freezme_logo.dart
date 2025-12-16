@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../design_system.dart';
 
-enum LogoSize { sm, md, lg }
+enum LogoSize { sm, md, lg, xl }
 
 enum LogoVariant { primary, white, gradient }
 
@@ -18,9 +18,10 @@ class FreezmeLogo extends StatelessWidget {
   final bool showText;
 
   static const _sizeMap = {
-    LogoSize.sm: (heart: 32.0, snowflake: 16.0, text: 14.0),
-    LogoSize.md: (heart: 48.0, snowflake: 24.0, text: 18.0),
-    LogoSize.lg: (heart: 72.0, snowflake: 36.0, text: 22.0),
+    LogoSize.sm: (heart: 24.0, snowflake: 12.0, text: 16.0),
+    LogoSize.md: (heart: 32.0, snowflake: 16.0, text: 20.0),
+    LogoSize.lg: (heart: 48.0, snowflake: 24.0, text: 28.0),
+    LogoSize.xl: (heart: 96.0, snowflake: 36.0, text: 40.0),
   };
 
   static final _colorMap = {

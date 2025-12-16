@@ -341,7 +341,7 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
           const SizedBox(height: 40),
           const Hero(
             tag: 'freezme_logo',
-            child: FreezmeLogo(size: LogoSize.lg, variant: LogoVariant.primary),
+            child: FreezmeLogo(size: LogoSize.xl, variant: LogoVariant.primary),
           ),
           const SizedBox(height: 32),
           _buildTitle(
