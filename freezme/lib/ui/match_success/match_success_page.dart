@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
-import '../theme.dart';
 import '../design_system.dart';
 import '../shared/bottom_nav_bar.dart';
 
@@ -22,7 +21,7 @@ class MatchSuccessPage extends StatelessWidget {
           child: const SafeArea(
             child: Center(
               child: CircularProgressIndicator(
-                color: FreezmeColors.primary,
+                color: FreezmeDesignSystem.primary,
               ),
             ),
           ),
@@ -39,9 +38,9 @@ class MatchSuccessPage extends StatelessWidget {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              FreezmeColors.primary,
-              FreezmeColors.secondary,
-              FreezmeColors.accent,
+              FreezmeDesignSystem.primary,
+              FreezmeDesignSystem.secondary,
+              FreezmeDesignSystem.accent,
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -96,7 +95,7 @@ class MatchSuccessPage extends StatelessWidget {
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.white,
-                      foregroundColor: FreezmeColors.primary,
+                      foregroundColor: FreezmeDesignSystem.primary,
                       minimumSize: const Size.fromHeight(56),
                       shape: const StadiumBorder(),
                     ),

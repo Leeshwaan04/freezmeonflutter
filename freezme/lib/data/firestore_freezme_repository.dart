@@ -238,6 +238,12 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
           'isTyping': (data['typing'] as Map?)?.entries.any((e) => e.key != currentUser && (e.value['isTyping'] as bool? ?? false)) ?? false,
         };
       }).toList();
+    }).onError((error, stackTrace) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.watchMatches();
+      }
+      throw error;
     });
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../main.dart'; // For AppFlowScope
+import '../../main.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';
 
@@ -95,14 +96,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   void _toggleInterest(String interest) {
+    HapticFeedback.selectionClick();
     setState(() {
       if (_selectedInterests.contains(interest)) {
         _selectedInterests.remove(interest);
       } else {
         if (_selectedInterests.length < _maxInterests) {
           _selectedInterests.add(interest);
+          HapticFeedback.mediumImpact();
         } else {
           PremiumSnackBar.show(context, 'Maximum $_maxInterests interests allowed', type: SnackBarType.info);
+          HapticFeedback.heavyImpact();
         }
       }
       _hasUnsavedChanges = true;

@@ -413,7 +413,9 @@ class PremiumChip extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(
           horizontal: FreezmeDesignSystem.spaceMd,
           vertical: FreezmeDesignSystem.spaceSm,
@@ -433,22 +435,31 @@ class PremiumChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(
-                icon,
-                size: 16,
-                color: selected
-                    ? FreezmeDesignSystem.background
-                    : FreezmeDesignSystem.textPrimary,
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                style: TextStyle(
+                  color: selected
+                      ? FreezmeDesignSystem.background
+                      : FreezmeDesignSystem.textPrimary,
+                ),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: selected
+                      ? FreezmeDesignSystem.background
+                      : FreezmeDesignSystem.textPrimary,
+                ),
               ),
               const SizedBox(width: FreezmeDesignSystem.spaceSm),
             ],
-            Text(
-              label,
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
               style: FreezmeDesignSystem.captionMedium.copyWith(
                 color: selected
                     ? FreezmeDesignSystem.background
                     : FreezmeDesignSystem.textPrimary,
               ),
+              child: Text(label),
             ),
           ],
         ),

@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'data/firestore_freezme_repository.dart';
 import 'data/freezme_repository.dart';
+import 'data/mock_freezme_repository.dart';
 import 'models/paths.dart';
 import 'models/blinds.dart'; // Added
 import 'models/vibe_profile.dart'; // Added
@@ -102,7 +103,7 @@ class AppFlowController extends ChangeNotifier {
     bool skipHydrate = false,
   }) : _photoUploadService = photoUploadService ?? MockPhotoUploadService(),
        _meltChatService = meltChatService ?? MockMeltChatService(),
-       _repository = repository ?? FirestoreFreezmeRepository(),
+       _repository = repository ?? FirestoreFreezmeRepository(fallback: MockFreezmeRepository()),
        _locationService = locationService ?? LocationService(),
        photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
        dailyProfiles = _mockProfiles() {

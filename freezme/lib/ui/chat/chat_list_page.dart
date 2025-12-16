@@ -1,12 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../shared/bottom_nav_bar.dart';
 import '../../main.dart';
 import '../components/premium_components.dart';
 import '../components/skeleton_loaders.dart';
 import '../design_system.dart';
 import 'message_status.dart';
-import '../../models/vibe_profile.dart'; // Added
+import '../../models/vibe_profile.dart';
 
 class Conversation {
   Conversation({
@@ -195,6 +196,7 @@ class _ChatListPageState extends State<ChatListPage> {
           currentIndex: flow.currentTabIndex,
           onTap: (index) {
             if (_tabLocked) return;
+            HapticFeedback.selectionClick();
             setState(() => _tabLocked = true);
             flow.openTab(index);
             Future.delayed(FreezmeDesignSystem.durationNormal, () {
@@ -284,6 +286,7 @@ class _ChatListPageState extends State<ChatListPage> {
                         final convo = visibleConversations[index];
                         return InkWell(
                           onTap: () {
+                            HapticFeedback.mediumImpact();
                             flow.openChatDetail(
                               VibeProfile(
                                 uid: convo.chatId,
