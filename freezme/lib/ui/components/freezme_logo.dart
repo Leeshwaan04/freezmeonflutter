@@ -53,14 +53,27 @@ class FreezmeLogo extends StatelessWidget {
         SizedBox(
           width: metrics.heart,
           height: metrics.heart,
-          child: Image.asset(
-            'assets/images/logo.png',
-            width: metrics.heart,
-            height: metrics.heart,
-            fit: BoxFit.contain,
-            color: variant == LogoVariant.white ? Colors.white : null,
-            colorBlendMode:
-                variant == LogoVariant.white ? BlendMode.srcIn : null,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Heart shape
+              Icon(
+                Icons.favorite_rounded,
+                size: metrics.heart,
+                color: variant == LogoVariant.white 
+                    ? Colors.white 
+                    : colors.heart,
+              ),
+              // Snowflake
+              // Slight offset might be needed for perfect optical centering, but center is usually fine
+              Icon(
+                Icons.ac_unit_rounded,
+                size: metrics.snowflake,
+                color: variant == LogoVariant.white 
+                    ? FreezmeDesignSystem.primary 
+                    : colors.snowflake,
+              ),
+            ],
           ),
         ),
         if (showText) ...[
