@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../design_system.dart';
@@ -680,6 +681,364 @@ class TappableCard extends StatelessWidget {
           padding: padding,
           child: child,
         ),
+      ),
+    );
+  }
+}
+
+/// Verification Badge - Shows verified status
+class VerificationBadge extends StatelessWidget {
+  final double size;
+  final bool showBackground;
+
+  const VerificationBadge({
+    super.key,
+    this.size = 16,
+    this.showBackground = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = Icon(
+      Icons.verified_rounded,
+      size: size,
+      color: Colors.blue,
+    );
+
+    if (showBackground) {
+      return Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: icon,
+      );
+    }
+
+    return icon;
+  }
+}
+
+/// Online Status Indicator - Green dot for online users
+class OnlineIndicator extends StatelessWidget {
+  final double size;
+  final bool showBorder;
+
+  const OnlineIndicator({
+    super.key,
+    this.size = 12,
+    this.showBorder = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: FreezmeDesignSystem.success,
+        shape: BoxShape.circle,
+        border: showBorder
+            ? Border.all(
+                color: Colors.white,
+                width: 2,
+              )
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: FreezmeDesignSystem.success.withValues(alpha: 0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Avatar with optional online status and verification
+class UserAvatar extends StatelessWidget {
+  final String? imageUrl;
+  final String? initials;
+  final double size;
+  final bool isOnline;
+  final bool isVerified;
+
+  const UserAvatar({
+    super.key,
+    this.imageUrl,
+    this.initials,
+    this.size = 48,
+    this.isOnline = false,
+    this.isVerified = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Avatar
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: FreezmeDesignSystem.primaryLight,
+            image: imageUrl != null && imageUrl!.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(imageUrl!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+          ),
+          child: imageUrl == null || imageUrl!.isEmpty
+              ? Center(
+                  child: Text(
+                    initials ?? '?',
+                    style: TextStyle(
+                      color: FreezmeDesignSystem.primary,
+                      fontSize: size * 0.4,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : null,
+        ),
+        // Online indicator
+        if (isOnline)
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: OnlineIndicator(size: size * 0.28),
+          ),
+        // Verification badge
+        if (isVerified)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: VerificationBadge(size: size * 0.35, showBackground: true),
+          ),
+      ],
+    );
+  }
+}
+
+/// Match Percentage Badge
+class MatchBadge extends StatelessWidget {
+  final int percentage;
+  
+  const MatchBadge({
+    super.key,
+    required this.percentage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: FreezmeDesignSystem.primary,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.flash_on, size: 12, color: Colors.white),
+          const SizedBox(width: 2),
+          Text(
+            '$percentage%',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Premium Badge for Freezme+ users
+class PremiumBadge extends StatelessWidget {
+  final double size;
+
+  const PremiumBadge({
+    super.key,
+    this.size = 16,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        gradient: FreezmeGradients.header,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        Icons.star_rounded,
+        size: size,
+        color: Colors.white,
+      ),
+    );
+  }
+}
+
+/// Interest Tag Chip
+class InterestTag extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback? onTap;
+
+  const InterestTag({
+    super.key,
+    required this.label,
+    this.isSelected = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        if (onTap != null) {
+          HapticFeedback.selectionClick();
+          onTap?.call();
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? FreezmeDesignSystem.primary : FreezmeDesignSystem.primaryLight,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : FreezmeDesignSystem.primary,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Activity Status Pill
+class ActivityStatusPill extends StatelessWidget {
+  final String activity;
+  final IconData? icon;
+
+  const ActivityStatusPill({
+    super.key,
+    required this.activity,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: FreezmeDesignSystem.shadowSm,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: FreezmeDesignSystem.primary),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            activity,
+            style: FreezmeDesignSystem.small.copyWith(
+              color: FreezmeDesignSystem.textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Countdown Timer for limited offers or matches
+class CountdownTimer extends StatefulWidget {
+  final Duration duration;
+  final VoidCallback? onComplete;
+  final TextStyle? style;
+
+  const CountdownTimer({
+    super.key,
+    required this.duration,
+    this.onComplete,
+    this.style,
+  });
+
+  @override
+  State<CountdownTimer> createState() => _CountdownTimerState();
+}
+
+class _CountdownTimerState extends State<CountdownTimer> {
+  late Duration _remaining;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _remaining = widget.duration;
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remaining.inSeconds > 0) {
+        setState(() {
+          _remaining = _remaining - const Duration(seconds: 1);
+        });
+      } else {
+        timer.cancel();
+        widget.onComplete?.call();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final hours = d.inHours;
+    final minutes = d.inMinutes.remainder(60);
+    final seconds = d.inSeconds.remainder(60);
+    
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    }
+    return '${minutes}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      _formatDuration(_remaining),
+      style: widget.style ?? FreezmeDesignSystem.bodyMedium.copyWith(
+        color: FreezmeDesignSystem.primary,
+        fontWeight: FontWeight.w600,
       ),
     );
   }
