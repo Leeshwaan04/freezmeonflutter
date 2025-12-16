@@ -919,16 +919,16 @@ class _AuthGatePageState extends State<AuthGatePage>
     return Scaffold(
       body: Stack(
         children: [
-          // Animated gradient background
+          // Animated gradient background - Frozen Creamy Theme
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFFFF5F8),
-                  Color(0xFFF5E6F0),
-                  Color(0xFFEDE4F5),
+                  Color(0xFFFAF9FF), // creamy white with purple tint
+                  Color(0xFFEDE9FE), // soft lavender
+                  Color(0xFFF3E8FF), // very soft purple
                 ],
                 stops: [0.0, 0.5, 1.0],
               ),
@@ -1000,106 +1000,43 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                     const SizedBox(height: 24),
 
-                    // App Name
-                    ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: [FreezmeColors.primary, Color(0xFF8B5CF6)],
-                      ).createShader(bounds),
-                      child: const Text(
-                        'FREEZME',
-                        style: TextStyle(
-                          fontSize: 40,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 6,
-                        ),
+                    // Big Headline - Intentional dating
+                    const Text(
+                      'Intentional dating\nfor soulful\nmatches',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1F2937),
+                        height: 1.2,
+                        letterSpacing: -0.5,
                       ),
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
 
-                    // Animated tagline
-                    SizedBox(
-                      height: 24,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _displayedTagline,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          if (_taglineIndex < _tagline.length)
-                            const Text(
-                              '|',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: FreezmeColors.primary,
-                              ),
-                            ),
-                        ],
+                    // Subtitle
+                    Text(
+                      'Daily pools, mindful pacing, and authentic\nconnections that keep it real.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: Colors.grey.shade600,
+                        height: 1.5,
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 28),
 
-                    // Social proof badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.people_alt_rounded,
-                            size: 18,
-                            color: FreezmeColors.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${_displayedUserCount.toString().replaceAllMapped(
-                                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                                  (m) => '${m[1]},',
-                                )}+ singles joined',
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Feature highlights (compact)
-                    SlideTransition(
-                      position: _slideAnimation,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildCompactFeature(Icons.bolt_rounded, 'Instant'),
-                          _buildCompactFeature(Icons.chat_bubble_rounded, 'Chat'),
-                          _buildCompactFeature(Icons.verified_user_rounded, 'Safe'),
-                        ],
-                      ),
+                    // Feature pills
+                    Column(
+                      children: [
+                        _buildFeaturePill(Icons.favorite_border_rounded, 'Curated daily matches'),
+                        const SizedBox(height: 10),
+                        _buildFeaturePill(Icons.chat_bubble_outline_rounded, 'Real conversations'),
+                        const SizedBox(height: 10),
+                        _buildFeaturePill(Icons.security_rounded, 'Accountability-first safety'),
+                      ],
                     ),
 
                    const SizedBox(height: 32),
@@ -1109,25 +1046,51 @@ class _AuthGatePageState extends State<AuthGatePage>
                       position: _slideAnimation,
                       child: Column(
                         children: [
-                          // Primary: Phone Number
-                          _buildPremiumButton(
-                            icon: Icons.phone,
-                            label: 'Continue with Phone',
-                            onPressed: _isLoading ? null : _signInWithPhone,
-                            isPrimary: true,
+                          // Continue with Apple
+                          _buildSocialButton(
+                            icon: Icons.apple,
+                            label: 'Continue with Apple',
+                            onPressed: _isLoading ? null : _signInWithApple,
+                            backgroundColor: Colors.black,
+                            textColor: Colors.white,
                           ),
                           
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 12),
+                          
+                          // Continue with Google
+                          _buildSocialButton(
+                            icon: Icons.g_mobiledata_rounded,
+                            label: 'Continue with Google',
+                            onPressed: _isLoading ? null : _signInWithGoogle,
+                            backgroundColor: Colors.white,
+                            textColor: Colors.black87,
+                            borderColor: Colors.grey.shade300,
+                          ),
+                          
+                          const SizedBox(height: 12),
+                          
+                          // Continue with Email
+                          _buildSocialButton(
+                            icon: Icons.email_rounded,
+                            label: 'Continue with Email',
+                            onPressed: _isLoading ? null : _signInWithEmail,
+                            backgroundColor: Colors.white,
+                            textColor: FreezmeColors.primary,
+                            borderColor: FreezmeColors.primary,
+                            useGradientText: true,
+                          ),
+                          
+                          const SizedBox(height: 20),
                           
                           // Guest mode
                           TextButton(
                             onPressed: _isLoading ? null : _signInAnonymously,
                             child: Text(
-                              'Browse as Guest 👻',
+                              'Your vibe begins with one tap 👆',
                               style: TextStyle(
-                                color: FreezmeColors.primary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                                color: Colors.grey.shade500,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
                               ),
                             ),
                           ),
@@ -1253,6 +1216,39 @@ class _AuthGatePageState extends State<AuthGatePage>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: FreezmeColors.primary.withValues(alpha: opacity),
+      ),
+    );
+  }
+
+  Widget _buildFeaturePill(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20, color: FreezmeColors.primary),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF374151),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1384,6 +1380,53 @@ class _AuthGatePageState extends State<AuthGatePage>
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(26),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    required Color backgroundColor,
+    required Color textColor,
+    Color? borderColor,
+    bool useGradientText = false,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: FilledButton(
+        onPressed: () {
+          HapticFeedback.lightImpact();
+          onPressed?.call();
+        },
+        style: FilledButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: textColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+            side: borderColor != null 
+                ? BorderSide(color: borderColor, width: 1.5)
+                : BorderSide.none,
+          ),
+          elevation: 0,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 24, color: useGradientText ? FreezmeColors.primary : textColor),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: useGradientText ? FreezmeColors.primary : textColor,
+              ),
+            ),
+          ],
         ),
       ),
     );

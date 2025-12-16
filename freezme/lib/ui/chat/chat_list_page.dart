@@ -210,18 +210,15 @@ class _ChatListPageState extends State<ChatListPage> {
           bottom: false,
           child: StreamBuilder<List<Map<String, dynamic>>>(
             stream: flow.repository.watchMatches(),
+            initialData: const [], // Start with empty list so we always have data
             builder: (context, snapshot) {
               // Start with the Header as a fixed sliver
               final List<Widget> slivers = [
                 SliverToBoxAdapter(child: _buildHeader()),
               ];
 
-              // Handle loading state
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                slivers.add(const SliverToBoxAdapter(child: ChatListSkeleton(itemCount: 6)));
-              }
               // Handle error state
-              else if (snapshot.hasError) {
+              if (snapshot.hasError) {
                 slivers.add(SliverFillRemaining(
                   hasScrollBody: false,
                   child: ErrorStateView(
@@ -230,7 +227,7 @@ class _ChatListPageState extends State<ChatListPage> {
                   ),
                 ));
               }
-              // Handle data state
+              // Handle data state (including empty initial state)
               else {
                 final matches = snapshot.data ?? [];
                 final mapped = matches.map((m) {
