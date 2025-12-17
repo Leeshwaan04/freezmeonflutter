@@ -11,9 +11,9 @@ class FreezmeDesignSystem {
   // ============================================================================
   
   // Primary - Soft purple (main brand color)
-  static const Color primary = Color(0xFF6C4B9C); // Deeper Purple (Logo Match)
+  static const Color primary = Color(0xFF6C4B9C); // Deeper Purple (Logo Top)
   static const Color primaryLight = Color(0xFFF0EBF8); // Lighter tint
-  static const Color primaryDark = Color(0xFF4A306D); // Darker shade
+  static const Color primaryDark = Color(0xFF322258); // Dark Indigo (Logo Bottom)
   
   // Secondary - Now same as Primary (Purple)
   static const Color secondary = Color(0xFF6C4B9C);
@@ -450,9 +450,9 @@ class FreezmeDesignSystem {
 class FreezmeGradients {
   /// Primary gradient - uses only purple shades for consistency
   static const LinearGradient primary = LinearGradient(
-    colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.primaryDark],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+    colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.primaryDark], // #6C4B9C -> #322258
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
   );
   
   /// Soft background gradient
@@ -471,8 +471,8 @@ class FreezmeGradients {
 
   /// Main Action Gradient (Purple -> Pink/Red)
   static const LinearGradient buttonGradient = LinearGradient(
-    colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
+    colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.primaryDark],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
   );
 }

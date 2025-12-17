@@ -86,7 +86,7 @@ class _AuroraPainter extends CustomPainter {
     drawBlob(const Color(0xFFFF69B4), size.width * 0.5, size.height * 0.4, 140);
 
     // Bottom Left - Deep Purple
-    drawBlob(const Color(0xFF4A306D), size.width * 0.1, size.height * 0.7, 150);
+    drawBlob(FreezmeDesignSystem.primaryDark, size.width * 0.1, size.height * 0.7, 150);
 
     // Bottom Right - Soft Lavender
     drawBlob(const Color(0xFFE0C3FC), size.width * 0.9, size.height * 0.8, 130);
