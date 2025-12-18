@@ -28,6 +28,7 @@ import 'services/melt_chat_service.dart';
 import 'services/photo_upload_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/iap_service.dart';
+import 'router.dart';
 
 import 'ui/theme.dart';
 import 'ui/shared/bottom_nav_bar.dart';
@@ -1057,12 +1058,15 @@ class _FreezmeAppState extends State<FreezmeApp> {
       );
     }
 
+    final router = FreezmeRouter(_controller!);
+
     return AppFlowScope(
       controller: _controller!,
-      child: MaterialApp(
+      child: MaterialApp.router(
         title: 'Freezme',
         debugShowCheckedModeBanner: false,
         theme: FreezmeTheme.build(),
+        routerConfig: router.router,
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
@@ -1071,107 +1075,14 @@ class _FreezmeAppState extends State<FreezmeApp> {
         supportedLocales: const [
           Locale('en'), // English
         ],
-        home: const FlowNavigator(),
       ),
     );
   }
 }
 
-class FlowNavigator extends StatelessWidget {
-  const FlowNavigator({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context); // listen: true by default
-    final pages = <Page<dynamic>>[
-      for (var i = 0; i < flow.stack.length; i++)
-        if (_isTabStage(flow.stack[i]))
-          _FadePage<dynamic>(
-            child: _buildStage(context, flow.stack[i]),
-          )
-        else
-          MaterialPage<dynamic>(
-            child: _buildStage(context, flow.stack[i]),
-          ),
-    ];
-
-    return Navigator(
-      pages: pages,
-      // ignore: deprecated_member_use
-      onPopPage: (route, result) {
-        if (!route.didPop(result)) {
-          return false;
-        }
-        flow.pop();
-        return true;
-      },
-    );
-  }
-
-  // Helper to identify the main bottom‑nav tabs that should use the fade transition.
-  bool _isTabStage(AppStage stage) => const {
-    AppStage.dailyPool,
-    AppStage.chatList,
-    AppStage.paths,
-    AppStage.blinds,
-    AppStage.profileSettings,
-  }.contains(stage);
-
-  Widget _buildStage(BuildContext context, AppStage stage) {
-    switch (stage) {
-      case AppStage.splash:
-        return const SplashScreen();
-      case AppStage.authGate:
-        return const AuthGatePage();
-      case AppStage.onboarding:
-        return const EnhancedOnboardingFlow();
-      case AppStage.profileCompletion:
-        return const ProfileCompletionPage();
-      case AppStage.dailyPool:
-        return const HomePage(); // Tonight dashboard
-      case AppStage.chatList:
-        return const ChatListPage();
-
-      case AppStage.paths:
-        return const PathsPage();
-      case AppStage.blinds:
-        return const BlindsPage();
-      case AppStage.matchSuccess:
-        return const MatchSuccessPage();
-      case AppStage.chat:
-        return const ChatScreenPage();
-      case AppStage.profileSettings:
-        return const ProfileSettingsPage();
-      case AppStage.profilePreview:
-        return const ProfilePreviewPage();
-      case AppStage.editProfile:
-        return const EditProfilePage();
-      case AppStage.dailyRecap:
-        return const DailyRecapPage();
-      case AppStage.freezmePlus:
-        return const FreezmePlusPage();
-      case AppStage.developerMenu:
-        return const DeveloperPreviewScreen();
-    }
-  }
-}
-
-// Private page type that fades in/out when used in the Navigator.
-class _FadePage<T> extends Page<T> {
-  final Widget child;
-  const _FadePage({required this.child, super.key});
-
-  @override
-  Route<T> createRoute(BuildContext context) {
-    return PageRouteBuilder<T>(
-      settings: this,
-      pageBuilder: (_, __, ___) => child,
-      transitionsBuilder: (_, animation, __, child) =>
-          FadeTransition(opacity: animation, child: child),
-    );
-  }
-}
-
+// ============================================================================
+// UI Pages
+// ============================================================================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
