@@ -1087,12 +1087,10 @@ class FlowNavigator extends StatelessWidget {
       for (var i = 0; i < flow.stack.length; i++)
         if (_isTabStage(flow.stack[i]))
           _FadePage<dynamic>(
-            key: ValueKey<String>('${flow.stack[i]}_$i'),
             child: _buildStage(context, flow.stack[i]),
           )
         else
           MaterialPage<dynamic>(
-            key: ValueKey<String>('${flow.stack[i]}_$i'),
             child: _buildStage(context, flow.stack[i]),
           ),
     ];
