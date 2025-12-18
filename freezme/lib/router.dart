@@ -24,23 +24,7 @@ class FreezmeRouter {
 
   late final GoRouter router = GoRouter(
     debugLogDiagnostics: false,
-    refreshListenable: flow,
     initialLocation: '/splash',
-    redirect: (context, state) {
-      // Handle navigation based on app flow state
-      final currentStage = flow.stack.isNotEmpty ? flow.stack.last : AppStage.splash;
-      final currentPath = state.matchedLocation;
-      
-      // Map stages to paths
-      final stagePath = _stageToPath(currentStage);
-      
-      // Only redirect if we're not already at the correct path
-      if (currentPath != stagePath && stagePath != null) {
-        return stagePath;
-      }
-      
-      return null;
-    },
     routes: [
       GoRoute(
         path: '/splash',
