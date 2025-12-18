@@ -103,7 +103,7 @@ class AppFlowController extends ChangeNotifier {
     LocationService? locationService,
     bool skipHydrate = false,
   }) : _photoUploadService = photoUploadService ?? FirebasePhotoUploadService(),
-       _meltChatService = meltChatService ?? MockMeltChatService(),
+       _meltChatService = meltChatService ?? FirebaseMeltChatService(),
        _repository = repository ?? FirestoreFreezmeRepository(fallback: MockFreezmeRepository()),
        _locationService = locationService ?? LocationService(),
        photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
