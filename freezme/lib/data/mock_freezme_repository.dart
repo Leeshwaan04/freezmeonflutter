@@ -253,6 +253,12 @@ class MockFreezmeRepository implements FreezmeRepository {
       const Stream.empty();
   @override
   Future<void> reportBlindSession(String sessionId, String reason) async {}
+  
+  @override
+  Stream<List<BlindSession>> watchUserBlindSessions() => const Stream.empty();
+
+  @override
+  Future<void> respondBlindReveal(String sessionId) async {}
 
   static const List<VibeProfile> _profiles = [
     VibeProfile(
@@ -338,6 +344,9 @@ class MockFreezmeRepository implements FreezmeRepository {
   @override
   Stream<List<Map<String, dynamic>>> watchComments(String postId) =>
       Stream.value(const []);
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchMeltInvites() => const Stream.empty();
 
   @override
   Future<void> deleteComment({

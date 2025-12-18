@@ -81,29 +81,29 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
     AppFlowController flow,
     PathsPresence person,
   ) async {
-    final current = inviteStatusByUser[person.userId];
+    final current = inviteStatusByUser[person.uid];
     if (current == 'pending') return;
     if (wavesLeft <= 0) {
       PremiumSnackBar.show(context, 'Out of invites for today.');
       return;
     }
     setState(() {
-      inviteStatusByUser[person.userId] = 'pending';
+      inviteStatusByUser[person.uid] = 'pending';
       wavesLeft = (wavesLeft - 1).clamp(0, 99);
     });
     try {
       final inviteId = await flow.sendPathsInvite(
-        receiverUid: person.userId,
+          receiverUid: person.uid,
         intent: person.intents.isNotEmpty ? person.intents.first : 'Either',
       );
       if (inviteId.isEmpty) {
         throw Exception('Failed to send invite');
       }
-      _inviteSubs[person.userId]?.cancel();
-      _inviteSubs[person.userId] = flow.inviteStatus(inviteId).listen((invite) {
+      _inviteSubs[person.uid]?.cancel();
+      _inviteSubs[person.uid] = flow.inviteStatus(inviteId).listen((invite) {
         if (!mounted) return;
         setState(() {
-          inviteStatusByUser[person.userId] = invite.status;
+          inviteStatusByUser[person.uid] = invite.status;
         });
         if (invite.status == 'accepted') {
           _openChat(flow);
@@ -112,7 +112,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        inviteStatusByUser[person.userId] = 'error';
+        inviteStatusByUser[person.uid] = 'error';
       });
       PremiumSnackBar.show(context, 'Could not send invite. Please retry.', type: SnackBarType.error);
     }
@@ -373,14 +373,14 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
                             },
                             onInvite: () {
                               // Logic for Invite
-                              final status = inviteStatusByUser[person.userId];
+                                final status = inviteStatusByUser[person.uid];
                               if (status == 'accepted') {
                                 _openChat(flow);
                               } else {
                                 _sendInvite(flow, person);
                               }
                             },
-                            inviteStatus: inviteStatusByUser[person.userId],
+                              inviteStatus: inviteStatusByUser[person.uid],
                           ),
                         );
                       },
@@ -485,7 +485,7 @@ class _NearbyPersonCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(person.userId, style: FreezmeDesignSystem.h3.copyWith(fontSize: 18)), // Assuming userId is name for mock
+                    Text(person.uid, style: FreezmeDesignSystem.h3.copyWith(fontSize: 18)), // Assuming userId is name for mock
                     if (person.lastActiveAt != null)
                       Text(
                         _timeAgo(person.lastActiveAt!),

@@ -7,6 +7,10 @@ abstract class MeltChatService {
     required String targetUid,
     required String slotLabel,
   });
+  Future<void> respondInvite({
+    required String inviteId,
+    required String action, // accept/decline
+  });
 }
 
 class MeltChatException implements Exception {
@@ -31,6 +35,16 @@ class FirebaseMeltChatService implements MeltChatService {
   }) {
     return _functions.httpsCallable('sendMeltChatInvite').call(
       <String, dynamic>{'targetUid': targetUid, 'slot': slotLabel},
+    );
+  }
+
+  @override
+  Future<void> respondInvite({
+    required String inviteId,
+    required String action,
+  }) {
+    return _functions.httpsCallable('respondMeltChatInvite').call(
+      <String, dynamic>{'inviteId': inviteId, 'action': action},
     );
   }
 }
@@ -59,5 +73,14 @@ class MockMeltChatService implements MeltChatService {
       'targetUid': targetUid,
       'slot': slotLabel,
     });
+  }
+
+  @override
+  Future<void> respondInvite({
+    required String inviteId,
+    required String action,
+  }) async {
+    await Future<void>.delayed(delay);
+    if (shouldFail) throw const MeltChatException('mock_failure');
   }
 }

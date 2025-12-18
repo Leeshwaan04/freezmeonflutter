@@ -3,7 +3,10 @@ import 'package:freezme/models/vibe_profile.dart';
 import 'package:freezme/models/chat_message.dart';
 import 'package:freezme/models/paths.dart';
 import 'package:freezme/models/blinds.dart';
+import 'package:freezme/services/melt_chat_service.dart';
+import 'package:freezme/services/photo_upload_service.dart';
 import 'dart:async';
+import 'dart:io';
 
 /// Minimal stub implementation of [FreezmeRepository] used only for unit tests.
 class MockFreezmeRepository implements FreezmeRepository {
@@ -108,6 +111,8 @@ class MockFreezmeRepository implements FreezmeRepository {
   @override
   Stream<List<PathsPresence>> fetchNearbyPaths({required double radiusKm, required Set<String> intents, double? lat, double? lng}) => const Stream.empty();
 
+
+
   @override
   Future<String> sendPathsInvite({required String receiverUid, required String intent}) async => '';
 
@@ -131,6 +136,12 @@ class MockFreezmeRepository implements FreezmeRepository {
 
   @override
   Future<void> reportBlindSession(String sessionId, String reason) async {}
+
+  @override
+  Stream<List<BlindSession>> watchUserBlindSessions() => const Stream.empty();
+
+  @override
+  Future<void> respondBlindReveal(String sessionId) async {}
 
   @override
   Future<String> createPost({required List<String> photoUrls, String? caption, required String visibility}) async => '';
@@ -157,5 +168,12 @@ class MockFreezmeRepository implements FreezmeRepository {
   Stream<List<Map<String, dynamic>>> watchComments(String postId) => const Stream.empty();
 
   @override
+  Stream<List<Map<String, dynamic>>> watchMeltInvites() => const Stream.empty();
+
+  @override
   Future<void> deleteComment({required String postId, required String commentId}) async {}
 }
+
+
+
+

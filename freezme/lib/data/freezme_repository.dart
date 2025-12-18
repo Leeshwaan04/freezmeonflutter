@@ -80,6 +80,8 @@ abstract class FreezmeRepository {
   Future<void> dequeueBlind(String userId);
   Future<void> createBlindSession(BlindSession session);
   Stream<BlindSession> blindSessionUpdates(String sessionId);
+  Stream<List<BlindSession>> watchUserBlindSessions();
+  Future<void> respondBlindReveal(String sessionId);
   Future<void> reportBlindSession(String sessionId, String reason);
 
   // Feed (Social Posts)
@@ -101,6 +103,7 @@ abstract class FreezmeRepository {
     required String text,
   });
   Stream<List<Map<String, dynamic>>> watchComments(String postId);
+  Stream<List<Map<String, dynamic>>> watchMeltInvites();
   Future<void> deleteComment({
     required String postId,
     required String commentId,

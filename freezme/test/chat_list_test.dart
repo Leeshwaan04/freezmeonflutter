@@ -9,6 +9,9 @@ import 'package:freezme/models/vibe_profile.dart';
 import 'package:freezme/models/chat_message.dart';
 import 'package:freezme/models/paths.dart';
 import 'package:freezme/models/blinds.dart';
+import 'package:freezme/services/melt_chat_service.dart';
+import 'package:freezme/services/iap_service.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 // Fake repository
 class FakeFreezmeRepository implements FreezmeRepository {
@@ -103,6 +106,12 @@ class FakeFreezmeRepository implements FreezmeRepository {
   Future<void> createBlindSession(BlindSession session) async {}
 
   @override
+  Stream<List<BlindSession>> watchUserBlindSessions() => const Stream.empty();
+
+  @override
+  Future<void> respondBlindReveal(String sessionId) async {}
+
+  @override
   Stream<BlindSession> blindSessionUpdates(String sessionId) => const Stream.empty();
 
   @override
@@ -137,6 +146,9 @@ class FakeFreezmeRepository implements FreezmeRepository {
 
   @override
   Stream<List<Map<String, dynamic>>> watchComments(String postId) => const Stream.empty();
+  
+  @override
+  Stream<List<Map<String, dynamic>>> watchMeltInvites() => const Stream.empty();
 
   @override
   Future<void> deleteComment({required String postId, required String commentId}) async {}
@@ -162,6 +174,8 @@ void main() {
     final controller = AppFlowController.test(
       repository: mockRepo,
       photoUploadService: MockPhotoUploadService(),
+      meltChatService: MockMeltChatService(),
+      iapService: _FakeIAPService(),
     );
 
     await tester.pumpWidget(
@@ -181,4 +195,31 @@ void main() {
     expect(find.text('Hello'), findsOneWidget);
     // Note: Unread count badge rendering depends on ChatListPage implementation
   });
+}
+
+
+class _FakeIAPService extends ChangeNotifier implements IAPService {
+  @override
+  List<ProductDetails> get products => [];
+  
+  @override 
+  bool get isAvailable => true;
+  
+  @override
+  bool get purchasePending => false;
+  
+  @override
+  String? get error => null;
+  
+  @override
+  Future<void> buy(ProductDetails product) async {}
+  
+  @override
+  Future<void> restorePurchases() async {}
+  
+  @override
+  ProductDetails? get weeklyPlan => null;
+  
+  @override
+  ProductDetails? get monthlyPlan => null;
 }

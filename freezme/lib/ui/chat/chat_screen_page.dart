@@ -96,27 +96,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
         message.status = MessageStatus.sent;
       });
 
-      // Simulate typing response for demo
-      if (mounted) {
-        Future.delayed(const Duration(seconds: 1), () {
-          if (mounted) {
-            setState(() => _simulatedTyping = true);
-            // Scroll to bottom when typing starts
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-               if (_scrollController.hasClients) {
-                 _scrollController.animateTo(
-                   _scrollController.position.maxScrollExtent,
-                   duration: const Duration(milliseconds: 300),
-                   curve: Curves.easeOut,
-                 );
-               }
-            });
-          }
-          Future.delayed(const Duration(seconds: 3), () {
-            if (mounted) setState(() => _simulatedTyping = false);
-          });
-        });
-      }
+
 
     } catch (_) {
       setState(() {
@@ -229,6 +209,43 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                   ],
                 ),
               ),
+
+              // Blind Reveal Action Bar
+              if (flow.activeBlindSession != null && flow.activeBlindSession!.phase == 'anonymous')
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: FreezmeDesignSystem.primary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: FreezmeDesignSystem.primary.withValues(alpha: 0.1)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.visibility_off_outlined, color: FreezmeDesignSystem.primary, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Blind Session', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            Text(
+                              _getRevealStatusText(flow),
+                              style: FreezmeDesignSystem.caption.copyWith(fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!_hasIVotedReveal(flow))
+                        SmallButton(
+                          label: 'Reveal',
+                          onPressed: () => flow.repository.respondBlindReveal(flow.activeBlindSession!.id),
+                        )
+                      else
+                        const Icon(Icons.check_circle, color: FreezmeDesignSystem.success, size: 20),
+                    ],
+                  ),
+                ),
 
               // Chat Area
               Expanded(
@@ -476,6 +493,42 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
           ),
         ),
       ),
+    );
+  }
+  String _getRevealStatusText(AppFlowController flow) {
+    final session = flow.activeBlindSession;
+    if (session == null) return '';
+    final isA = session.userA == FirebaseAuth.instance.currentUser?.uid;
+    final otherVoted = isA ? session.revealB : session.revealA;
+    
+    if (otherVoted) return 'They want to reveal! 💜';
+    return 'Reveal your vibe when ready.';
+  }
+
+  bool _hasIVotedReveal(AppFlowController flow) {
+    final session = flow.activeBlindSession;
+    if (session == null) return false;
+    final isA = session.userA == FirebaseAuth.instance.currentUser?.uid;
+    return isA ? session.revealA : session.revealB;
+  }
+}
+
+class SmallButton extends StatelessWidget {
+  const SmallButton({super.key, required this.label, required this.onPressed});
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      style: TextButton.styleFrom(
+        backgroundColor: FreezmeDesignSystem.primary,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      onPressed: onPressed,
+      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
     );
   }
 }

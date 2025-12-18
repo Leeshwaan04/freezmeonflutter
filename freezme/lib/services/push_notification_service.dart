@@ -44,13 +44,21 @@ class PushNotificationService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final token = await _messaging.getToken();
-    if (token != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-        {'fcmToken': token},
-        SetOptions(merge: true),
-      );
-      debugPrint('FCM Token saved: $token');
+    try {
+      final token = await _messaging.getToken();
+      if (token != null) {
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+          {'fcmToken': token},
+          SetOptions(merge: true),
+        );
+        debugPrint('FCM Token saved: $token');
+      }
+    } catch (e) {
+      if (e.toString().contains('apns-token-not-set')) {
+        debugPrint('Push notifications not supported on iOS Simulator (APNS token missing).');
+      } else {
+        debugPrint('Failed to get FCM token: $e');
+      }
     }
   }
 

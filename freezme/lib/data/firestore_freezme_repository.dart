@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../models/vibe_profile.dart';
@@ -608,6 +609,8 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
         'geohash': presence.geohash,
         'availability': presence.availability,
         'interestsSummary': presence.interestsSummary,
+        'displayName': presence.displayName,
+        'imageUrl': presence.imageUrl,
       });
     } catch (_) {
       final fallback = _fallback;
@@ -761,6 +764,42 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
         .snapshots()
         .where((doc) => doc.exists)
         .map((doc) => BlindSession.fromJson(doc.data()!, documentId: doc.id));
+  }
+
+  @override
+  Stream<List<BlindSession>> watchUserBlindSessions() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return Stream.value([]);
+
+    // We need to watch both user_a and user_b. 
+    // In production we'd use a combined query or a side-collection.
+    // For now we watch both and merge.
+    final streamA = _firestore
+        .collection('blinds_sessions')
+        .where('user_a', isEqualTo: user.uid)
+        .snapshots();
+    final streamB = _firestore
+        .collection('blinds_sessions')
+        .where('user_b', isEqualTo: user.uid)
+        .snapshots();
+
+    return Rx.combineLatest2<QuerySnapshot<Map<String, dynamic>>, QuerySnapshot<Map<String, dynamic>>, List<BlindSession>>(
+      streamA, streamB, (a, b) {
+        final all = [...a.docs, ...b.docs];
+        return all.map((doc) => BlindSession.fromJson(doc.data(), documentId: doc.id)).toList();
+      }
+    );
+  }
+
+  @override
+  Future<void> respondBlindReveal(String sessionId) async {
+    try {
+      await _functions.httpsCallable('respondBlindReveal').call({
+        'sessionId': sessionId,
+      });
+    } catch (_) {
+      rethrow;
+    }
   }
 
   @override
@@ -1166,6 +1205,22 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
       'bio': bio,
       'lastUpdated': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+  }
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchMeltInvites() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return Stream.value([]);
+
+    return _firestore
+        .collection('melt_invites')
+        .where('targetUid', isEqualTo: user.uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => {
+          ...doc.data(),
+          'id': doc.id,
+        }).toList());
   }
 
   @override

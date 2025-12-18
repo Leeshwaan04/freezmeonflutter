@@ -7,6 +7,7 @@ import '../../data/freezme_repository.dart';
 import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
 import '../../services/location_service.dart';
+import '../../models/paths.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';
 import '../components/skeleton_loaders.dart';
@@ -138,6 +139,33 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _manualLocationSearch() async {
+    final city = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter City'),
+        content: TextField(
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'e.g. Mumbai, Berlin'),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ],
+      ),
+    );
+    if (city != null && city.isNotEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _locationName = city;
+        _isLoading = true;
+      });
+      // Simulate fetching for city
+      await Future.delayed(const Duration(seconds: 1));
+      _loadData(); // Re-trigger with fake city name logic
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: true);
@@ -169,9 +197,36 @@ class _HomePageState extends State<HomePage> {
               ] else if (_hasError && _tonightPool.isEmpty) ...[
                 SliverFillRemaining(
                   hasScrollBody: false,
-                  child: ErrorStateView(
-                    message: 'Could not load tonight\'s pool.',
-                    onRetry: _loadData,
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.location_off_outlined, size: 64, color: FreezmeDesignSystem.textTertiary),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Location Access Required',
+                          style: FreezmeDesignSystem.h2,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'To find vibes near you, we need your location. You can also search manually.',
+                          style: FreezmeDesignSystem.body.copyWith(color: FreezmeDesignSystem.textSecondary),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+                        PremiumButton(
+                          label: 'Search Manually',
+                          onPressed: _manualLocationSearch,
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: _loadData,
+                          child: const Text('Retry GPS'),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               ] else ...[
@@ -569,7 +624,7 @@ class _FeedPostItem extends StatelessWidget {
 }
 
 class _LivePathCard extends StatefulWidget {
-  final models.PathsPresence presence;
+  final PathsPresence presence;
 
   const _LivePathCard({required this.presence});
 

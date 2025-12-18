@@ -1,0 +1,77 @@
+Analyzing freezme...                                            
+
+  error • 'CloudFunctionsFreezmeRepository.updateProfile' ('Future<void> Function({int? age, String? bio, String? displayName, String? gender, List<String>? interests, String? location, required String uid})') isn't a valid override of 'FreezmeRepository.updateProfile' ('Future<void> Function({int? age, String? bio, String? displayName, String? gender, List<String>? interests, bool? isPremium, String? location, required String uid})') • lib/data/cloud_functions_freezme_repository.dart:269:16 • invalid_override
+warning • Unused import: 'dart:io' • lib/main.dart:3:8 • unused_import
+warning • Unused import: 'package:google_sign_in/google_sign_in.dart' • lib/main.dart:10:8 • unused_import
+warning • Unused import: 'package:image_picker/image_picker.dart' • lib/main.dart:12:8 • unused_import
+warning • Unused import: 'package:cached_network_image/cached_network_image.dart' • lib/main.dart:13:8 • unused_import
+warning • Unused import: 'ui/shared/bottom_nav_bar.dart' • lib/main.dart:33:8 • unused_import
+warning • Unused import: 'ui/splash/splash_screen.dart' • lib/main.dart:34:8 • unused_import
+warning • Unused import: 'ui/auth/auth_gate.dart' • lib/main.dart:35:8 • unused_import
+warning • The value of the field '_offlineQueue' isn't used • lib/main.dart:163:34 • unused_field
+warning • The value of the field '_pendingInviteSlot' isn't used • lib/main.dart:180:11 • unused_field
+   info • Unnecessary use of multiple underscores • lib/main.dart:1056:24 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/main.dart:1056:28 • unnecessary_underscores
+   info • Unnecessary use of multiple underscores • lib/main.dart:1057:42 • unnecessary_underscores
+warning • The declaration '_surfaceCard' isn't referenced • lib/main.dart:1851:8 • unused_element
+   info • The imported package 'in_app_purchase_storekit' isn't a dependency of the importing package • lib/services/iap_service.dart:5:8 • depend_on_referenced_packages
+warning • Unused import: 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart' • lib/services/iap_service.dart:5:8 • unused_import
+warning • Unused import: 'package:url_launcher/url_launcher.dart' • lib/ui/auth/auth_gate.dart:6:8 • unused_import
+warning • The value of the field '_displayedTagline' isn't used • lib/ui/auth/auth_gate.dart:40:10 • unused_field
+warning • The value of the field '_displayedUserCount' isn't used • lib/ui/auth/auth_gate.dart:45:7 • unused_field
+warning • The operand can't be 'null', so the condition is always 'false' • lib/ui/auth/auth_gate.dart:215:22 • unnecessary_null_comparison
+warning • Dead code • lib/ui/auth/auth_gate.dart:215:31 • dead_code
+warning • The declaration '_signInWithPhone' isn't referenced • lib/ui/auth/auth_gate.dart:236:16 • unused_element
+warning • The declaration '_signInWithWhatsApp' isn't referenced • lib/ui/auth/auth_gate.dart:295:16 • unused_element
+warning • The value of the local variable 'whatsappUrl' isn't used • lib/ui/auth/auth_gate.dart:304:11 • unused_local_variable
+warning • The declaration '_buildCompactFeature' isn't referenced • lib/ui/auth/auth_gate.dart:1242:10 • unused_element
+warning • The declaration '_buildPremiumButton' isn't referenced • lib/ui/auth/auth_gate.dart:1273:10 • unused_element
+warning • The declaration '_buildSecondaryButton' isn't referenced • lib/ui/auth/auth_gate.dart:1315:10 • unused_element
+warning • The declaration '_buildSmallButton' isn't referenced • lib/ui/auth/auth_gate.dart:1344:10 • unused_element
+warning • The declaration '_buildSocialButton' isn't referenced • lib/ui/auth/auth_gate.dart:1374:10 • unused_element
+   info • Unnecessary use of multiple underscores • lib/ui/chat/chat_list_page.dart:99:35 • unnecessary_underscores
+   info • Parameter 'key' could be a super parameter • lib/ui/components/aurora_background.dart:8:9 • use_super_parameters
+  error • 'child' isn't a field in the enclosing class • lib/ui/components/aurora_background.dart:10:5 • initializing_formal_for_non_existent_field
+  error • The getter 'child' isn't defined for the type 'AuroraBackground' • lib/ui/components/aurora_background.dart:59:16 • undefined_getter
+warning • The value of the field '_random' isn't used • lib/ui/components/aurora_background.dart:68:16 • unused_field
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/ui/components/aurora_background.dart:110:24 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/ui/components/aurora_background.dart:111:24 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/ui/components/aurora_background.dart:112:24 • deprecated_member_use
+   info • Unnecessary braces in a string interpolation • lib/ui/components/premium_components.dart:1110:13 • unnecessary_brace_in_string_interps
+   info • Unnecessary use of multiple underscores • lib/ui/components/skeleton_loaders.dart:50:29 • unnecessary_underscores
+warning • Unused import: '../../data/freezme_repository.dart' • lib/ui/home/home_page.dart:6:8 • unused_import
+   info • The private field _locationName could be 'final' • lib/ui/home/home_page.dart:29:10 • prefer_final_fields
+  error • The method 'AuroraBackground' isn't defined for the type '_HomePageState' • lib/ui/home/home_page.dart:143:13 • undefined_method
+warning • The declaration '_buildProfileGate' isn't referenced • lib/ui/home/home_page.dart:180:22 • unused_element
+   info • Unnecessary use of multiple underscores • lib/ui/home/home_page.dart:694:51 • unnecessary_underscores
+warning • The value of the local variable 'vibeStrings' isn't used • lib/ui/onboarding/enhanced_onboarding.dart:850:11 • unused_local_variable
+   info • Unnecessary use of multiple underscores • lib/ui/paths/path_invites_page.dart:57:37 • unnecessary_underscores
+   info • The private field _selectedInterests could be 'final' • lib/ui/profile/edit_profile_page.dart:25:16 • prefer_final_fields
+   info • Statements in an if should be enclosed in a block • lib/ui/profile/profile_completion_page.dart:277:45 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/ui/profile/profile_completion_page.dart:278:36 • curly_braces_in_flow_control_structures
+warning • The declaration '_fallbackAvatar' isn't referenced • lib/ui/profile/profile_settings_page.dart:51:10 • unused_element
+  error • Undefined name 'avatar' • lib/ui/profile/profile_settings_page.dart:81:5 • undefined_identifier
+  error • The method 'AuroraBackground' isn't defined for the type '_ProfileSettingsPageState' • lib/ui/profile/profile_settings_page.dart:122:13 • undefined_method
+  error • Undefined name 'avatar' • lib/ui/profile/profile_settings_page.dart:177:29 • undefined_identifier
+  error • Expected to find ';' • lib/ui/profile/profile_settings_page.dart:277:5 • expected_token
+warning • Dead code • lib/ui/profile/profile_settings_page.dart:277:6 • dead_code
+  error • Expected an identifier • lib/ui/profile/profile_settings_page.dart:277:6 • missing_identifier
+  error • Expected to find ';' • lib/ui/profile/profile_settings_page.dart:277:6 • expected_token
+  error • Unexpected text ';' • lib/ui/profile/profile_settings_page.dart:277:6 • unexpected_token
+  error • Expected an identifier • lib/ui/profile/profile_settings_page.dart:278:3 • missing_identifier
+  error • Unexpected text ';' • lib/ui/profile/profile_settings_page.dart:278:3 • unexpected_token
+   info • Unnecessary empty statement • lib/ui/profile/profile_settings_page.dart:278:4 • empty_statements
+warning • Unused import: '../../services/iap_service.dart' • lib/ui/settings/freezme_plus_page.dart:4:8 • unused_import
+warning • The value of the local variable 'weeklyRaw' isn't used • lib/ui/settings/freezme_plus_page.dart:53:16 • unused_local_variable
+warning • The value of the local variable 'monthlyRaw' isn't used • lib/ui/settings/freezme_plus_page.dart:54:16 • unused_local_variable
+  error • The named parameter 'isLoading' isn't defined • lib/ui/settings/freezme_plus_page.dart:274:21 • undefined_named_parameter
+   info • Unnecessary use of multiple underscores • lib/ui/settings/language_selector.dart:42:33 • unnecessary_underscores
+   info • The private field _blockedUsers could be 'final' • lib/ui/settings/settings_pages.dart:19:16 • prefer_final_fields
+   info • Unnecessary use of multiple underscores • lib/ui/settings/settings_pages.dart:211:49 • unnecessary_underscores
+   info • The import of 'dart:ui' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • test/app_flow_widget_test.dart:1:8 • unnecessary_import
+   info • The import of 'package:flutter/foundation.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • test/app_flow_widget_test.dart:4:8 • unnecessary_import
+warning • Unused import: 'package:freezme/ui/shared/bottom_nav_bar.dart' • test/app_flow_widget_test.dart:11:8 • unused_import
+warning • Unused import: 'package:freezme/main.dart' • test/export_logo_test.dart:6:8 • unused_import
+warning • The value of the local variable 'oneHourAgo' isn't used • test/services/tonight_algorithm_test.dart:21:15 • unused_local_variable
+warning • The value of the local variable 'tenHoursAgo' isn't used • test/services/tonight_algorithm_test.dart:22:15 • unused_local_variable
+

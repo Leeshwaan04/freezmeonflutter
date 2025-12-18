@@ -9,8 +9,8 @@ class DailyRecapPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
-    final stats = [
-      (
+    final List<_RecapStat> stats = [
+      _RecapStat(
         label: 'Vibes',
         value: flow.matches.length.toString(),
         icon: Icons.favorite,
@@ -18,25 +18,25 @@ class DailyRecapPage extends StatelessWidget {
           colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.secondary],
         ),
       ),
-      (
+      _RecapStat(
         label: 'Freezes',
-        value: '2', // Mock
+        value: flow.poolIndex.toString(),
         icon: Icons.ac_unit,
         gradient: const LinearGradient(
           colors: [FreezmeDesignSystem.secondary, FreezmeDesignSystem.accent],
         ),
       ),
-      (
+      _RecapStat(
         label: 'Chats',
-        value: '5', // Mock
+        value: flow.matches.where((m) => m.profile.imageUrl.isNotEmpty).length.toString(), // Rough proxy
         icon: Icons.chat_bubble,
         gradient: const LinearGradient(
           colors: [FreezmeDesignSystem.accent, FreezmeDesignSystem.success],
         ),
       ),
-      (
+      _RecapStat(
         label: 'Score',
-        value: '98', // Mock
+        value: flow.completionPercent.toString(),
         icon: Icons.show_chart,
         gradient: const LinearGradient(
           colors: [Color(0xFF8B5FBF), FreezmeDesignSystem.primary],
@@ -276,4 +276,13 @@ class _RecapBullet extends StatelessWidget {
       ],
     );
   }
+}
+
+class _RecapStat {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Gradient gradient;
+  
+  _RecapStat({required this.label, required this.value, required this.icon, required this.gradient});
 }

@@ -58,6 +58,7 @@ dependencies:
   flutter_timezone: ^3.0.1
   flutter_svg: ^2.0.10
   shimmer: ^3.0.0
+  rxdart: ^0.28.0
   firebase_messaging: ^16.0.4
 
 

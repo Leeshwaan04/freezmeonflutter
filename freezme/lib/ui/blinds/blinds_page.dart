@@ -244,6 +244,21 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
 
                     const SizedBox(height: FreezmeDesignSystem.spaceXl),
 
+                    if (flow.activeBlindSession != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: FreezmeDesignSystem.spaceXl),
+                        child: PremiumActionCard(
+                          title: 'Active Session',
+                          subtitle: 'You have an ongoing blind chat.',
+                          icon: Icons.chat_bubble_outline,
+                          actionLabel: 'Rejoin',
+                          onTap: () => flow.openBlindChat(flow.activeBlindSession!),
+                          gradient: FreezmeGradients.premiumGloss,
+                        ),
+                      ),
+
+                    const SizedBox(height: FreezmeDesignSystem.spaceXl),
+
                     // Ground Rules & Settings Card
                     PremiumCard(
                       child: Column(
@@ -274,7 +289,10 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                             activeColor: FreezmeDesignSystem.primary,
                             title: const Text('I agree to chat respectfully', style: TextStyle(fontWeight: FontWeight.w500)),
                             value: consented,
-                            onChanged: (v) => setState(() => consented = v ?? false),
+                            onChanged: (v) {
+                               setState(() => consented = v ?? false);
+                               flow.setBlindsConsent(v ?? false);
+                            },
                           ),
                           const Divider(color: FreezmeDesignSystem.border),
                           SwitchListTile(

@@ -101,17 +101,24 @@ class AppFlowController extends ChangeNotifier {
     MeltChatService? meltChatService,
     FreezmeRepository? repository,
     LocationService? locationService,
+
     bool skipHydrate = false,
+    IAPService? iapService,
   }) : _photoUploadService = photoUploadService ?? FirebasePhotoUploadService(),
        _meltChatService = meltChatService ?? FirebaseMeltChatService(),
        _repository = repository ?? FirestoreFreezmeRepository(fallback: MockFreezmeRepository()),
        _locationService = locationService ?? LocationService(),
        photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
+
        dailyProfiles = _mockProfiles() {
-    iapService = IAPService(_repository, onSuccess: () {
-      isPremium = true;
-      notifyListeners();
-    });
+    if (iapService != null) {
+      this.iapService = iapService;
+    } else {
+      this.iapService = IAPService(_repository, onSuccess: () {
+        isPremium = true;
+        notifyListeners();
+      });
+    }
     _offlineQueue = OfflineQueueService(_prefs);
     if (!skipHydrate) {
       _hydrate();
@@ -145,7 +152,9 @@ class AppFlowController extends ChangeNotifier {
     MeltChatService? meltChatService,
     FreezmeRepository? repository,
     LocationService? locationService,
+
     bool skipHydrate = true,
+    IAPService? iapService,
   }) {
     return AppFlowController._(
       prefs,
@@ -154,6 +163,7 @@ class AppFlowController extends ChangeNotifier {
       repository: repository,
       locationService: locationService,
       skipHydrate: skipHydrate,
+      iapService: iapService,
     );
   }
 
@@ -165,6 +175,7 @@ class AppFlowController extends ChangeNotifier {
   late final IAPService iapService;
   late final OfflineQueueService _offlineQueue;
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
+  List<AppStage> get stack => List.unmodifiable(_stack);
 
   final List<AppMatch> matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
@@ -191,9 +202,13 @@ class AppFlowController extends ChangeNotifier {
   double lastPathsRadiusKm = 10;
   bool isPremium = false;
   VibeProfile? fullProfile;
+  StreamSubscription? _blindSessionSub;
+  StreamSubscription? _activeBlindSub;
+  StreamSubscription? _meltInviteSub;
+  BlindSession? activeBlindSession;
+  List<Map<String, dynamic>> pendingMeltInvites = [];
+  bool _isSearchingBlind = false;
 
-
-  List<AppStage> get stack => List.unmodifiable(_stack);
   AppStage get current => _stack.last;
   int get poolIndex => _poolIndex;
   int get vibesRemaining => math.max(0, dailyProfiles.length - _poolIndex - 1);
@@ -220,6 +235,7 @@ class AppFlowController extends ChangeNotifier {
         .round();
   }
   FreezmeRepository get repository => _repository;
+  MeltChatService get meltChatService => _meltChatService;
 
   void _hydrate() {
     final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
@@ -233,6 +249,36 @@ class AppFlowController extends ChangeNotifier {
     unawaited(_loadProfilePhotos());
     unawaited(_loadProfileBasics());
     _loadSettings();
+
+    _blindSessionSub = _repository.watchUserBlindSessions().listen((sessions) {
+      // Always keep active session state in sync
+      if (sessions.isNotEmpty) {
+        // If we are already in a chat, don't clobber it unless it's the same one updating
+        // or we are just discovering it. 
+        if (activeBlindSession == null || activeBlindSession!.id == sessions.first.id) {
+           activeBlindSession = sessions.first;
+           notifyListeners();
+        }
+      } else {
+        if (activeBlindSession != null) {
+          activeBlindSession = null;
+          notifyListeners();
+        }
+      }
+
+      // Auto-navigation logic
+      if (sessions.isNotEmpty && _isSearchingBlind) {
+        _isSearchingBlind = false;
+        // Navigate to the active blind session
+        final session = sessions.first;
+        openBlindChat(session);
+      }
+    });
+
+    _meltInviteSub = _repository.watchMeltInvites().listen((invites) {
+      pendingMeltInvites = invites;
+      notifyListeners();
+    });
   }
 
   void replaceStack(List<AppStage> stages) {
@@ -374,7 +420,7 @@ class AppFlowController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void openProfileSettings() => pushIfMissing(AppStage.profileSettings);
+
 
   void openProfilePreview() => pushIfMissing(AppStage.profilePreview);
 
@@ -388,6 +434,8 @@ class AppFlowController extends ChangeNotifier {
 
   void openChat([VibeProfile? profile]) {
     activeProfile = profile ?? activeProfile ?? dailyProfiles.first;
+    activeBlindSession = null;
+    _activeBlindSub?.cancel();
     pushIfMissing(AppStage.chat);
   }
 
@@ -423,6 +471,19 @@ class AppFlowController extends ChangeNotifier {
     lastPathsIntents = intents;
     try {
       final location = await _locationService.getCoarseLocation();
+      
+      // Update our own presence while we fetch others
+      unawaited(_repository.upsertPathsPresence(PathsPresence(
+        uid: FirebaseAuth.instance.currentUser?.uid ?? '',
+        intents: intents.toList(),
+        radiusKm: radiusKm,
+        visibleUntil: DateTime.now().add(const Duration(hours: 2)),
+        lat: location.lat,
+        lng: location.lng,
+        displayName: fullProfile?.name,
+        imageUrl: photoSlots.firstWhere((s) => s.imageUrl != null, orElse: () => const PhotoSlot()).imageUrl,
+      )));
+
       final results = await _repository
           .fetchNearbyPaths(
             radiusKm: radiusKm,
@@ -477,7 +538,8 @@ class AppFlowController extends ChangeNotifier {
       interests: interests,
       availableUntil: availableUntil,
     ));
-    // In a real app we might update some local "inQueue" state here
+    _isSearchingBlind = true;
+    notifyListeners();
   }
 
   Future<void> dequeueBlind() async {
@@ -551,6 +613,33 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.blinds]);
   }
 
+  void openBlindChat(BlindSession session) {
+    activeBlindSession = session;
+    _activeBlindSub?.cancel();
+    _activeBlindSub = _repository.blindSessionUpdates(session.id).listen((updated) {
+       activeBlindSession = updated;
+       if (updated.phase == 'reveal') {
+         // Optionally fetch real profile now
+       }
+       notifyListeners();
+    });
+
+    final otherUid = session.userA == FirebaseAuth.instance.currentUser?.uid 
+      ? session.userB : session.userA;
+      
+    activeProfile = VibeProfile(
+      uid: otherUid,
+      name: 'Mystery Match',
+      age: 0,
+      imageUrl: '',
+      compatibility: 0,
+      bio: 'Anonymous chat session',
+      distance: 'Nearby',
+    );
+    activeChatId = session.id;
+    replaceStack(<AppStage>[AppStage.chat]);
+  }
+
   void openHome() {
     replaceStack(<AppStage>[AppStage.dailyPool]);
   }
@@ -586,6 +675,10 @@ class AppFlowController extends ChangeNotifier {
     }
   }
 
+  void openProfileSettings() {
+    replaceStack(<AppStage>[AppStage.profileSettings]);
+  }
+
   Future<void> signOut() async {
     activeProfile = null;
     activeChatId = null;
@@ -596,7 +689,18 @@ class AppFlowController extends ChangeNotifier {
       photoSlots[i] = const PhotoSlot();
     }
     await _prefs?.remove(_kOnboardingCompleteKey);
+    await _blindSessionSub?.cancel();
+    _blindSessionSub = null;
+    await _meltInviteSub?.cancel();
+    _meltInviteSub = null;
     replaceStack(<AppStage>[AppStage.authGate]);
+  }
+
+  @override
+  void dispose() {
+    _blindSessionSub?.cancel();
+    _meltInviteSub?.cancel();
+    super.dispose();
   }
 
   Future<void> upgradeToPremium() async {
@@ -691,6 +795,11 @@ class AppFlowController extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshProfile() async {
+    await _loadProfileBasics();
+    notifyListeners();
+  }
+
   Future<void> _loadProfileBasics() async {
     final user = FirebaseAuth.instance.currentUser;
     profileName = user?.displayName ?? profileName ?? 'Freezme member';
@@ -773,6 +882,8 @@ class AppFlowController extends ChangeNotifier {
     }
   }
 
+
+
   void returnToPool({bool resetIndex = false}) {
     if (resetIndex) {
       restartDailyPool();
@@ -832,7 +943,7 @@ class AppFlowController extends ChangeNotifier {
       name: 'Alex',
       age: 27,
       imageUrl:
-          'https://images.unsplash.com/flagged/photo-1596479042555-9265a7fa7983?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbiUyMHBvcnRyYWl0fGVufDF8fHx8MTc2MDkzNjI2MHww&ixlib=rb-4.1.0&q=80&w=1080',
+          'https://images.unsplash.com/flagged/photo-1596479042555-9265a7fa7983?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHx5b3VuZyUyMG1hbiUyMHBvcnRyYWl0fGVufDF8fHx8MTc2MDkzNjI2MHww&ixlib=rb-4.1.0&q=80&w=1080',
       compatibility: 88,
       bio:
           'Fitness enthusiast | Foodie | Looking for meaningful connections 💪',
@@ -844,7 +955,7 @@ class AppFlowController extends ChangeNotifier {
       name: 'Sophie',
       age: 26,
       imageUrl:
-          'https://images.unsplash.com/photo-1591969851586-adbbd4accf81?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb21hbnRpYyUyMGNvdXBsZXxlbnwxfHx8fDE3NjA5Nzg1Nzh8MA&ixlib=rb-4.1.0&q=80&w=1080',
+          'https://images.unsplash.com/photo-1591969851586-adbbd4accf81?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxyb21hbnRpYyUyMGNvdXBsZXxlbnwxfHx8fDE3NjA5Nzg1Nzh8MA&ixlib=rb-4.1.0&q=80&w=1080',
       compatibility: 85,
       bio:
           'Artist at heart | Music lover | Deep conversations over small talk 🎨',
@@ -968,35 +1079,30 @@ class FlowNavigator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context, listen: false);
-    return AnimatedBuilder(
-      animation: flow,
-      builder: (context, _) {
-        final pages = <Page<dynamic>>[
-          for (final stage in flow.stack)
-            if (_isTabStage(stage))
-              _FadePage<dynamic>(
-                key: ValueKey<AppStage>(stage),
-                child: _buildStage(context, stage),
-              )
-            else
-              MaterialPage<dynamic>(
-                key: ValueKey<AppStage>(stage),
-                child: _buildStage(context, stage),
-              ),
-        ];
+    final flow = AppFlowScope.of(context); // listen: true by default
+    final pages = <Page<dynamic>>[
+      for (var i = 0; i < flow.stack.length; i++)
+        if (_isTabStage(flow.stack[i]))
+          _FadePage<dynamic>(
+            key: ValueKey<String>('${flow.stack[i]}_$i'),
+            child: _buildStage(context, flow.stack[i]),
+          )
+        else
+          MaterialPage<dynamic>(
+            key: ValueKey<String>('${flow.stack[i]}_$i'),
+            child: _buildStage(context, flow.stack[i]),
+          ),
+    ];
 
-        return Navigator(
-          pages: pages,
-          // ignore: deprecated_member_use
-          onPopPage: (route, result) {
-            if (!route.didPop(result)) {
-              return false;
-            }
-            flow.pop();
-            return true;
-          },
-        );
+    return Navigator(
+      pages: pages,
+      // ignore: deprecated_member_use
+      onPopPage: (route, result) {
+        if (!route.didPop(result)) {
+          return false;
+        }
+        flow.pop();
+        return true;
       },
     );
   }

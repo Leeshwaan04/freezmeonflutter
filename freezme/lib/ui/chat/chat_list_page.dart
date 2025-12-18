@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../shared/bottom_nav_bar.dart';
 import '../../main.dart';
 import '../components/premium_components.dart';
+import '../components/skeleton_loaders.dart';
 
 import '../design_system.dart';
 import 'message_status.dart';
@@ -212,6 +213,15 @@ class _ChatListPageState extends State<ChatListPage> {
             stream: flow.repository.watchMatches(),
             initialData: const [], // Start with empty list so we always have data
             builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const CustomScrollView(
+                    slivers: [
+                       SliverToBoxAdapter(child: SizedBox(height: 100)), // Approximate header space
+                       SliverFillRemaining(child: ChatListSkeleton(itemCount: 8)),
+                    ],
+                  );
+              }
+
               // Start with the Header as a fixed sliver
               final List<Widget> slivers = [
                 SliverToBoxAdapter(child: _buildHeader()),
@@ -265,6 +275,12 @@ class _ChatListPageState extends State<ChatListPage> {
                 // Show "New Matches" rail if applicable
                 if (visibleConversations.isNotEmpty && !_showUnreadOnly && _query.isEmpty) {
                   slivers.add(SliverToBoxAdapter(child: _buildNewMatchesRail(visibleConversations)));
+                }
+
+                // Show "Frozen Connections" rail if applicable
+                if (flow.pendingMeltInvites.isNotEmpty && !_showUnreadOnly && _query.isEmpty) {
+                  slivers.add(SliverToBoxAdapter(child: _buildFrozenConnections(flow.pendingMeltInvites, flow)));
+                  slivers.add(const SliverToBoxAdapter(child: SizedBox(height: FreezmeDesignSystem.spaceLg)));
                 }
 
                 if (visibleConversations.isEmpty) {
@@ -540,6 +556,77 @@ class _ChatListPageState extends State<ChatListPage> {
            ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFrozenConnections(List<Map<String, dynamic>> invites, AppFlowController flow) {
+    if (invites.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(FreezmeDesignSystem.spaceLg, FreezmeDesignSystem.spaceLg, FreezmeDesignSystem.spaceLg, FreezmeDesignSystem.spaceMd),
+          child: Row(
+            children: [
+              const Icon(Icons.ac_unit, color: FreezmeDesignSystem.secondary, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Frozen Connections',
+                style: FreezmeDesignSystem.captionMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: FreezmeDesignSystem.secondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
+          itemCount: invites.length,
+          separatorBuilder: (_, __) => const SizedBox(height: FreezmeDesignSystem.spaceMd),
+          itemBuilder: (context, index) {
+            final invite = invites[index];
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: FreezmeDesignSystem.cardDecorationFlat,
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: FreezmeDesignSystem.surfaceAlt,
+                    child: const Icon(Icons.person, color: FreezmeDesignSystem.textTertiary),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Secret Admirer', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Sent you a ice melter!', style: FreezmeDesignSystem.small),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => flow.meltChatService.respondInvite(inviteId: invite['id'], action: 'decline'),
+                        icon: const Icon(Icons.close, color: FreezmeDesignSystem.error, size: 20),
+                      ),
+                      IconButton(
+                        onPressed: () => flow.meltChatService.respondInvite(inviteId: invite['id'], action: 'accept'),
+                        icon: const Icon(Icons.favorite, color: FreezmeDesignSystem.secondary, size: 20),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

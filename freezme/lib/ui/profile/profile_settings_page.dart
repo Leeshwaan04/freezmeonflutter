@@ -7,7 +7,9 @@ import '../components/freezme_logo.dart';
 import '../components/aurora_background.dart';
 import '../settings/preferences_page.dart';
 import '../settings/settings_pages.dart';
-import '../settings/freezme_plus_page.dart';
+
+// FreezmePlusPage is imported but ideally we use flow.push or named route if structure allows
+// But here we are using Navigator.push with SmoothPageRoute which matches flow architecture for 'sub-pages'
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
@@ -102,7 +104,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         icon: Icons.star_outline,
         label: 'Freezme+',
         description: 'See who likes you & more',
-        action: () => Navigator.of(context).push(SmoothPageRoute(page: const FreezmePlusPage())),
+        action: () => flow.push(AppStage.freezmePlus), // Using proper flow push
       ),
       (
         icon: Icons.security,

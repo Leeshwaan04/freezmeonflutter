@@ -37,8 +37,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final flow = AppFlowScope.of(context, listen: false);
       setState(() {
-        _nameController.text = flow.profileName ?? '';
-        // Mock data filling if available or leave empty
+        _nameController.text = flow.fullProfile?.name ?? flow.profileName ?? '';
+        _bioController.text = flow.fullProfile?.bio ?? '';
+        if (flow.fullProfile?.age != null && flow.fullProfile!.age > 0) {
+            _ageController.text = flow.fullProfile!.age.toString();
+        }
+        _locationController.text = flow.fullProfile?.distance ?? '';
+        _selectedInterests = List.from(flow.fullProfile?.interests ?? []);
       });
     });
   }
@@ -80,6 +85,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       // Local state update
       await flow.setBioFilled(_bioController.text.trim().isNotEmpty);
       await flow.setPreferencesSet(_selectedInterests.isNotEmpty);
+      await flow.refreshProfile();
 
       if (mounted) {
         PremiumSnackBar.show(context, 'Profile updated successfully', type: SnackBarType.success);

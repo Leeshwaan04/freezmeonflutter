@@ -88,6 +88,8 @@ class FakeFreezmeRepository implements FreezmeRepository {
   @override
   Stream<PathsInvite> inviteStatus(String inviteId) => const Stream.empty();
 
+
+
   @override
   Future<void> cancelPathsInvite(String inviteId) async {}
 
@@ -105,6 +107,12 @@ class FakeFreezmeRepository implements FreezmeRepository {
 
   @override
   Future<void> reportBlindSession(String sessionId, String reason) async {}
+
+  @override
+  Stream<List<BlindSession>> watchUserBlindSessions() => const Stream.empty();
+
+  @override
+  Future<void> respondBlindReveal(String sessionId) async {}
 
   @override
   Future<String> createPost({required List<String> photoUrls, String? caption, required String visibility}) async => '';
@@ -129,6 +137,9 @@ class FakeFreezmeRepository implements FreezmeRepository {
 
   @override
   Stream<List<Map<String, dynamic>>> watchComments(String postId) => const Stream.empty();
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchMeltInvites() => const Stream.empty();
 
   @override
   Future<void> deleteComment({required String postId, required String commentId}) async {}

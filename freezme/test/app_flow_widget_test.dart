@@ -9,6 +9,8 @@ import 'package:freezme/main.dart';
 import 'package:freezme/services/melt_chat_service.dart';
 import 'package:freezme/services/photo_upload_service.dart';
 import 'package:freezme/ui/shared/bottom_nav_bar.dart';
+import 'package:freezme/services/iap_service.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'mocks/mock_repository.dart';
 
 void main() {
@@ -43,6 +45,7 @@ void main() {
             photoUploadService: MockPhotoUploadService(),
             meltChatService: MockMeltChatService(),
             repository: MockFreezmeRepository(),
+            iapService: _FakeIAPService(),
           ),
         ),
       );
@@ -81,4 +84,30 @@ void main() {
       expect(find.byType(Scaffold), findsAtLeastNWidgets(1));
     });
   });
+}
+
+class _FakeIAPService extends ChangeNotifier implements IAPService {
+  @override
+  List<ProductDetails> get products => [];
+  
+  @override 
+  bool get isAvailable => true;
+  
+  @override
+  bool get purchasePending => false;
+  
+  @override
+  String? get error => null;
+  
+  @override
+  Future<void> buy(ProductDetails product) async {}
+  
+  @override
+  Future<void> restorePurchases() async {}
+  
+  @override
+  ProductDetails? get weeklyPlan => null;
+  
+  @override
+  ProductDetails? get monthlyPlan => null;
 }

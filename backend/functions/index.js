@@ -80,7 +80,7 @@ exports.upsertPathsPresence = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
 
   const uid = context.auth.uid;
-  const { intents, radiusKm, visibleUntil, lat, lng, geohash, availability, interestsSummary } = data;
+  const { intents, radiusKm, visibleUntil, lat, lng, geohash, availability, interestsSummary, displayName, imageUrl } = data;
 
   try {
     await db.collection('paths_presence').doc(uid).set({
@@ -93,6 +93,8 @@ exports.upsertPathsPresence = functions.https.onCall(async (data, context) => {
       geohash,
       availability,
       interestsSummary,
+      display_name: displayName,
+      image_url: imageUrl,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
     return { success: true };
@@ -119,7 +121,11 @@ exports.getNearbyPaths = functions.https.onCall(async (data, context) => {
     }
 
     const snapshot = await query.limit(50).get();
-    let profiles = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+    let profiles = snapshot.docs.map(doc => {
+      const data = doc.data();
+      if (doc.id === context.auth?.uid) return null; // Skip self
+      return { ...data, id: doc.id };
+    }).filter(Boolean); // Remove null entries
 
     // Client-side distance filtering for better precision if lat/lng available
     if (lat && lng) {
@@ -236,13 +242,13 @@ exports.matchBlindUsers = functions.firestore
 
       // Atomic match creation
       const batch = db.batch();
-      batch.set(db.collection('blind_sessions').doc(sessionId), {
-        hostUid: uid,
-        targetUid: doc.id,
+      batch.set(db.collection('blinds_sessions').doc(sessionId), {
+        user_a: uid,
+        user_b: doc.id,
         intent: newUser.intent,
-        status: 'active',
+        phase: 'anonymous',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        expiresAt: newUser.availableUntil,
+        expires_at: admin.firestore.Timestamp.fromDate(newUser.availableUntil.toDate()),
       });
       batch.delete(db.collection('blind_queue').doc(uid));
       batch.delete(db.collection('blind_queue').doc(doc.id));
@@ -252,6 +258,36 @@ exports.matchBlindUsers = functions.firestore
       return; // done
     }
   });
+
+/**
+ * respondBlindReveal - Vote to reveal identity in a blind session
+ */
+exports.respondBlindReveal = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+  const { sessionId } = data;
+  const uid = context.auth.uid;
+
+  const sessionRef = db.collection('blinds_sessions').doc(sessionId);
+  const sessionDoc = await sessionRef.get();
+
+  if (!sessionDoc.exists) throw new functions.https.HttpsError("not-found", "Session not found");
+
+  const session = sessionDoc.data();
+  const update = {};
+  if (session.user_a === uid) update.reveal_a = true;
+  else if (session.user_b === uid) update.reveal_b = true;
+  else throw new functions.https.HttpsError("permission-denied", "Not your session");
+
+  await sessionRef.update(update);
+
+  // Check if both revealed
+  const refreshed = (await sessionRef.get()).data();
+  if (refreshed.reveal_a && refreshed.reveal_b) {
+    await sessionRef.update({ phase: 'reveal' });
+  }
+
+  return { success: true, phase: refreshed.phase };
+});
 
 /**
  * dequeueBlind - Leaves the queue
@@ -365,13 +401,12 @@ exports.respondMeltChatInvite = functions.https.onCall(async (data, context) => 
         status: "sent",
       },
       memberDisplay: {
-        [inviteData.senderUid]: { name: "Sender" }, // In real app, fetch from user profiles
-        [uid]: { name: "Receiver" },
-      }
-    }, { merge: true });
+        [inviteData.senderUid]: { name: "User A" },
+        [uid]: { name: "User B" },
+      },
+    });
 
-    await inviteDoc.ref.update({ status: "accepted", chatId });
-
+    await inviteDoc.ref.update({ status: "accepted" });
     return { success: true, chatId };
   } catch (error) {
     console.error("Error responding to melt invite:", error);

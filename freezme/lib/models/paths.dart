@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PathsPresence {
   PathsPresence({
-    required this.userId,
+    required this.uid,
     required this.intents,
     required this.radiusKm,
     required this.visibleUntil,
@@ -12,9 +12,11 @@ class PathsPresence {
     this.lastActiveAt,
     this.availability,
     this.interestsSummary,
+    this.displayName,
+    this.imageUrl,
   });
 
-  final String userId;
+  final String uid;
   final List<String> intents;
   final double radiusKm;
   final DateTime visibleUntil;
@@ -24,10 +26,12 @@ class PathsPresence {
   final DateTime? lastActiveAt;
   final String? availability;
   final String? interestsSummary;
+  final String? displayName;
+  final String? imageUrl;
 
   Map<String, dynamic> toJson() {
     return {
-      'userId': userId,
+      'userId': uid,
       'intents': intents,
       'radius_km': radiusKm,
       'visible_until': Timestamp.fromDate(visibleUntil),
@@ -37,12 +41,14 @@ class PathsPresence {
       if (lastActiveAt != null) 'last_active_at': Timestamp.fromDate(lastActiveAt!),
       if (availability != null) 'availability': availability,
       if (interestsSummary != null) 'interests': interestsSummary,
+      if (displayName != null) 'display_name': displayName,
+      if (imageUrl != null) 'image_url': imageUrl,
     };
   }
 
   static PathsPresence fromJson(Map<String, dynamic> json, {String? documentId}) {
     return PathsPresence(
-      userId: json['userId'] ?? documentId ?? '',
+      uid: json['userId'] ?? documentId ?? '',
       intents: (json['intents'] as List<dynamic>? ?? []).cast<String>(),
       radiusKm: (json['radius_km'] as num?)?.toDouble() ?? 0,
       visibleUntil: (json['visible_until'] as Timestamp).toDate(),
@@ -52,6 +58,8 @@ class PathsPresence {
       lastActiveAt: (json['last_active_at'] as Timestamp?)?.toDate(),
       availability: json['availability'] as String?,
       interestsSummary: json['interests'] as String?,
+      displayName: json['display_name'] as String?,
+      imageUrl: json['image_url'] as String?,
     );
   }
 }

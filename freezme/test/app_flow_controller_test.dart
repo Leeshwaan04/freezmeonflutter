@@ -5,6 +5,9 @@ import 'package:freezme/main.dart';
 import 'package:freezme/models/vibe_profile.dart'; // Added
 import 'package:freezme/services/melt_chat_service.dart';
 import 'package:freezme/services/photo_upload_service.dart';
+import 'package:freezme/services/iap_service.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:flutter/foundation.dart';
 import 'mocks/fake_freezme_repository.dart';
 
 class _FakePhotoUploadService implements PhotoUploadService {
@@ -48,6 +51,9 @@ class _RecordingMeltChatService implements MeltChatService {
   }) async {
     invites.add(<String, String>{'uid': targetUid, 'slot': slotLabel});
   }
+
+  @override
+  Future<void> respondInvite({required String inviteId, required String action}) async {}
 }
 
 class _FailingMeltChatService implements MeltChatService {
@@ -58,6 +64,9 @@ class _FailingMeltChatService implements MeltChatService {
   }) async {
     throw const MeltChatException('network');
   }
+
+  @override
+  Future<void> respondInvite({required String inviteId, required String action}) async {}
 }
 
 VibeProfile _profile() => const VibeProfile(
@@ -71,6 +80,32 @@ VibeProfile _profile() => const VibeProfile(
   distance: '1 km away',
 );
 
+class _FakeIAPService extends ChangeNotifier implements IAPService {
+  @override
+  List<ProductDetails> get products => [];
+  
+  @override 
+  bool get isAvailable => true;
+  
+  @override
+  bool get purchasePending => false;
+  
+  @override
+  String? get error => null;
+  
+  @override
+  Future<void> buy(ProductDetails product) async {}
+  
+  @override
+  Future<void> restorePurchases() async {}
+  
+  @override
+  ProductDetails? get weeklyPlan => null;
+  
+  @override
+  ProductDetails? get monthlyPlan => null;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -80,6 +115,8 @@ void main() {
       final controller = AppFlowController.test(
         photoUploadService: uploader,
         repository: FakeFreezmeRepository(),
+        iapService: _FakeIAPService(),
+        meltChatService: _RecordingMeltChatService(),
       );
 
       await controller.uploadPhotoForSlot(0);
@@ -93,6 +130,8 @@ void main() {
       final controller = AppFlowController.test(
         photoUploadService: _FailingPhotoUploadService(),
         repository: FakeFreezmeRepository(),
+        iapService: _FakeIAPService(),
+        meltChatService: _RecordingMeltChatService(),
       );
 
       await expectLater(
@@ -111,6 +150,7 @@ void main() {
         photoUploadService: _FakePhotoUploadService('mock'),
         meltChatService: service,
         repository: FakeFreezmeRepository(),
+        iapService: _FakeIAPService(),
       );
 
       final result = await controller.sendMeltChatInvite(
@@ -129,6 +169,7 @@ void main() {
         photoUploadService: _FakePhotoUploadService('mock'),
         meltChatService: _FailingMeltChatService(),
         repository: FakeFreezmeRepository(),
+        iapService: _FakeIAPService(),
       );
 
       final result = await controller.sendMeltChatInvite(_profile(), 'Tonight');
