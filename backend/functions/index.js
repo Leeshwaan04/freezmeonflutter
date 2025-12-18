@@ -250,6 +250,85 @@ exports.reportBlindSession = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
+/**
+ * sendMeltChatInvite - Sends a semi-anonymous invite to unfreeze a connection
+ */
+exports.sendMeltChatInvite = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+  const { targetUid, slot } = data;
+  const senderUid = context.auth.uid;
+
+  try {
+    const inviteRef = await db.collection("melt_invites").add({
+      senderUid,
+      targetUid,
+      slot,
+      status: "pending",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // In a real app, send a push notification here
+    // ...
+
+    return { success: true, inviteId: inviteRef.id };
+  } catch (error) {
+    console.error("Error sending melt invite:", error);
+    throw new functions.https.HttpsError("internal", "Failed to send melt invite");
+  }
+});
+
+/**
+ * respondMeltChatInvite - Accept or Decline a melt invite and create a chat session
+ */
+exports.respondMeltChatInvite = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+  const { inviteId, response } = data; // 'accept' or 'decline'
+  const uid = context.auth.uid;
+
+  try {
+    const inviteDoc = await db.collection("melt_invites").doc(inviteId).get();
+    if (!inviteDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "Invite not found");
+    }
+
+    const inviteData = inviteDoc.data();
+    if (inviteData.targetUid !== uid) {
+      throw new functions.https.HttpsError("permission-denied", "Not your invite");
+    }
+
+    if (response === "decline") {
+      await inviteDoc.ref.update({ status: "declined" });
+      return { success: true };
+    }
+
+    // Accept - Create the Chat Session
+    const chatId = [inviteData.senderUid, uid].sort().join("_");
+
+    // Create actual chat document
+    await db.collection("chats").doc(chatId).set({
+      members: [inviteData.senderUid, uid],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastMessage: {
+        text: "The ice has melted! Say hello.",
+        senderId: "system",
+        status: "sent",
+      },
+      memberDisplay: {
+        [inviteData.senderUid]: { name: "Sender" }, // In real app, fetch from user profiles
+        [uid]: { name: "Receiver" },
+      }
+    }, { merge: true });
+
+    await inviteDoc.ref.update({ status: "accepted", chatId });
+
+    return { success: true, chatId };
+  } catch (error) {
+    console.error("Error responding to melt invite:", error);
+    throw new functions.https.HttpsError("internal", "Failed to respond to invite");
+  }
+});
+
 // Existing push notification logic
 exports.sendPushNotification = functions.firestore
   .document("chats/{chatId}/messages/{messageId}")
