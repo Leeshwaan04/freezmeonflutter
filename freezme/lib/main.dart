@@ -190,6 +190,7 @@ class AppFlowController extends ChangeNotifier {
   Set<String> lastPathsIntents = const {'Friends', 'Dates'};
   double lastPathsRadiusKm = 10;
   bool isPremium = false;
+  VibeProfile? fullProfile;
 
 
   List<AppStage> get stack => List.unmodifiable(_stack);
@@ -702,6 +703,7 @@ class AppFlowController extends ChangeNotifier {
     try {
       final profile = await _repository.fetchProfile(user.uid);
       if (profile != null) {
+        fullProfile = profile;
         profileName = profile.name.isNotEmpty ? profile.name : profileName;
         if (profile.photoUrls.isNotEmpty) {
           profilePhotoUrl = profile.photoUrls.first;

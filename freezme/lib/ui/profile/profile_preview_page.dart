@@ -11,16 +11,21 @@ class ProfilePreviewPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
+    final userProfile = flow.fullProfile;
     final uploadedPhotos = flow.photoSlots
         .where((p) => p.status == PhotoSlotStatus.uploaded && p.imageUrl != null)
         .map((p) => p.imageUrl!)
         .toList();
-    final primaryPhoto = uploadedPhotos.isNotEmpty
+        
+    final primaryPhoto = userProfile?.imageUrl ?? (uploadedPhotos.isNotEmpty
         ? uploadedPhotos.first
-        : 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
+        : 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080');
+        
     final completion = ((uploadedPhotos.length / flow.photoSlots.length) * 100)
         .clamp(0, 100)
         .round();
+    
+    final displayName = userProfile != null ? '${userProfile.name}, ${userProfile.age}' : 'Your vibe';
 
     return Scaffold(
       backgroundColor: FreezmeDesignSystem.background,
@@ -91,19 +96,19 @@ class ProfilePreviewPage extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                const Positioned(
-                                  left: 24,
-                                  right: 24,
-                                  bottom: 24,
-                                  child: Text(
-                                    'Your vibe',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w600,
+                                  Positioned(
+                                    left: 24,
+                                    right: 24,
+                                    bottom: 24,
+                                    child: Text(
+                                      displayName,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                ),
                               ],
                             ),
                           );
@@ -116,8 +121,10 @@ class ProfilePreviewPage extends StatelessWidget {
                           children: [
                             const Text('About Me', style: FreezmeDesignSystem.h3),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Finish your bio and preferences to help matches get to know you. You can edit photos, interests, and distance in Settings.',
+                            Text(
+                              userProfile?.bio.isNotEmpty == true 
+                                ? userProfile!.bio 
+                                : 'Finish your bio and preferences to help matches get to know you. You can edit photos, interests, and distance in Settings.',
                               style: FreezmeDesignSystem.body,
                             ),
                             const SizedBox(height: 24),
@@ -170,14 +177,16 @@ class ProfilePreviewPage extends StatelessWidget {
                             Wrap(
                               spacing: 10,
                               runSpacing: 10,
-                              children: const [
-                                PremiumChip(label: 'Music'),
-                                PremiumChip(label: 'Travel'),
-                                PremiumChip(label: 'Art'),
-                                PremiumChip(label: 'Yoga'),
-                                PremiumChip(label: 'Coffee'),
-                                PremiumChip(label: 'Photography'),
-                              ],
+                              children: userProfile?.interests.isNotEmpty == true
+                                ? userProfile!.interests.map((i) => PremiumChip(label: i)).toList()
+                                : const [
+                                    PremiumChip(label: 'Music'),
+                                    PremiumChip(label: 'Travel'),
+                                    PremiumChip(label: 'Art'),
+                                    PremiumChip(label: 'Yoga'),
+                                    PremiumChip(label: 'Coffee'),
+                                    PremiumChip(label: 'Photography'),
+                                  ],
                             ),
                           ],
                         ),

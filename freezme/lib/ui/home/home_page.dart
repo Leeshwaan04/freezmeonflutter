@@ -104,7 +104,17 @@ class _HomePageState extends State<HomePage> {
           _tonightPool = profiles;
           _isLoading = false;
           _hasError = false;
+          // Set location name based on coordinates for simulation realism
+          if (locationResult.lat != null) {
+            _locationName = 'Downtown area'; 
+          }
         });
+
+        // Trigger paths refresh in background
+        unawaited(flow.refreshPaths(
+          radiusKm: flow.lastPathsRadiusKm,
+          intents: flow.lastPathsIntents,
+        ));
       }
     } catch (e) {
       // Error loading data, use fallback
@@ -307,6 +317,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildLivePathsSection() {
+    final flow = AppFlowScope.of(context);
+    final paths = flow.nearbyPaths;
+
+    if (paths.isEmpty && !flow.pathsLoading) {
+      return const SizedBox.shrink();
+    }
+
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,9 +350,10 @@ class _HomePageState extends State<HomePage> {
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
-              itemCount: 5, // Mock count
+              itemCount: flow.pathsLoading ? 3 : paths.length,
               itemBuilder: (context, index) {
-                return _LivePathCard(index: index);
+                if (flow.pathsLoading) return const LiveCardSkeleton();
+                return _LivePathCard(presence: paths[index]);
               },
             ),
           ),
@@ -430,6 +448,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTrendingFeedSection() {
+    final flow = AppFlowScope.of(context);
     return SliverToBoxAdapter(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -443,24 +462,42 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceMd),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
-            child: PremiumCard(
-               variant: CardVariant.flat,
-               onTap: (){},
-               child: Container(
-                 height: 120,
-                 alignment: Alignment.center,
-                 child: Column(
-                   mainAxisAlignment: MainAxisAlignment.center,
-                   children: [
-                     Icon(Icons.auto_awesome, color: FreezmeDesignSystem.primary, size: 32),
-                     const SizedBox(height: FreezmeDesignSystem.spaceSm),
-                     const Text('Feed Integration Coming Soon', style: FreezmeDesignSystem.caption),
-                   ],
-                 ),
-               ),
-            ),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: flow.repository.watchFeed(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
+                  child: SkeletonLoader(width: double.infinity, height: 120),
+                );
+              }
+              
+              final posts = snapshot.data ?? [];
+              if (posts.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
+                  child: PremiumCard(
+                     variant: CardVariant.flat,
+                     child: Container(
+                       height: 120,
+                       alignment: Alignment.center,
+                       child: Column(
+                         mainAxisAlignment: MainAxisAlignment.center,
+                         children: [
+                           Icon(Icons.auto_awesome, color: FreezmeDesignSystem.primary, size: 32),
+                           const SizedBox(height: FreezmeDesignSystem.spaceSm),
+                           const Text('Feed Integration Coming Soon', style: FreezmeDesignSystem.caption),
+                         ],
+                       ),
+                     ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: posts.map((post) => _FeedPostItem(post: post)).toList(),
+              );
+            },
           ),
         ],
       ),
@@ -468,10 +505,73 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _LivePathCard extends StatefulWidget {
-  final int index;
+class _FeedPostItem extends StatelessWidget {
+  final Map<String, dynamic> post;
 
-  const _LivePathCard({required this.index});
+  const _FeedPostItem({required this.post});
+
+  @override
+  Widget build(BuildContext context) {
+    final photoUrls = List<String>.from(post['photoUrls'] ?? []);
+    final caption = post['caption'] ?? '';
+    final senderName = post['senderName'] ?? 'Freezme User';
+    final senderPhoto = post['senderPhotoUrl'] ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg, vertical: FreezmeDesignSystem.spaceSm),
+      child: Container(
+        decoration: FreezmeDesignSystem.cardDecoration,
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // User section
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  UserAvatar(imageUrl: senderPhoto, size: 32),
+                  const SizedBox(width: 10),
+                  Text(senderName, style: FreezmeDesignSystem.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+            // Image
+            if (photoUrls.isNotEmpty)
+              CachedNetworkImage(
+                imageUrl: photoUrls.first,
+                width: double.infinity,
+                height: 250,
+                fit: BoxFit.cover,
+              ),
+            // Caption
+            if (caption.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(caption, style: FreezmeDesignSystem.body),
+              ),
+            // Actions
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.favorite_border_rounded, size: 20, color: FreezmeDesignSystem.textSecondary),
+                  const SizedBox(width: 16),
+                  Icon(Icons.chat_bubble_outline_rounded, size: 20, color: FreezmeDesignSystem.textSecondary),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LivePathCard extends StatefulWidget {
+  final models.PathsPresence presence;
+
+  const _LivePathCard({required this.presence});
 
   @override
   State<_LivePathCard> createState() => _LivePathCardState();
@@ -501,9 +601,11 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
 
   @override
   Widget build(BuildContext context) {
-    final activities = ['Grabbing Drinks', 'Coffee Date', 'Evening Walk', 'Chilling', 'Out Tonight'];
-    final distances = ['0.5km', '1.2km', '2km', '3.5km', '5km'];
-    
+    // Determine activity from intents
+    final activity = widget.presence.intents.isNotEmpty 
+        ? widget.presence.intents.first 
+        : 'Out Tonight';
+        
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -558,17 +660,10 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
                       child: child,
                     );
                   },
-                  child: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: FreezmeDesignSystem.primary.withValues(alpha: 0.15),
-                    child: Text(
-                      'U${widget.index}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: FreezmeDesignSystem.primary,
-                      ),
-                    ),
+                  child: UserAvatar(
+                    size: 44,
+                    // Use a mock image or initials if not provided
+                    initials: widget.presence.uid.substring(0, 2).toUpperCase(),
                   ),
                 ),
                 Positioned(
@@ -589,7 +684,7 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
             const SizedBox(height: 8),
             // Activity
             Text(
-              activities[widget.index % activities.length],
+              activity,
               style: FreezmeDesignSystem.caption.copyWith(
                 fontWeight: FontWeight.w600,
                 fontSize: 11,
@@ -611,7 +706,7 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
                 ),
                 const SizedBox(width: 2),
                 Text(
-                  distances[widget.index % distances.length],
+                  'Nearby', // Simplified for now
                   style: FreezmeDesignSystem.caption.copyWith(
                     fontSize: 10,
                     color: FreezmeDesignSystem.textSecondary,

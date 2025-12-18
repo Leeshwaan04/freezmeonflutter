@@ -103,37 +103,50 @@ exports.upsertPathsPresence = functions.https.onCall(async (data, context) => {
 });
 
 /**
- * getNearbyPaths - Fetches nearby users in Paths
+ * getNearbyPaths - Fetches nearby active presences using geohashes
  */
 exports.getNearbyPaths = functions.https.onCall(async (data, context) => {
-  const { radiusKm, lat, lng } = data;
-  // Real impl would use geohash query. For now, return all recent presences
-  // to simulate activity.
+  const { radiusKm, lat, lng, intents } = data;
+
   try {
     const now = new Date();
-    const snapshot = await db.collection('paths_presence')
-      .where('visibleUntil', '>', now)
-      .limit(20)
-      .get();
+    let query = db.collection('paths_presence')
+      .where('visibleUntil', '>', now);
 
-    const profiles = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      // Convert timestamps back to strings/dates for transport if needed
-      visibleUntil: doc.data().visibleUntil.toDate().toISOString()
-    }));
+    // Filter by intent if provided
+    if (intents && intents.length > 0) {
+      query = query.where('intents', 'array-contains-any', intents);
+    }
 
-    // Filter out self
-    const filtered = process.env.FUNCTIONS_EMULATOR
-      ? profiles
-      : context.auth ? profiles.filter(p => p.id !== context.auth.uid) : profiles;
+    const snapshot = await query.limit(50).get();
+    let profiles = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
 
-    return { profiles: filtered };
-  } catch (e) {
-    console.error("Error getting nearby paths:", e);
+    // Client-side distance filtering for better precision if lat/lng available
+    if (lat && lng) {
+      profiles = profiles.filter(p => {
+        if (!p.lat || !p.lng) return false;
+        const d = calculateDistance(lat, lng, p.lat, p.lng);
+        return d <= (radiusKm || 10);
+      });
+    }
+
+    return { profiles: profiles.slice(0, 20) };
+  } catch (error) {
+    console.error("Error fetching nearby paths:", error);
     return { profiles: [] };
   }
 });
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 /**
  * sendPathsInvite - Sends an invite to a nearby user
@@ -181,27 +194,64 @@ exports.respondPathsInvite = functions.https.onCall(async (data, context) => {
  */
 exports.enqueueBlind = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Auth required");
+  const { intent, distanceBucket, availableUntil } = data;
   const uid = context.auth.uid;
-  const { intent, distanceBucket, interests, availableUntil } = data;
 
   try {
     await db.collection('blind_queue').doc(uid).set({
       uid,
       intent,
       distanceBucket,
-      interests,
-      availableUntil: availableUntil ? new Date(availableUntil) : null,
-      queuedAt: admin.firestore.FieldValue.serverTimestamp(),
+      availableUntil: new Date(availableUntil),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      status: 'waiting'
     });
-
-    // Attempt match immediately (naive)
-    // In real world, use a Firestore trigger or scheduled function
-
     return { success: true };
   } catch (e) {
-    throw new functions.https.HttpsError("internal", "Queue failed");
+    throw new functions.https.HttpsError("internal", "Failed to enqueue");
   }
 });
+
+/**
+ * matchBlindUsers - Automatic trigger to match users in blind queue
+ */
+exports.matchBlindUsers = functions.firestore
+  .document('blind_queue/{uid}')
+  .onCreate(async (snap, context) => {
+    const newUser = snap.data();
+    const uid = context.params.uid;
+
+    const others = await db.collection('blind_queue')
+      .where('status', '==', 'waiting')
+      .where('intent', '==', newUser.intent)
+      .where('distanceBucket', '==', newUser.distanceBucket)
+      .limit(5)
+      .get();
+
+    for (const doc of others.docs) {
+      if (doc.id === uid) continue;
+
+      const otherUser = doc.data();
+      const sessionId = [uid, doc.id].sort().join('_');
+
+      // Atomic match creation
+      const batch = db.batch();
+      batch.set(db.collection('blind_sessions').doc(sessionId), {
+        hostUid: uid,
+        targetUid: doc.id,
+        intent: newUser.intent,
+        status: 'active',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: newUser.availableUntil,
+      });
+      batch.delete(db.collection('blind_queue').doc(uid));
+      batch.delete(db.collection('blind_queue').doc(doc.id));
+
+      await batch.commit();
+      console.log(`Matched ${uid} with ${doc.id}`);
+      return; // done
+    }
+  });
 
 /**
  * dequeueBlind - Leaves the queue
