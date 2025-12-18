@@ -289,8 +289,11 @@ class AppFlowController extends ChangeNotifier {
   }
 
   void push(AppStage stage) {
-    _stack.add(stage);
-    notifyListeners();
+    // Prevent duplicate stages to avoid GlobalKey conflicts
+    if (_stack.isEmpty || _stack.last != stage) {
+      _stack.add(stage);
+      notifyListeners();
+    }
   }
 
   void pushIfMissing(AppStage stage) {
