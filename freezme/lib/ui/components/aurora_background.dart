@@ -4,8 +4,13 @@ import '../design_system.dart';
 
 class AuroraBackground extends StatefulWidget {
   final Widget child;
+  final bool isPremium;
 
-  const AuroraBackground({Key? key, required this.child}) : super(key: key);
+  const AuroraBackground({
+    Key? key, 
+    required this.child,
+    this.isPremium = false,
+  }) : super(key: key);
 
   @override
   State<AuroraBackground> createState() => _AuroraBackgroundState();
@@ -35,14 +40,14 @@ class _AuroraBackgroundState extends State<AuroraBackground>
     return Stack(
       children: [
         // Background Base
-        Container(color: const Color(0xFFFFF5F8)), // Soft Pink Base
+        Container(color: FreezmeDesignSystem.primaryLight), // Soft Purple Base
         
         // Animated Aurora
         AnimatedBuilder(
           animation: _controller,
           builder: (context, child) {
             return CustomPaint(
-              painter: _AuroraPainter(_controller.value),
+              painter: _AuroraPainter(_controller.value, widget.isPremium),
               size: Size.infinite,
             );
           },
@@ -60,9 +65,10 @@ class _AuroraBackgroundState extends State<AuroraBackground>
 
 class _AuroraPainter extends CustomPainter {
   final double progress;
-  final Random _random = Random(42); // Fixed seed for consistent shapes
+  final bool isPremium;
+  final Random _random = Random(42); 
 
-  _AuroraPainter(this.progress);
+  _AuroraPainter(this.progress, this.isPremium);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -90,6 +96,26 @@ class _AuroraPainter extends CustomPainter {
 
     // Bottom Right - Soft Lavender
     drawBlob(const Color(0xFFE0C3FC), size.width * 0.9, size.height * 0.8, 130);
+
+    if (isPremium) {
+      // Extra Premium Blobs - Gold and Vibrant Violet
+      drawBlob(const Color(0xFFFFD700), size.width * 0.6, size.height * 0.65, 100);
+      drawBlob(const Color(0xFF8A2BE2), size.width * 0.3, size.height * 0.85, 120);
+      
+      // Add a subtle glossy overlay
+      final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+      final gradient = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withOpacity(0.1),
+          Colors.white.withOpacity(0.0),
+          Colors.white.withOpacity(0.1),
+        ],
+        stops: [0.0, 0.5, 1.0],
+      );
+      canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
+    }
   }
 
   @override

@@ -11,7 +11,8 @@ import '../design_system.dart';
 import '../components/premium_components.dart';
 import '../components/skeleton_loaders.dart';
 import '../shared/bottom_nav_bar.dart';
-import '../profile/profile_detail_page.dart'; // Added
+import '../profile/profile_detail_page.dart';
+import '../components/aurora_background.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -140,8 +141,10 @@ class _HomePageState extends State<HomePage> {
           onTap: flow.openTab,
         ),
       ),
-      body: SafeArea(
-        child: RefreshIndicator(
+      body: AuroraBackground(
+        isPremium: flow.isPremium,
+        child: SafeArea(
+          child: RefreshIndicator(
           color: FreezmeDesignSystem.primary,
           backgroundColor: FreezmeDesignSystem.surface,
           onRefresh: _loadData,
@@ -171,7 +174,8 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   SliverToBoxAdapter _buildProfileGate(AppFlowController flow) {
@@ -283,6 +287,15 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(width: FreezmeDesignSystem.spaceMd),
+                GestureDetector(
+                  onTap: () => AppFlowScope.of(context, listen: false).openTab(4), // Profile tab
+                  child: UserAvatar(
+                    imageUrl: AppFlowScope.of(context, listen: false).profilePhotoUrl,
+                    size: 40,
+                    isPremium: AppFlowScope.of(context, listen: false).isPremium,
                   ),
                 ),
               ],

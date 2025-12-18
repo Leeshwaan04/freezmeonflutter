@@ -4,6 +4,7 @@ import '../../main.dart'; // For AppFlowScope, AppStage
 import '../design_system.dart';
 import '../components/premium_components.dart';
 import '../components/freezme_logo.dart';
+import '../components/aurora_background.dart';
 import '../settings/preferences_page.dart';
 import '../settings/settings_pages.dart';
 import '../settings/freezme_plus_page.dart';
@@ -78,32 +79,11 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     final profileName = flow.profileName ?? 'Freezme member';
     final profileEmail = flow.profileEmail ?? 'Add your email';
     final photoUrl = flow.profilePhotoUrl;
-    final initials = profileName.isNotEmpty
-        ? profileName.trim().split(' ').map((p) => p.isNotEmpty ? p[0] : '').take(2).join()
-        : 'F';
-
-    Widget avatar;
-    if (photoUrl != null && photoUrl.isNotEmpty) {
-      avatar = ClipOval(
-        child: CachedNetworkImage(
-          imageUrl: photoUrl,
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-          placeholder: (context, _) => Container(
-            width: 80,
-            height: 80,
-            color: FreezmeDesignSystem.surfaceAlt,
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
-          errorWidget: (context, _, __) => _fallbackAvatar(initials),
-        ),
-      );
-    } else {
-      avatar = _fallbackAvatar(initials);
-    }
+    final avatar = UserAvatar(
+      imageUrl: photoUrl,
+      size: 80,
+      isPremium: flow.isPremium,
+    );
 
     final menuItems = [
      (
@@ -140,10 +120,8 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
 
     return Scaffold(
       backgroundColor: FreezmeDesignSystem.background,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: FreezmeGradients.backgroundSoft,
-        ),
+      body: AuroraBackground(
+        isPremium: flow.isPremium,
         child: SafeArea(
           child: Column(
             children: [

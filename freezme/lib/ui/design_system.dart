@@ -10,15 +10,16 @@ class FreezmeDesignSystem {
   // COLOR PALETTE - Frozen Creamy Theme (Soft, Consistent)
   // ============================================================================
   
-  // Primary - Soft purple (main brand color)
-  static const Color primary = Color(0xFF6C4B9C); // Deeper Purple (Logo Top)
-  static const Color primaryLight = Color(0xFFF0EBF8); // Lighter tint
-  static const Color primaryDark = Color(0xFF322258); // Dark Indigo (Logo Bottom)
+  // Primary - Glossy Deep Purple (main brand color)
+  static const Color primary = Color(0xFF4D2C91); // Richer Deep Purple
+  static const Color primaryLight = Color(0xFFF3EFFF); // Lighter tint
+  static const Color primaryDark = Color(0xFF2E1A47); // Deep Indigo
+  static const Color accentGloss = Color(0xFFC084FC); // Glossy highlight purple
   
   // Secondary - Now same as Primary (Purple)
   static const Color secondary = Color(0xFF6C4B9C);
   static const Color secondaryLight = Color(0xFFF0EBF8); // Same as primaryLight
-  static const Color secondaryDark = Color(0xFF4A306D); // Same as primaryDark
+  static const Color secondaryDark = Color(0xFF2E1A47); // Same as primaryDark
   
   // Accent - Warm tone
   static const Color accent = Color(0xFFF59E0B);
@@ -450,9 +451,9 @@ class FreezmeDesignSystem {
 class FreezmeGradients {
   /// Primary gradient - uses only purple shades for consistency
   static const LinearGradient primary = LinearGradient(
-    colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.primaryDark], // #6C4B9C -> #322258
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
+    colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.primaryDark],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
   );
   
   /// Soft background gradient
@@ -464,15 +465,27 @@ class FreezmeGradients {
   
   /// Subtle purple gradient for headers
   static const LinearGradient header = LinearGradient(
-    colors: [FreezmeDesignSystem.primary, Color(0xFF8B5CF6)],
+    colors: [FreezmeDesignSystem.primary, Color(0xFF7C3AED)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  /// Main Action Gradient (Purple -> Pink/Red)
+  /// Main Action Gradient (Rich Deep Purple -> Deep Indigo)
   static const LinearGradient buttonGradient = LinearGradient(
     colors: [FreezmeDesignSystem.primary, FreezmeDesignSystem.primaryDark],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
+  );
+  
+  /// Premium Glossy Gradient
+  static const LinearGradient premiumGloss = LinearGradient(
+    colors: [
+      Color(0xFF7C3AED),
+      FreezmeDesignSystem.primary,
+      FreezmeDesignSystem.primaryDark,
+    ],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    stops: [0.0, 0.5, 1.0],
   );
 }

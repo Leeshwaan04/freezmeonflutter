@@ -278,6 +278,7 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
     String? gender,
     String? location,
     List<String>? interests,
+    bool? isPremium,
   }) async {
     try {
       final updates = <String, dynamic>{};
@@ -287,6 +288,7 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
       if (gender != null) updates['gender'] = gender;
       if (location != null) updates['location'] = location;
       if (interests != null) updates['interests'] = interests;
+      if (isPremium != null) updates['isPremium'] = isPremium;
       updates['updatedAt'] = FieldValue.serverTimestamp();
 
       await _firestore.collection('profiles').doc(uid).set(
@@ -304,6 +306,7 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
           gender: gender,
           location: location,
           interests: interests,
+          isPremium: isPremium,
         );
       }
       rethrow;

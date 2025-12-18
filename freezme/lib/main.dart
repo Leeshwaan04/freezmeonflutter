@@ -27,6 +27,7 @@ import 'services/location_service.dart';
 import 'services/melt_chat_service.dart';
 import 'services/photo_upload_service.dart';
 import 'services/push_notification_service.dart';
+import 'services/iap_service.dart';
 
 import 'ui/theme.dart';
 import 'ui/shared/bottom_nav_bar.dart';
@@ -107,6 +108,10 @@ class AppFlowController extends ChangeNotifier {
        _locationService = locationService ?? LocationService(),
        photoSlots = List<PhotoSlot>.generate(6, (_) => const PhotoSlot()),
        dailyProfiles = _mockProfiles() {
+    iapService = IAPService(_repository, onSuccess: () {
+      isPremium = true;
+      notifyListeners();
+    });
     _offlineQueue = OfflineQueueService(_prefs);
     if (!skipHydrate) {
       _hydrate();
@@ -157,6 +162,7 @@ class AppFlowController extends ChangeNotifier {
   final MeltChatService _meltChatService;
   final FreezmeRepository _repository;
   final LocationService _locationService;
+  late final IAPService iapService;
   late final OfflineQueueService _offlineQueue;
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
 
@@ -183,6 +189,8 @@ class AppFlowController extends ChangeNotifier {
   List<PathsPresence> nearbyPaths = const [];
   Set<String> lastPathsIntents = const {'Friends', 'Dates'};
   double lastPathsRadiusKm = 10;
+  bool isPremium = false;
+
 
   List<AppStage> get stack => List.unmodifiable(_stack);
   AppStage get current => _stack.last;
@@ -590,6 +598,23 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.authGate]);
   }
 
+  Future<void> upgradeToPremium() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    
+    // Optimistic update
+    isPremium = true;
+    notifyListeners();
+
+    try {
+      await _repository.updateProfile(uid: uid, isPremium: true);
+    } catch (_) {
+      isPremium = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<void> uploadPhotoForSlot(int index) async {
     if (index < 0 || index >= photoSlots.length) {
       throw RangeError.index(index, photoSlots);
@@ -686,6 +711,7 @@ class AppFlowController extends ChangeNotifier {
         // and a non-empty distance string.
         hasPreferences =
             (profile.age > 0) && profile.distance.trim().isNotEmpty;
+        isPremium = profile.isPremium;
       }
       notifyListeners();
     } catch (_) {

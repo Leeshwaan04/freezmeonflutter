@@ -274,6 +274,7 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
     String? gender,
     String? location,
     List<String>? interests,
+    bool? isPremium,
   }) =>
       _fallback.updateProfile(
         uid: uid,
@@ -283,6 +284,7 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
         gender: gender,
         location: location,
         interests: interests,
+        isPremium: isPremium,
       );
 
   @override

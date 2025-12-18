@@ -921,6 +921,7 @@ class _AuthGatePageState extends State<AuthGatePage>
 
     return Scaffold(
       body: AuroraBackground(
+        isPremium: false, // Default look for login
         child: Stack(
           children: [
             // Animated gradient background - Frozen Creamy Theme
@@ -988,44 +989,48 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                     // Big Headline - Intentional dating
                     const Text(
-                      'Intentional dating\nfor soulful\nmatches',
+                      'Intentional dating\nfor soulful matches',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1F2937),
-                        height: 1.2,
-                        letterSpacing: -0.5,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF111827),
+                        height: 1.15,
+                        letterSpacing: -1.0,
                       ),
                     ),
 
                     const SizedBox(height: 16),
 
                     // Subtitle
-                    Text(
-                      'Daily pools, mindful pacing, and authentic\nconnections that keep it real.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.grey.shade600,
-                        height: 1.5,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        'Daily pools, mindful pacing, and authentic connections that keep it real.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                          height: 1.5,
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
                     ),
 
                     const SizedBox(height: 28),
 
-                    // Feature pills
+                    // Feature pills - Refined Alignment to match original vertical stack but with better style
                     Column(
                       children: [
-                        _buildFeaturePill(Icons.favorite_border_rounded, 'Curated daily matches'),
-                        const SizedBox(height: 10),
-                        _buildFeaturePill(Icons.chat_bubble_outline_rounded, 'Real conversations'),
-                        const SizedBox(height: 10),
+                        _buildFeaturePill(Icons.favorite_rounded, 'Curated daily matches'),
+                        const SizedBox(height: 12),
+                        _buildFeaturePill(Icons.chat_bubble_rounded, 'Real conversations'),
+                        const SizedBox(height: 12),
                         _buildFeaturePill(Icons.security_rounded, 'Accountability-first safety'),
                       ],
                     ),
 
-                   const SizedBox(height: 32),
+                   const SizedBox(height: 48),
 
                     // Sign-in buttons
                     SlideTransition(
@@ -1038,10 +1043,10 @@ class _AuthGatePageState extends State<AuthGatePage>
                             label: 'Continue with Apple',
                             onPressed: _isLoading ? null : _signInWithApple,
                             fullWidth: true,
-                            // Uses default gradient
+                            variant: ButtonVariant.filled, 
                           ),
                           
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           
                           // Continue with Google
                           PremiumButton(
@@ -1050,10 +1055,10 @@ class _AuthGatePageState extends State<AuthGatePage>
                             label: 'Continue with Google',
                             onPressed: _isLoading ? null : _signInWithGoogle,
                             fullWidth: true,
-                            textColor: const Color(0xFF6B7280), // Grey text for Google
+                            textColor: const Color(0xFF4B5563),
                           ),
                           
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           
                           // Continue with Email
                           PremiumButton(
@@ -1061,10 +1066,10 @@ class _AuthGatePageState extends State<AuthGatePage>
                             label: 'Continue with Email',
                             onPressed: _isLoading ? null : _signInWithEmail,
                             fullWidth: true,
-                            // Uses default gradient
+                            variant: ButtonVariant.filled,
                           ),
                           
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 32),
                           
                           // Guest mode
                           TextButton(
@@ -1207,29 +1212,29 @@ class _AuthGatePageState extends State<AuthGatePage>
 
   Widget _buildFeaturePill(IconData icon, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 20, color: FreezmeColors.primary),
-          const SizedBox(width: 10),
+          Icon(icon, size: 22, color: FreezmeColors.primary),
+          const SizedBox(width: 12),
           Text(
             label,
             style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
               color: Color(0xFF374151),
             ),
           ),

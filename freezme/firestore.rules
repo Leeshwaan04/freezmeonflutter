@@ -13,9 +13,13 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      // Anyone signed in can read (for discovery), but maybe limit fields in production function
       allow read: if isSignedIn();
-      // Only owner can update their profile
+      allow write: if isOwner(userId);
+    }
+
+    // Profiles collection
+    match /profiles/{userId} {
+      allow read: if isSignedIn();
       allow write: if isOwner(userId);
     }
 

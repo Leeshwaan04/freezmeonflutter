@@ -16,6 +16,7 @@ class VibeProfile {
     this.geohash,
     this.lastActive,
     this.timezone,
+    this.isPremium = false,
   });
 
   final String uid;
@@ -33,7 +34,9 @@ class VibeProfile {
   final double? lng;
   final String? geohash;
   final DateTime? lastActive;
+
   final String? timezone;
+  final bool isPremium;
 
   factory VibeProfile.fromJson(
     Map<String, dynamic> json, {
@@ -95,7 +98,9 @@ class VibeProfile {
       lng: (json['lng'] as num?)?.toDouble(),
       geohash: json['geohash'] as String?,
       lastActive: lastActive,
+
       timezone: json['timezone'] as String?,
+      isPremium: json['isPremium'] as bool? ?? false,
     );
   }
 
@@ -115,6 +120,8 @@ class VibeProfile {
     if (lng != null) 'lng': lng,
     if (geohash != null) 'geohash': geohash,
     if (lastActive != null) 'lastActive': lastActive!.toIso8601String(),
+
     if (timezone != null) 'timezone': timezone,
+    'isPremium': isPremium,
   };
 }

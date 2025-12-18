@@ -7,17 +7,17 @@ class FreezmeColors {
   /// Global low-motion flag; set true to tone down heavy gradients/shadows.
   static const bool lowMotion = false;
 
-  static const Color primary = Color(0xFF6C4B9C);
-  static const Color secondary = Color(0xFF6C4B9C); // Now same as primary for All Purple theme
-  static const Color accent = Color(0xFFF64F59);
-  static const Color neutral = Color(0xFF2D2D2D);
-  static const Color muted = Color(0xFF8B7A9A);
-  static const Color border = Color(0xFFE5D9ED);
-  static const Color surface = Color(0xFFFFF5F8);
-  static const Color surfaceAlt = Color(0xFFF5E6F0);
-  static const Color background = Color(0xFFF6F0FF);
-  static const Color success = Color(0xFFFF9A56);
-  static const Color error = Color(0xFFD93F5B);
+  static const Color primary = Color(0xFF4D2C91); // Richer Deep Purple
+  static const Color secondary = Color(0xFF4D2C91); 
+  static const Color accent = Color(0xFF7C3AED);
+  static const Color neutral = Color(0xFF1F2937);
+  static const Color muted = Color(0xFF6B7280);
+  static const Color border = Color(0xFFE5E7EB);
+  static const Color surface = Color(0xFFFAF9FF);
+  static const Color surfaceAlt = Color(0xFFF5F3FF);
+  static const Color background = Color(0xFFFFFFFF);
+  static const Color success = Color(0xFF10B981);
+  static const Color error = Color(0xFFEF4444);
 
   // Aliases for consistency
   static const Color text = neutral;
@@ -28,7 +28,7 @@ class FreezmeGradients {
   FreezmeGradients._();
 
   static const LinearGradient primary = LinearGradient(
-    colors: [Color(0xFF6C4B9C), Color(0xFFF64F59)],
+    colors: [Color(0xFF4D2C91), Color(0xFF2E1A47)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

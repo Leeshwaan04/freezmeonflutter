@@ -181,6 +181,7 @@ class MockFreezmeRepository implements FreezmeRepository {
     String? gender,
     String? location,
     List<String>? interests,
+    bool? isPremium,
   }) async {}
 
   @override

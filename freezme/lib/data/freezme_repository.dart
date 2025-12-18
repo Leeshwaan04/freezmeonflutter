@@ -42,6 +42,7 @@ abstract class FreezmeRepository {
     String? gender,
     String? location,
     List<String>? interests,
+    bool? isPremium,
   });
 
   // Messaging

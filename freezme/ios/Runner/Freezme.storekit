@@ -1,0 +1,70 @@
+{
+  "identifier" : "freezme_plus_config",
+  "nonRenewingSubscriptions" : [ ],
+  "products" : [ ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSelectedLocalization" : "en_US",
+    "_locale" : "en_US",
+    "_storefront" : "IND",
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "FREEZME_PLUS_GROUP",
+      "localizations" : [ ],
+      "name" : "Freezme+ Subscriptions",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [ ],
+          "codeOffers" : [ ],
+          "displayPrice" : "149",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "WEEKLY_PLUS_RENEWABLE",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlock all premium features for a week",
+              "displayName" : "Freezme+ Weekly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "freezme_plus_weekly",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "Weekly Plus",
+          "subscriptionGroupID" : "FREEZME_PLUS_GROUP",
+          "type" : "Recurring Subscription"
+        },
+        {
+          "adHocOffers" : [ ],
+          "codeOffers" : [ ],
+          "displayPrice" : "499",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "MONTHLY_PLUS_RENEWABLE",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlock all premium features for a month",
+              "displayName" : "Freezme+ Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "freezme_plus_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly Plus",
+          "subscriptionGroupID" : "FREEZME_PLUS_GROUP",
+          "type" : "Recurring Subscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 2,
+    "minor" : 0
+  }
+}

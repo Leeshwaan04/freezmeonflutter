@@ -91,18 +91,39 @@ class PremiumButton extends StatelessWidget {
                 ),
               ],
             ),
-            child: ElevatedButton(
-              onPressed: loading ? null : (onPressed != null ? _handlePress : null),
-              style: ElevatedButton.styleFrom(
-                padding: padding,
-                backgroundColor: Colors.transparent,
-                foregroundColor: textColor ?? Colors.white,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
+            child: Stack(
+              children: [
+                // Glossy reflection overlay
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.15),
+                          Colors.white.withValues(alpha: 0.0),
+                        ],
+                        stops: const [0.0, 0.5],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: buttonChild,
+                ElevatedButton(
+                  onPressed: loading ? null : (onPressed != null ? _handlePress : null),
+                  style: ElevatedButton.styleFrom(
+                    padding: padding,
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: textColor ?? Colors.white,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
+                    ),
+                  ),
+                  child: buttonChild,
+                ),
+              ],
             ),
           );
         }
@@ -810,6 +831,7 @@ class UserAvatar extends StatelessWidget {
   final double size;
   final bool isOnline;
   final bool isVerified;
+  final bool isPremium;
 
   const UserAvatar({
     super.key,
@@ -818,6 +840,7 @@ class UserAvatar extends StatelessWidget {
     this.size = 48,
     this.isOnline = false,
     this.isVerified = false,
+    this.isPremium = false,
   });
 
   @override
@@ -873,6 +896,13 @@ class UserAvatar extends StatelessWidget {
             right: 0,
             top: 0,
             child: VerificationBadge(size: size * 0.35, showBackground: true),
+          ),
+        // Premium badge
+        if (isPremium)
+          Positioned(
+            left: 0,
+            top: 0,
+            child: PremiumBadge(size: size * 0.3),
           ),
       ],
     );
