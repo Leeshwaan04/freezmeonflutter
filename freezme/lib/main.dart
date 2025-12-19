@@ -321,7 +321,19 @@ class AppFlowController extends ChangeNotifier {
     return true;
   }
 
-  void completeSplash() => replaceStack(<AppStage>[AppStage.authGate]);
+  void completeSplash() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+      if (completed) {
+        replaceStack(<AppStage>[AppStage.dailyPool]);
+      } else {
+        replaceStack(<AppStage>[AppStage.onboarding]);
+      }
+    } else {
+      replaceStack(<AppStage>[AppStage.authGate]);
+    }
+  }
 
   void startOnboarding() {
     _prefs?.remove(_kOnboardingCompleteKey);
