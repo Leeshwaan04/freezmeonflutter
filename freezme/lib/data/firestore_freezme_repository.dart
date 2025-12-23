@@ -239,12 +239,12 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
           'isTyping': (data['typing'] as Map?)?.entries.any((e) => e.key != currentUser && (e.value['isTyping'] as bool? ?? false)) ?? false,
         };
       }).toList();
-    }).handleError((error, stackTrace) {
+    }).onErrorResume((error, stackTrace) {
       final fallback = _fallback;
       if (fallback != null) {
         return fallback.watchMatches();
       }
-      throw error;
+      return Stream.error(error);
     });
   }
 
@@ -387,7 +387,14 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => ChatMessage.fromJson(doc.data(), documentId: doc.id))
-            .toList());
+            .toList())
+        .onErrorResume((error, stackTrace) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.messagesForChat(chatId, limit: limit);
+      }
+      return Stream.error(error);
+    });
   }
 
   @override
@@ -763,7 +770,14 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
         .doc(sessionId)
         .snapshots()
         .where((doc) => doc.exists)
-        .map((doc) => BlindSession.fromJson(doc.data()!, documentId: doc.id));
+        .map((doc) => BlindSession.fromJson(doc.data()!, documentId: doc.id))
+        .onErrorResume((error, stackTrace) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.blindSessionUpdates(sessionId);
+      }
+      return Stream.error(error);
+    });
   }
 
   @override
@@ -788,7 +802,13 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
         final all = [...a.docs, ...b.docs];
         return all.map((doc) => BlindSession.fromJson(doc.data(), documentId: doc.id)).toList();
       }
-    );
+    ).onErrorResume((error, stackTrace) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.watchUserBlindSessions();
+      }
+      return Stream.error(error);
+    });
   }
 
   @override
@@ -883,6 +903,12 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
       }
 
       return posts;
+    }).onErrorResume((error, stackTrace) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.watchFeed(limit: limit);
+      }
+      return Stream.error(error);
     });
   }
 
@@ -1051,6 +1077,12 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
           'postId': postId,
         };
       }).toList();
+    }).onErrorResume((error, stackTrace) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.watchComments(postId);
+      }
+      return Stream.error(error);
     });
   }
 
@@ -1220,7 +1252,14 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
         .map((snapshot) => snapshot.docs.map((doc) => {
           ...doc.data(),
           'id': doc.id,
-        }).toList());
+        }).toList())
+        .onErrorResume((error, stackTrace) {
+      final fallback = _fallback;
+      if (fallback != null) {
+        return fallback.watchMeltInvites();
+      }
+      return Stream.error(error);
+    });
   }
 
   @override

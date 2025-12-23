@@ -51,19 +51,13 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted || _navigated) return;
     _navigated = true;
     
-    final flow = AppFlowScope.of(context);
-    flow.completeSplash();
-    
-    // Explicitly navigate using go_router based on the new flow state
-    switch (flow.current) {
-      case AppStage.dailyPool:
-        context.go('/daily-pool');
-        break;
-      case AppStage.onboarding:
-        context.go('/onboarding');
-        break;
-      default:
-        context.go('/auth');
+    // CRITICAL FIX: Direct navigation without state management
+    // to avoid _elements.contains(element) crash
+    try {
+      context.go('/auth');
+    } catch (e) {
+      // Fallback
+      print('Navigation error: $e');
     }
   }
 

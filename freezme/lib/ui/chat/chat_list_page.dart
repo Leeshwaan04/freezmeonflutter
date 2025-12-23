@@ -189,7 +189,7 @@ class _ChatListPageState extends State<ChatListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context, listen: true);
+    final flow = AppFlowScope.of(context);
 
     return Scaffold(
       backgroundColor: FreezmeDesignSystem.background,

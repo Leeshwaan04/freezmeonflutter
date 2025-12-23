@@ -112,10 +112,15 @@ class _HomePageState extends State<HomePage> {
         });
 
         // Trigger paths refresh in background
-        unawaited(flow.refreshPaths(
-          radiusKm: flow.lastPathsRadiusKm,
-          intents: flow.lastPathsIntents,
-        ));
+        // Trigger paths refresh in background
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            unawaited(flow.refreshPaths(
+              radiusKm: flow.lastPathsRadiusKm,
+              intents: flow.lastPathsIntents,
+            ));
+          }
+        });
       }
     } catch (e) {
       // Error loading data, use fallback
@@ -168,7 +173,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final flow = AppFlowScope.of(context, listen: true);
+    final flow = AppFlowScope.of(context);
 
     return Scaffold(
       backgroundColor: FreezmeDesignSystem.background,
@@ -186,8 +191,8 @@ class _HomePageState extends State<HomePage> {
           color: FreezmeDesignSystem.primary,
           backgroundColor: FreezmeDesignSystem.surface,
           onRefresh: _loadData,
-          child: CustomScrollView(
-            key: const PageStorageKey('homeScroll'),
+            child: CustomScrollView(
+            // Key removed to prevent Duplicate GlobalKey collision during transitions
             slivers: [
               _buildHeader(),
               // Profile completion prompt moved to Profile page - no longer a blocker here
