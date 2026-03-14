@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/app_stage.dart';
 
 /// Central design tokens for consistent styling across the app.
 class FreezmeColors {
@@ -56,6 +57,96 @@ class FreezmeGradients {
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
   );
+
+  static LinearGradient mission(LifestyleArchetype? mission) {
+    switch (mission) {
+      case LifestyleArchetype.gym:
+        return const LinearGradient(
+          colors: [Color(0xFF2AF598), Color(0xFF009EFD)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case LifestyleArchetype.brunch:
+        return const LinearGradient(
+          colors: [Color(0xFFFF9A9E), Color(0xFFFAD0C4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case LifestyleArchetype.clubbing:
+        return const LinearGradient(
+          colors: [Color(0xFFB122E5), Color(0xFFFF63DE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case LifestyleArchetype.travel:
+        return const LinearGradient(
+          colors: [Color(0xFF4FACFE), Color(0xFF00F2FE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      case LifestyleArchetype.homebody:
+        return const LinearGradient(
+          colors: [Color(0xFFF6D365), Color(0xFFFDA085)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+      default:
+        return primary;
+    }
+  }
+}
+
+class MissionTheme {
+  final LinearGradient gradient;
+  final Color accentColor;
+  final String vibeLabel;
+
+  MissionTheme({
+    required this.gradient,
+    required this.accentColor,
+    required this.vibeLabel,
+  });
+
+  factory MissionTheme.fromArchetype(LifestyleArchetype? mission) {
+    switch (mission) {
+      case LifestyleArchetype.gym:
+        return MissionTheme(
+          gradient: FreezmeGradients.mission(mission),
+          accentColor: const Color(0xFF2AF598),
+          vibeLabel: "Active Vibe ⚡",
+        );
+      case LifestyleArchetype.brunch:
+        return MissionTheme(
+          gradient: FreezmeGradients.mission(mission),
+          accentColor: const Color(0xFFFF9A9E),
+          vibeLabel: "Cozy Brunch 🥂",
+        );
+      case LifestyleArchetype.clubbing:
+        return MissionTheme(
+          gradient: FreezmeGradients.mission(mission),
+          accentColor: const Color(0xFFB122E5),
+          vibeLabel: "Night Owl 🎶",
+        );
+      case LifestyleArchetype.travel:
+        return MissionTheme(
+          gradient: FreezmeGradients.mission(mission),
+          accentColor: const Color(0xFF4FACFE),
+          vibeLabel: "Explorer 🎒",
+        );
+      case LifestyleArchetype.homebody:
+        return MissionTheme(
+          gradient: FreezmeGradients.mission(mission),
+          accentColor: const Color(0xFFF6D365),
+          vibeLabel: "Homey 🏠",
+        );
+      default:
+        return MissionTheme(
+          gradient: FreezmeGradients.primary,
+          accentColor: FreezmeColors.primary,
+          vibeLabel: "Generic Vibe ✨",
+        );
+    }
+  }
 }
 
 class FreezmeTypography {
@@ -112,6 +203,17 @@ class FreezmeInsets {
   static const double cardRadius = 28;
   static const double elementSpacing = 16;
   static const double sectionSpacing = 24;
+}
+
+class FreezmeAnimations {
+  FreezmeAnimations._();
+
+  static const Duration fast = Duration(milliseconds: 200);
+  static const Duration normal = Duration(milliseconds: 400);
+  static const Duration slow = Duration(milliseconds: 800);
+
+  static const Curve premiumCurve = Curves.easeOutQuart;
+  static const Curve elasticCurve = Curves.elasticOut;
 }
 
 class FreezmeButtons {

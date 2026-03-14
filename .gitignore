@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Backend / infra (not part of Flutter app)
+freezme-backend/
+freezme/backend/
+freezme/infra/
