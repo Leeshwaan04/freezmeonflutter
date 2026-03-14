@@ -4,6 +4,6 @@
 .LSOverride
 
 # Backend / infra (not part of Flutter app)
-freezme-backend/
+# freezme-backend/
 freezme/backend/
 freezme/infra/
