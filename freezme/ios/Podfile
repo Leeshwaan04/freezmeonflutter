@@ -39,6 +39,13 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    # Disable module definition for geolocator_apple to prevent VerifyModule
+    # from failing because Flutter/Flutter.h isn't in its search paths at that stage
+    if target.name == 'geolocator_apple'
+      target.build_configurations.each do |config|
+        config.build_settings['DEFINES_MODULE'] = 'NO'
+      end
+    end
     target.build_configurations.each do |config|
       # Force Swift 5.0 to avoid strict Swift 6 checks on old plugins
       config.build_settings['SWIFT_VERSION'] = '5.0'
@@ -50,6 +57,9 @@ post_install do |installer|
       config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
       config.build_settings['CLANG_ENABLE_MODULE_VERIFIER'] = 'NO'
       config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      
+      # Fix for 'Flutter/Flutter.h' not found during Module Verification
+      config.build_settings['HEADER_SEARCH_PATHS'] ||= ['$(inherited)', '$(SRCROOT)/../../Flutter/ephemeral/Flutter.framework/Headers']
       
       # Suppress exhaustive switch warnings/errors for iOS 18
       config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -suppress-warnings'
