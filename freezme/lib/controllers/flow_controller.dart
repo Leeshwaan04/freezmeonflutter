@@ -40,6 +40,11 @@ class AppFlowController extends ChangeNotifier {
   bool _isPremium = false;
   int _vibeCredits = 3;
 
+  set isVerified(bool value) {
+    _isVerified = value;
+    notifyListeners();
+  }
+
   List<AppStage> get stack => List.unmodifiable(_stack);
   AppStage get current => _stack.last;
   int get poolIndex => _poolIndex;
@@ -207,6 +212,29 @@ class AppFlowController extends ChangeNotifier {
     if (pop()) {
       activeProfile = null;
     }
+  }
+
+  void startVideoDate([VibeProfile? profile]) {
+    if (profile != null) activeProfile = profile;
+    pushIfMissing(AppStage.videoDate);
+  }
+
+  void completeVideoDate() {
+    if (_stack.last == AppStage.videoDate) {
+      pop();
+    }
+  }
+
+  Future<void> purchasePremium() async {
+    _isPremium = true;
+    await _prefs?.setBool('is_premium', true);
+    notifyListeners();
+  }
+
+  Future<void> buyCredits(int amount) async {
+    _vibeCredits += amount;
+    await _prefs?.setInt('vibe_credits', _vibeCredits);
+    notifyListeners();
   }
 
   void skipProfile() {

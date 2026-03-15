@@ -79,6 +79,26 @@ class _FreezmeAppState extends State<FreezmeApp> {
   }
 }
 
+class CustomTransitionPage<T> extends Page<T> {
+  const CustomTransitionPage({
+    required this.child,
+    required this.transitionsBuilder,
+    super.key,
+  });
+
+  final Widget child;
+  final Widget Function(BuildContext, Animation<double>, Animation<double>, Widget) transitionsBuilder;
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    return PageRouteBuilder<T>(
+      settings: this,
+      pageBuilder: (context, animation, secondaryAnimation) => child,
+      transitionsBuilder: transitionsBuilder,
+    );
+  }
+}
+
 class FlowNavigator extends StatelessWidget {
   const FlowNavigator({super.key});
 

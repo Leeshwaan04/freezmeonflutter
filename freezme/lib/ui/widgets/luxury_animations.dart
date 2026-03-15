@@ -99,10 +99,10 @@ class ShatterTransition extends StatefulWidget {
   const ShatterTransition({super.key, required this.child});
 
   @override
-  State<ShatterTransition> createState() => _ShatterTransitionState();
+  State<ShatterTransition> createState() => ShatterTransitionState();
 }
 
-class _ShatterTransitionState extends State<ShatterTransition> with SingleTickerProviderStateMixin {
+class ShatterTransitionState extends State<ShatterTransition> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override

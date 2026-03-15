@@ -17,7 +17,6 @@ class _FreezeScreenState extends State<FreezeScreen> with SingleTickerProviderSt
 
   @override
   void dispose() {
-    _shatterController.dispose();
     super.dispose();
   }
 

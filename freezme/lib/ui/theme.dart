@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../core/app_stage.dart';
 
 /// Central design tokens for consistent styling across the app.
@@ -36,6 +37,12 @@ class FreezmeGradients {
 
   static const LinearGradient accent = LinearGradient(
     colors: [FreezmeColors.secondary, FreezmeColors.accent],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient premium = LinearGradient(
+    colors: [Color(0xFFFFD700), Color(0xFFFFA500)], // Gold to Orange
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
