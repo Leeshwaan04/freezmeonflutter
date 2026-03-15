@@ -14,6 +14,9 @@ class OnboardingFlowPage extends StatefulWidget {
 class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   int _step = 1;
   String? _selectedIntent;
+  final TextEditingController _bioController = TextEditingController();
+  final TextEditingController _ageController = TextEditingController();
+  final List<String> _selectedInterests = [];
 
   final List<({String id, String label, String emoji})> _intents = const [
     (id: 'meaningful', label: 'Meaningful connection', emoji: '💜'),
@@ -30,11 +33,24 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   ];
 
   void _handleNext(AppFlowController flow) {
-    if (_step < 4) {
-      setState(() => _step++);
+    if (_step == 4) {
+      flow.updateOnboardingData(
+        bio: _bioController.text,
+        age: int.tryParse(_ageController.text),
+        interests: _selectedInterests,
+      );
+      flow.beginCompatibilityQuiz();
       return;
     }
-    flow.beginCompatibilityQuiz();
+
+    // Sync current step data
+    if (_step == 1) {
+      flow.updateOnboardingData(interests: [_selectedIntent!]); // Store intent as a starting interest
+    } else if (_step == 2) {
+      flow.updateOnboardingData(archetype: flow.selectedArchetype);
+    }
+
+    setState(() => _step++);
   }
 
   @override
@@ -314,6 +330,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
               ),
               const SizedBox(height: FreezmeInsets.elementSpacing / 2),
               TextField(
+                controller: _bioController,
                 maxLines: 5,
                 decoration: InputDecoration(
                   hintText: 'What makes you, you?',
@@ -349,6 +366,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                           height: FreezmeInsets.elementSpacing / 2,
                         ),
                         TextField(
+                          controller: _ageController,
                           keyboardType: TextInputType.number,
                           decoration: InputDecoration(
                             hintText: '25',
@@ -427,14 +445,24 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
               Wrap(
                 spacing: FreezmeInsets.elementSpacing,
                 runSpacing: FreezmeInsets.elementSpacing,
-                children: const [
-                  _InterestChip(label: 'Music'),
-                  _InterestChip(label: 'Travel'),
-                  _InterestChip(label: 'Art'),
-                  _InterestChip(label: 'Fitness'),
-                  _InterestChip(label: 'Food'),
-                  _InterestChip(label: 'Books'),
-                ],
+                children: [
+                  'Music', 'Travel', 'Art', 'Fitness', 'Food', 'Books'
+                ].map((interest) {
+                  final isSelected = _selectedInterests.contains(interest);
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      if (isSelected) {
+                        _selectedInterests.remove(interest);
+                      } else {
+                        _selectedInterests.add(interest);
+                      }
+                    }),
+                    child: _InterestChip(
+                      label: interest,
+                      isSelected: isSelected,
+                    ),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 80),
             ],
@@ -476,7 +504,10 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
               return _StaggeredEntrance(
                 index: index,
                 child: GestureDetector(
-                  onTap: () => flow.setLifestyleArchetype(mission.id),
+                  onTap: () {
+                    flow.setLifestyleArchetype(mission.id);
+                    setState(() {});
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.only(
@@ -544,21 +575,22 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
 }
 
 class _InterestChip extends StatelessWidget {
-  const _InterestChip({required this.label});
+  const _InterestChip({required this.label, this.isSelected = false});
 
   final String label;
+  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
     return Chip(
       label: Text(label),
-      backgroundColor: Colors.white,
+      backgroundColor: isSelected ? FreezmeColors.primary : Colors.white,
       shape: const StadiumBorder(),
       labelStyle: FreezmeTypography.body.copyWith(
         fontWeight: FontWeight.w500,
-        color: FreezmeColors.neutral,
+        color: isSelected ? Colors.white : FreezmeColors.neutral,
       ),
-      side: const BorderSide(color: FreezmeColors.border),
+      side: BorderSide(color: isSelected ? FreezmeColors.primary : FreezmeColors.border),
     );
   }
 }
