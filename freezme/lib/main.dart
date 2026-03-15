@@ -1,4 +1,6 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'firebase_options.dart';
 import 'ui/theme.dart';
 import 'controllers/flow_controller.dart';
 import 'core/app_stage.dart';
@@ -23,8 +25,11 @@ import 'ui/screens/vector_simulation.dart';
 import 'ui/screens/circle_discovery.dart';
 import 'ui/screens/circle_chat.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const FreezmeApp());
 }
 
