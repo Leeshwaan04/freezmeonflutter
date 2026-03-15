@@ -1,30 +1,34 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/app_stage.dart';
-import '../models/profile.dart';
+import '../models/vibe_profile.dart';
+import '../data/freezme_repository.dart';
 
 class AppFlowController extends ChangeNotifier {
   static const _kOnboardingCompleteKey = 'onboarding_complete';
 
-  AppFlowController._(this._prefs) : dailyProfiles = _mockProfiles() {
+  AppFlowController._(this._prefs, this._repository) : dailyProfiles = <VibeProfile>[] {
     _hydrate();
+    fetchDailyPool(); // Initial fetch
   }
 
-  static Future<AppFlowController> create() async {
+  static Future<AppFlowController> create(FreezmeRepository repository) async {
     SharedPreferences? prefs;
     try {
       prefs = await SharedPreferences.getInstance();
     } catch (_) {
       // ignore; running in environments where shared_preferences is unavailable
     }
-    return AppFlowController._(prefs);
+    return AppFlowController._(prefs, repository);
   }
 
   final SharedPreferences? _prefs;
+  final FreezmeRepository _repository;
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
   final List<AppMatch> matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
@@ -237,6 +241,47 @@ class AppFlowController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> fetchDailyPool() async {
+    try {
+      final profiles = await _repository.fetchDailyProfiles();
+      dailyProfiles.clear();
+      dailyProfiles.addAll(profiles);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error fetching daily pool: $e');
+    }
+  }
+
+  Future<void> updateOnboardingData({
+    String? name,
+    int? age,
+    String? bio,
+    LifestyleArchetype? archetype,
+    List<String>? interests,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return; // Not signed in — skip write
+
+    await _repository.updateProfile(
+      uid: uid,
+      displayName: name,
+      bio: bio,
+      age: age,
+      interests: interests,
+    );
+
+    if (archetype != null) {
+      selectedArchetype = archetype;
+    }
+    notifyListeners();
+  }
+
+  Future<void> signOut() async {
+    await FirebaseAuth.instance.signOut();
+    await _prefs?.clear();
+    replaceStack([AppStage.authGate]);
+  }
+
   void skipProfile() {
     if (_poolIndex < dailyProfiles.length - 1) {
       _poolIndex++;
@@ -302,44 +347,6 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.dailyPool]);
   }
 
-  static List<VibeProfile> _mockProfiles() => const <VibeProfile>[
-        VibeProfile(
-          id: 1,
-          name: 'Emma',
-          age: 24,
-          imageUrl:
-              'https://images.unsplash.com/photo-1546961329-78bef0414d7c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYwOTQ2MDQ5fDA&ixlib=rb-4.1.0&q=80&w=1080',
-          compatibility: 92,
-          bio:
-              'Adventure seeker | Coffee addict | Let\'s explore the city together ☕',
-          distance: '2 km away',
-          archetypes: [LifestyleArchetype.brunch, LifestyleArchetype.travel],
-        ),
-        VibeProfile(
-          id: 2,
-          name: 'Alex',
-          age: 27,
-          imageUrl:
-              'https://images.unsplash.com/flagged/photo-1596479042555-9265a7fa7983?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMG1hbiUyMHBvcnRyYWl0fGVufDF8fHx8MTc2MDkzNjI2MHww&ixlib=rb-4.1.0&q=80&w=1080',
-          compatibility: 88,
-          bio:
-              'Fitness enthusiast | Foodie | Looking for meaningful connections 💪',
-          distance: '5 km away',
-          archetypes: [LifestyleArchetype.gym],
-        ),
-        VibeProfile(
-          id: 3,
-          name: 'Sophie',
-          age: 26,
-          imageUrl:
-              'https://images.unsplash.com/photo-1591969851586-adbbd4accf81?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb21hbnRpYyUyMGNvdXBsZXxlbnwxfHx8fDE3NjA5Nzg1Nzh8MA&ixlib=rb-4.1.0&q=80&w=1080',
-          compatibility: 85,
-          bio:
-              'Artist at heart | Music lover | Deep conversations over small talk 🎨',
-          distance: '3 km away',
-          archetypes: [LifestyleArchetype.clubbing, LifestyleArchetype.brunch],
-        ),
-      ];
 }
 
 class AppFlowScope extends InheritedNotifier<AppFlowController> {

@@ -1,12 +1,156 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
 import '../../core/app_stage.dart';
 import '../widgets/freezme_logo.dart';
 
-class AuthGatePage extends StatelessWidget {
+class AuthGatePage extends StatefulWidget {
   const AuthGatePage({super.key});
+
+  @override
+  State<AuthGatePage> createState() => _AuthGatePageState();
+}
+
+class _AuthGatePageState extends State<AuthGatePage> {
+  bool _isLoading = false;
+
+  Future<void> _signInWithGoogle(AppFlowController flow) async {
+    setState(() => _isLoading = true);
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) return;
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      if (mounted) flow.startOnboarding();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google sign-in failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _signInWithApple(AppFlowController flow) async {
+    setState(() => _isLoading = true);
+    try {
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+      await FirebaseAuth.instance.signInWithCredential(oauthCredential);
+      if (mounted) flow.startOnboarding();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Apple sign-in failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _signInWithEmail(AppFlowController flow) async {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    bool isSignUp = true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(isSignUp ? 'Create Account' : 'Sign In'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Password'),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () =>
+                    setDialogState(() => isSignUp = !isSignUp),
+                child: Text(isSignUp
+                    ? 'Already have an account? Sign in'
+                    : 'New here? Create account'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(isSignUp ? 'Sign Up' : 'Sign In')),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+    setState(() => _isLoading = true);
+    try {
+      UserCredential cred;
+      if (isSignUp) {
+        cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: emailCtrl.text.trim(),
+          password: passCtrl.text,
+        );
+        await cred.user?.sendEmailVerification();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Verification email sent — please check your inbox.')),
+          );
+        }
+      } else {
+        cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: emailCtrl.text.trim(),
+          password: passCtrl.text,
+        );
+        if (cred.user != null && !cred.user!.emailVerified) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please verify your email before continuing.')),
+            );
+          }
+          await FirebaseAuth.instance.signOut();
+          return;
+        }
+      }
+      if (mounted) flow.startOnboarding();
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Authentication failed')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   static const _highlights = [
     (icon: Icons.favorite_outline, label: 'Curated daily matches'),
@@ -112,17 +256,39 @@ class AuthGatePage extends StatelessWidget {
                                     ),
                                 ] ,
                               ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(
-                            height: FreezmeInsets.sectionSpacing * 1.2),
+                          if (kDebugMode) ...[
+                            const SizedBox(height: FreezmeInsets.elementSpacing),
+                            ElevatedButton.icon(
+                              onPressed: flow.openDeveloperMenu,
+                              icon: const Icon(Icons.developer_mode),
+                              label: const Text('OPEN DEVELOPER PREVIEW'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: FreezmeColors.primary,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(double.infinity, 50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(
+                              height: FreezmeInsets.sectionSpacing * 1.2),
+                        if (_isLoading)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 28),
+                            child: CircularProgressIndicator(),
+                          )
+                        else ...[
                         _AuthButton(
                           label: 'Continue with Apple',
                           icon: Icons.apple,
                           background: Colors.black,
                           foreground: Colors.white,
-                          onTap: flow.startOnboarding,
+                          onTap: () => _signInWithApple(flow),
                         ),
                         const SizedBox(height: FreezmeInsets.elementSpacing),
                         _AuthButton(
@@ -134,7 +300,7 @@ class AuthGatePage extends StatelessWidget {
                             color: FreezmeColors.border,
                             width: 2,
                           ),
-                          onTap: flow.startOnboarding,
+                          onTap: () => _signInWithGoogle(flow),
                         ),
                         const SizedBox(height: FreezmeInsets.elementSpacing),
                         _AuthButton(
@@ -142,8 +308,9 @@ class AuthGatePage extends StatelessWidget {
                           icon: Icons.mail_outline,
                           gradient: FreezmeGradients.primary,
                           foreground: Colors.white,
-                          onTap: flow.startOnboarding,
+                          onTap: () => _signInWithEmail(flow),
                         ),
+                        ],
                         const SizedBox(height: FreezmeInsets.sectionSpacing),
                         const Text(
                           'Your vibe begins with one tap 💫',
@@ -177,38 +344,6 @@ class AuthGatePage extends StatelessWidget {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        if (kDebugMode) ...[
-                          const SizedBox(height: FreezmeInsets.sectionSpacing),
-                          const Text(
-                            'Dev Verification Shortcuts:',
-                            style: TextStyle(
-                              color: FreezmeColors.muted,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: FreezmeInsets.elementSpacing),
-                          Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final mission in LifestyleArchetype.values)
-                                ActionChip(
-                                  label: Text(mission.name),
-                                  onPressed: () {
-                                    flow.setLifestyleArchetype(mission);
-                                    flow.replaceStack([AppStage.dailyPool]);
-                                  },
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: FreezmeInsets.elementSpacing),
-                          TextButton(
-                            onPressed: flow.openDeveloperMenu,
-                            child: const Text('Open Developer Preview'),
-                          ),
-                        ],
                       ],
                     ),
                   ),

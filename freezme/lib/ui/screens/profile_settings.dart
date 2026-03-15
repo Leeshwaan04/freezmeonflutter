@@ -1,3 +1,5 @@
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
@@ -14,9 +16,73 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
   bool _notifications = true;
   bool _showOnline = true;
   bool _readReceipts = false;
+  bool _deletingAccount = false;
+
+  Future<void> _confirmDeleteAccount(
+      BuildContext context, AppFlowController flow) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This permanently deletes your profile, matches, messages, and all data. '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Forever'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _deletingAccount = true);
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('deleteAccount')
+          .call<Map<String, dynamic>>();
+      if (context.mounted) flow.signOut();
+    } on FirebaseFunctionsException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not delete account: ${e.message}')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deletingAccount = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_deletingAccount) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Deleting your account…'),
+            ],
+          ),
+        ),
+      );
+    }
     final flow = AppFlowScope.of(context, listen: false);
     final menuItems = [
       (
@@ -351,9 +417,22 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                           shape: const StadiumBorder(),
                           side: const BorderSide(color: FreezmeColors.border),
                         ),
-                        onPressed: flow.finishMatchSuccessToPool,
+                        onPressed: flow.signOut,
                         icon: const Icon(Icons.logout),
                         label: const Text('Sign Out'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red.shade600,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 14,
+                          ),
+                        ),
+                        onPressed: () => _confirmDeleteAccount(context, flow),
+                        icon: const Icon(Icons.delete_forever_outlined),
+                        label: const Text('Delete Account'),
                       ),
                       const SizedBox(height: 16),
                       const Text(

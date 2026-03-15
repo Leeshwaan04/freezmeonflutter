@@ -1,9 +1,13 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'ui/theme.dart';
 import 'controllers/flow_controller.dart';
 import 'core/app_stage.dart';
+import 'data/firestore_freezme_repository.dart';
+import 'data/mock_freezme_repository.dart';
 
 // Screen Imports
 import 'ui/screens/splash_screen.dart';
@@ -30,6 +34,16 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Crashlytics — capture uncaught Flutter + platform errors in release builds
+  if (!kDebugMode) {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  }
+
   runApp(const FreezmeApp());
 }
 
@@ -46,7 +60,11 @@ class _FreezmeAppState extends State<FreezmeApp> {
   @override
   void initState() {
     super.initState();
-    AppFlowController.create().then((controller) {
+    // Use Firestore in production; only fall back to mock in debug builds
+    final repository = FirestoreFreezmeRepository(
+      fallback: kDebugMode ? const MockFreezmeRepository() : null,
+    );
+    AppFlowController.create(repository).then((controller) {
       if (mounted) {
         setState(() {
           _controller = controller;

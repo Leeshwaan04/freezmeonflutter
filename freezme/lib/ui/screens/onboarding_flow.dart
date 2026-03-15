@@ -14,6 +14,7 @@ class OnboardingFlowPage extends StatefulWidget {
 class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   int _step = 1;
   String? _selectedIntent;
+  bool _ageConfirmed = false;
   final TextEditingController _bioController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
   final List<String> _selectedInterests = [];
@@ -128,7 +129,8 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                     const SizedBox(width: FreezmeInsets.elementSpacing / 1.5),
                     Expanded(
                       child: FilledButton(
-                        onPressed: (_step == 1 && _selectedIntent == null) || (_step == 2 && flow.selectedArchetype == null)
+                        onPressed: (_step == 1 && (_selectedIntent == null || !_ageConfirmed)) ||
+                                (_step == 2 && flow.selectedArchetype == null)
                             ? null
                             : () => _handleNext(flow),
                         style: FreezmeButtons.primaryFilled,
@@ -231,6 +233,41 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 ),
               ),
             ],
+            const SizedBox(height: FreezmeInsets.elementSpacing),
+            GestureDetector(
+              onTap: () => setState(() => _ageConfirmed = !_ageConfirmed),
+              child: Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    height: 22,
+                    width: 22,
+                    decoration: BoxDecoration(
+                      color: _ageConfirmed ? FreezmeColors.primary : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _ageConfirmed ? FreezmeColors.primary : FreezmeColors.border,
+                        width: 2,
+                      ),
+                    ),
+                    child: _ageConfirmed
+                        ? const Icon(Icons.check, color: Colors.white, size: 14)
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'I confirm I am 18 years or older',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: FreezmeColors.neutral,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         );
       case 2:
