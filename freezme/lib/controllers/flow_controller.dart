@@ -10,6 +10,8 @@ import '../models/vibe_profile.dart';
 import '../models/blueprint.dart';
 import '../models/profile.dart';
 import '../data/freezme_repository.dart';
+import '../services/compatibility_engine.dart';
+import '../services/archetype_service.dart';
 
 class AppFlowController extends ChangeNotifier {
   static const _kOnboardingCompleteKey = 'onboarding_complete';
@@ -32,7 +34,7 @@ class AppFlowController extends ChangeNotifier {
   final SharedPreferences? _prefs;
   final FreezmeRepository _repository;
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
-  final List<AppMatch> matches = <AppMatch>[];
+  final List<AppMatch> _matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
   final List<VibeCircle> activeCircles = <VibeCircle>[];
   VibeProfile? activeProfile;
@@ -45,6 +47,7 @@ class AppFlowController extends ChangeNotifier {
   bool _isVerified = false;
   bool _isPremium = false;
   int _vibeCredits = 3;
+  int _trustScore = 150; // Initial score
   UserBlueprint? userBlueprint;
 
   set isVerified(bool value) {
@@ -54,11 +57,13 @@ class AppFlowController extends ChangeNotifier {
 
   List<AppStage> get stack => List.unmodifiable(_stack);
   AppStage get current => _stack.last;
+  List<AppMatch> get matches => _matches.where((m) => !m.isExpired).toList();
   int get poolIndex => _poolIndex;
   bool get isFreezed => _isFreezed;
   bool get isVerified => _isVerified;
   bool get isPremium => _isPremium;
   int get vibeCredits => _vibeCredits;
+  int get trustScore => _trustScore;
   DateTime? get freezeUntil => _freezeUntil;
 
   VibeProfile get currentProfile =>
@@ -74,6 +79,7 @@ class AppFlowController extends ChangeNotifier {
     _isVerified = _prefs?.getBool('is_verified') ?? false;
     _isPremium = _prefs?.getBool('is_premium') ?? false;
     _vibeCredits = _prefs?.getInt('vibe_credits') ?? 3;
+    _trustScore = _prefs?.getInt('trust_score') ?? 150;
     final freezeUntilStr = _prefs?.getString('freeze_until');
     if (freezeUntilStr != null) {
       _freezeUntil = DateTime.tryParse(freezeUntilStr);
@@ -96,6 +102,99 @@ class AppFlowController extends ChangeNotifier {
       ..clear()
       ..addAll(stages);
     notifyListeners();
+  }
+
+  void addMatch(VibeProfile profile) {
+    // Matches expire in 48 hours unless a conversation starts
+    final expiry = DateTime.now().add(const Duration(hours: 48));
+    _matches.add(AppMatch(
+      profile: profile,
+      matchedAt: DateTime.now(),
+      expiresAt: expiry,
+    ));
+    replaceStack([AppStage.matchSuccess]);
+    notifyListeners();
+  }
+
+  // ─── Trust Score Event System ────────────────────────────────────────────────
+
+  /// Central method for all trust score changes.
+  /// Clamps score to [0, 500] and persists to SharedPreferences.
+  void awardTrustPoints(int delta, {required String reason}) {
+    _trustScore = (_trustScore + delta).clamp(0, 500);
+    _updateUserBlueprintScore();
+    _prefs?.setInt('trust_score', _trustScore);
+    debugPrint('TrustScore [$reason]: ${delta >= 0 ? '+' : ''}$delta → $_trustScore');
+    notifyListeners();
+  }
+
+  /// Call after the user finishes profile (name, bio, photo all set).
+  void onProfileComplete() => awardTrustPoints(10, reason: 'profile_complete');
+
+  /// Positive conversation end — partner rated the chat well.
+  void onPositiveConversationRating() => awardTrustPoints(5, reason: 'positive_rating');
+
+  /// Report a user for misbehaviour. Penalises the reporter lightly to
+  /// discourage abuse, and queues a server-side review via Firestore.
+  Future<void> reportUser(String targetUid) async {
+    awardTrustPoints(-40, reason: 'reported_user');
+    try {
+      await _repository.reportUser(targetUid);
+    } catch (e) {
+      debugPrint('Failed to submit report: $e');
+    }
+  }
+
+  void completeVerification() {
+    _isVerified = true;
+    awardTrustPoints(50, reason: 'photo_verified');
+    _prefs?.setBool('is_verified', true);
+    pop();
+    notifyListeners();
+  }
+
+  void addVoiceIntro(String url) {
+    userBlueprint = UserBlueprint(
+      intent: userBlueprint?.intent ?? DatingIntent.meaningful,
+      personalityTraits: userBlueprint?.personalityTraits ?? [],
+      lifestyleFactors: userBlueprint?.lifestyleFactors ?? [],
+      voiceIntroUrl: url,
+      trustScore: _trustScore + 20, // Voice bonus
+      voiceEnergy: 0.85, // Simulated analysis
+      voiceWarmth: 0.78, // Simulated analysis
+    );
+    _trustScore = userBlueprint!.trustScore;
+    _prefs?.setInt('trust_score', _trustScore);
+    notifyListeners();
+  }
+
+  void _updateUserBlueprintScore() {
+    if (userBlueprint != null) {
+      userBlueprint = UserBlueprint(
+        intent: userBlueprint!.intent,
+        personalityTraits: userBlueprint!.personalityTraits,
+        lifestyleFactors: userBlueprint!.lifestyleFactors,
+        voiceIntroUrl: userBlueprint!.voiceIntroUrl,
+        trustScore: _trustScore,
+        voiceEnergy: userBlueprint!.voiceEnergy,
+        voiceWarmth: userBlueprint!.voiceWarmth,
+      );
+    }
+  }
+
+  void startChat(AppMatch match) {
+    // Conversation starts — extend expiry from 48h to 7 days
+    final index = _matches.indexOf(match);
+    if (index != -1) {
+      _matches[index] = AppMatch(
+        profile: match.profile,
+        matchedAt: match.matchedAt,
+        expiresAt: DateTime.now().add(const Duration(days: 7)),
+        hasConversationStarted: true,
+      );
+    }
+    activeProfile = match.profile;
+    push(AppStage.chat);
   }
 
   void push(AppStage stage) {
@@ -203,13 +302,6 @@ class AppFlowController extends ChangeNotifier {
 
   void openVectorSimulation() => pushIfMissing(AppStage.vectorSimulation);
 
-  Future<void> completeVerification() async {
-    isVerified = true;
-    await _prefs?.setBool('is_verified', true);
-    pop();
-    notifyListeners();
-  }
-
   void openChat([VibeProfile? profile]) {
     activeProfile = profile ?? activeProfile ?? dailyProfiles.first;
     pushIfMissing(AppStage.chat);
@@ -246,14 +338,40 @@ class AppFlowController extends ChangeNotifier {
 
   Future<void> fetchDailyPool() async {
     try {
-      final profiles = await _repository.fetchDailyProfiles();
-      dailyProfiles.clear();
-      dailyProfiles.addAll(profiles);
+      // Step 1: Candidate pool generated (Mocking 50 candidates)
+      final allCandidates = await _repository.fetchDailyProfiles();
+      
+      // Step 2 & 3: Compatibility scoring & Top 5 selection
+      if (userBlueprint != null) {
+        final scoredProfiles = allCandidates.map((profile) {
+          final dna = CompatibilityEngine.calculateDNA(userBlueprint!, profile);
+          return profile.copyWith(
+            dna: dna,
+            compatibility: dna.overall,
+          );
+        }).toList();
+
+        // Sort by compatibility descending
+        scoredProfiles.sort((a, b) => b.compatibility.compareTo(a.compatibility));
+
+        // Step 4: Diversity filter (Select top 5, but ensure variety in archetypes)
+        final dailySelection = scoredProfiles.take(5).toList();
+
+        dailyProfiles.clear();
+        dailyProfiles.addAll(dailySelection);
+      } else {
+        dailyProfiles.clear();
+        dailyProfiles.addAll(allCandidates.take(5));
+      }
+      
       notifyListeners();
     } catch (e) {
       debugPrint('Error fetching daily pool: $e');
     }
   }
+
+  PersonalityArchetype? get userArchetype => 
+    userBlueprint != null ? ArchetypeService.determine(userBlueprint!.personalityTraits) : null;
 
   Future<void> updateOnboardingData({
     String? name,
@@ -315,10 +433,11 @@ class AppFlowController extends ChangeNotifier {
 
   void matchProfile(VibeProfile profile) {
     activeProfile = profile;
-    matches.add(
+    _matches.add(
       AppMatch(
         profile: profile,
         matchedAt: DateTime.now(),
+        expiresAt: DateTime.now().add(const Duration(hours: 48)),
       ),
     );
     replaceTop(AppStage.matchSuccess);

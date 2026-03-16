@@ -3,6 +3,7 @@
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -218,4 +219,81 @@ exports.onNewMatch = onDocumentCreated("matches/{matchId}", async (event) => {
     sendNotif(userAId, userB?.displayName || "someone"),
     sendNotif(userBId, userA?.displayName || "someone"),
   ]);
+});
+
+// ─── Helper: send FCM to a single user ────────────────────────────────────────
+async function sendFcm(uid, title, body, data = {}) {
+  const snap = await db.doc(`users/${uid}`).get();
+  const token = snap.data()?.fcmToken;
+  if (!token) return;
+  await admin.messaging().send({ token, notification: { title, body }, data });
+}
+
+// ─── expireMatches ─────────────────────────────────────────────────────────────
+// Runs every hour. Marks unstarted matches as 'expired' when their timer runs
+// out, and notifies both users.
+exports.expireMatches = onSchedule("every 60 minutes", async () => {
+  const now = admin.firestore.Timestamp.now();
+
+  const snap = await db.collection("matches")
+    .where("expiresAt", "<=", now)
+    .where("hasConversationStarted", "==", false)
+    .where("status", "!=", "expired")
+    .limit(200)
+    .get();
+
+  if (snap.empty) return;
+
+  const batch = db.batch();
+  const notifs = [];
+
+  for (const doc of snap.docs) {
+    const m = doc.data();
+    batch.update(doc.ref, {
+      status: "expired",
+      expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    const nameA = m.userAName || "your match";
+    const nameB = m.userBName || "your match";
+    notifs.push(sendFcm(m.userAId, "Match melted ❄️", `Your connection with ${nameB} has melted.`, { type: "match_expired", matchId: doc.id }));
+    notifs.push(sendFcm(m.userBId, "Match melted ❄️", `Your connection with ${nameA} has melted.`, { type: "match_expired", matchId: doc.id }));
+  }
+
+  await batch.commit();
+  await Promise.allSettled(notifs);
+});
+
+// ─── meltWarnings ──────────────────────────────────────────────────────────────
+// Runs every hour. Sends a "6 hours left" push notification once per match,
+// so users are nudged to start the conversation before it melts.
+exports.meltWarnings = onSchedule("every 60 minutes", async () => {
+  const now = Date.now();
+  // Window: matches expiring between 6h and 7h from now
+  const sixH = admin.firestore.Timestamp.fromDate(new Date(now + 6 * 3600 * 1000));
+  const sevenH = admin.firestore.Timestamp.fromDate(new Date(now + 7 * 3600 * 1000));
+
+  const snap = await db.collection("matches")
+    .where("expiresAt", ">=", sixH)
+    .where("expiresAt", "<=", sevenH)
+    .where("hasConversationStarted", "==", false)
+    .where("meltWarningSent", "!=", true)
+    .limit(200)
+    .get();
+
+  if (snap.empty) return;
+
+  const batch = db.batch();
+  const notifs = [];
+
+  for (const doc of snap.docs) {
+    const m = doc.data();
+    batch.update(doc.ref, { meltWarningSent: true });
+    const nameA = m.userAName || "your match";
+    const nameB = m.userBName || "your match";
+    notifs.push(sendFcm(m.userAId, `🔥 ${nameB} melts in 6h`, "Send a message before the connection disappears!", { type: "melt_warning", matchId: doc.id }));
+    notifs.push(sendFcm(m.userBId, `🔥 ${nameA} melts in 6h`, "Send a message before the connection disappears!", { type: "melt_warning", matchId: doc.id }));
+  }
+
+  await batch.commit();
+  await Promise.allSettled(notifs);
 });

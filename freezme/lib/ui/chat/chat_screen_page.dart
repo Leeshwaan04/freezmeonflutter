@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../main.dart';
 import '../../models/chat_message.dart';
+import '../../models/conversation_energy.dart';
 import '../design_system.dart';
 import 'freeze_modal.dart' as modal;
 import 'typing_indicator.dart';
@@ -188,15 +189,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                               color: FreezmeDesignSystem.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Online',
-                            style: TextStyle(
-                              color: FreezmeDesignSystem.success,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                          const SizedBox(height: 4),
+                          _EnergyChip(messages: _messages),
                         ],
                       ),
                     ),
@@ -529,6 +523,43 @@ class SmallButton extends StatelessWidget {
       ),
       onPressed: onPressed,
       child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+    );
+  }
+}
+
+// ─── Conversation Energy Chip ──────────────────────────────────────────────────
+// Shown in the chat header below the match's name.
+// Re-computes on every build tick so it stays live as messages arrive.
+class _EnergyChip extends StatelessWidget {
+  const _EnergyChip({required this.messages});
+
+  final List<ChatMessageItem> messages;
+
+  static const _icons = {
+    EnergyLevel.low: Icons.battery_1_bar_rounded,
+    EnergyLevel.medium: Icons.battery_3_bar_rounded,
+    EnergyLevel.high: Icons.bolt_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final energy = ConversationEnergy.compute(messages);
+    final color = Color(energy.colorValue);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(_icons[energy.level], color: color, size: 13),
+        const SizedBox(width: 3),
+        Text(
+          energy.label,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -143,4 +143,7 @@ class FakeFreezmeRepository implements FreezmeRepository {
 
   @override
   Future<void> deleteComment({required String postId, required String commentId}) async {}
+
+  @override
+  Future<void> reportUser(String targetUid) async {}
 }

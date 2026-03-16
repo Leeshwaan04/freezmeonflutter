@@ -108,4 +108,7 @@ abstract class FreezmeRepository {
     required String postId,
     required String commentId,
   });
+
+  // Safety & Trust
+  Future<void> reportUser(String targetUid);
 }

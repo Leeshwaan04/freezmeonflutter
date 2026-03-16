@@ -1289,4 +1289,16 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
       'distanceKm': 10.0,
     };
   }
+
+  @override
+  Future<void> reportUser(String targetUid) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await _firestore.collection('reports').add({
+      'reporterUid': uid,
+      'targetUid': targetUid,
+      'createdAt': FieldValue.serverTimestamp(),
+      'status': 'pending',
+    });
+  }
 }

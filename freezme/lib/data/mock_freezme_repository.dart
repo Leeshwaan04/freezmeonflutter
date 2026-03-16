@@ -218,6 +218,9 @@ class MockFreezmeRepository implements FreezmeRepository {
     required String commentId,
   }) async {}
 
+  @override
+  Future<void> reportUser(String targetUid) async {}
+
   static const List<VibeProfile> _profiles = [
     VibeProfile(
       uid: 'mock-priya',
