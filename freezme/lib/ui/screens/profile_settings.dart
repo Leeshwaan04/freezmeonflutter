@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
+import '../../core/app_stage.dart';
 import '../widgets/freezme_logo.dart';
 
 class ProfileSettingsPage extends StatefulWidget {
@@ -234,36 +235,60 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                                     ),
                                   ),
                                   const SizedBox(height: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: FreezmeColors.surface,
-                                      borderRadius: BorderRadius.circular(999),
-                                      border: Border.all(
-                                        color: FreezmeColors.border,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
+                                  Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
                                       children: [
-                                        const Text(
-                                          '92% Complete',
-                                          style: TextStyle(
-                                            color: FreezmeColors.primary,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.shield, color: Colors.blue, size: 12),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '${flow.trustScore} • ${flow.userBlueprint?.trustTier.name.toUpperCase() ?? "BASIC"}',
+                                                style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        if (flow.isVerified) ...[
-                                          const SizedBox(width: 8),
-                                          const Icon(Icons.verified, color: Colors.blue, size: 14),
-                                        ],
+                                        if (flow.isVerified)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(20),
+                                              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.verified, color: Colors.green, size: 12),
+                                                const SizedBox(width: 4),
+                                                Text('Verified', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                                              ],
+                                            ),
+                                          ),
                                       ],
-                                    ),
                                   ),
+                                  if (!flow.isVerified) ...[
+                                    const SizedBox(height: 12),
+                                    OutlinedButton.icon(
+                                      onPressed: () => flow.push(AppStage.verification),
+                                      icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                                      label: const Text('Verify Identity'),
+                                      style: OutlinedButton.styleFrom(
+                                        visualDensity: VisualDensity.compact,
+                                        side: const BorderSide(color: FreezmeColors.primary),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

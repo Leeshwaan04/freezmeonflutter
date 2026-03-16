@@ -9,6 +9,11 @@ import 'core/app_stage.dart';
 import 'data/firestore_freezme_repository.dart';
 import 'data/mock_freezme_repository.dart';
 
+// Re-export controller and stages so UI files that import main.dart stay compiling.
+export 'controllers/flow_controller.dart' show AppFlowController, AppFlowScope;
+export 'core/app_stage.dart';
+export 'models/photo_slot.dart';
+
 // Screen Imports
 import 'ui/screens/splash_screen.dart';
 import 'ui/screens/auth_gate.dart';
@@ -21,7 +26,7 @@ import 'ui/screens/chat_screen.dart';
 import 'ui/screens/profile_settings.dart';
 import 'ui/screens/profile_preview.dart';
 import 'ui/screens/daily_recap.dart';
-import 'ui/screens/freezme_plus.dart';
+import 'ui/screens/freezme_plus.dart' show FreezeMePlusPage;
 import 'ui/screens/developer_preview.dart';
 import 'ui/screens/freeze_screen.dart';
 import 'ui/screens/verification_screen.dart';
@@ -60,7 +65,7 @@ class _FreezmeAppState extends State<FreezmeApp> {
   @override
   void initState() {
     super.initState();
-    AppFlowController.create().then((controller) {
+    AppFlowController.create(FirestoreFreezmeRepository(fallback: const MockFreezmeRepository())).then((controller) {
       if (mounted) {
         setState(() {
           _controller = controller;
@@ -98,8 +103,8 @@ class _FreezmeAppState extends State<FreezmeApp> {
   }
 }
 
-class CustomTransitionPage<T> extends Page<T> {
-  const CustomTransitionPage({
+class _FreezmeTransitionPage<T> extends Page<T> {
+  const _FreezmeTransitionPage({
     required this.child,
     required this.transitionsBuilder,
     super.key,
@@ -129,7 +134,7 @@ class FlowNavigator extends StatelessWidget {
       builder: (context, _) {
         final pages = <Page<dynamic>>[
           for (final stage in flow.stack)
-            CustomTransitionPage<dynamic>(
+            _FreezmeTransitionPage<dynamic>(
               key: ValueKey<AppStage>(stage),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 return FadeTransition(
@@ -182,7 +187,7 @@ class FlowNavigator extends StatelessWidget {
       case AppStage.dailyRecap:
         return const DailyRecapPage();
       case AppStage.freezmePlus:
-        return const FreezmePlusPage();
+        return const FreezeMePlusPage();
       case AppStage.developerMenu:
         return const DeveloperPreviewScreen();
       case AppStage.freeze:
@@ -195,6 +200,10 @@ class FlowNavigator extends StatelessWidget {
         return const CircleDiscoveryPage();
       case AppStage.circleChat:
         return const CircleChatPage();
+      case AppStage.profileCompletion:
+        return const OnboardingFlowPage();
+      case AppStage.editProfile:
+        return const ProfileSettingsPage();
     }
   }
 }

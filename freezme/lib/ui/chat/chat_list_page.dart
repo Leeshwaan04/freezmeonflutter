@@ -25,6 +25,8 @@ class Conversation {
     this.isArchived = false,
     this.isOnline = false,
     this.isTyping = false,
+    this.expiresAt,
+    this.hasConversationStarted = false,
   });
 
   final String chatId;
@@ -40,6 +42,11 @@ class Conversation {
   bool isArchived;
   bool isOnline;
   bool isTyping;
+  final DateTime? expiresAt;
+  final bool hasConversationStarted;
+
+  bool get isExpired => !hasConversationStarted && expiresAt != null && DateTime.now().isAfter(expiresAt!);
+  Duration? get remainingTime => expiresAt?.difference(DateTime.now());
 }
 
 class ChatListPage extends StatefulWidget {
@@ -146,6 +153,16 @@ class _ChatListPageState extends State<ChatListPage> {
                             ),
                           ),
                         ),
+                        // Match Expiry Badge
+                        if (!c.hasConversationStarted && c.expiresAt != null)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: -2,
+                            child: Center(
+                              child: _MeltingBadge(expiresAt: c.expiresAt!),
+                            ),
+                          ),
                         if (c.isOnline)
                           Positioned(
                             right: 2,
@@ -265,6 +282,8 @@ class _ChatListPageState extends State<ChatListPage> {
                     isArchived: (m['isArchived'] as bool?) ?? false,
                     isOnline: (m['isOnline'] as bool?) ?? false,
                     isTyping: (m['isTyping'] as bool?) ?? false,
+                    expiresAt: m['expiresAt'] != null ? DateTime.tryParse(m['expiresAt'].toString()) : null,
+                    hasConversationStarted: (m['hasConversationStarted'] as bool?) ?? false,
                   );
                 }).toList();
                 
@@ -627,6 +646,63 @@ class _ChatListPageState extends State<ChatListPage> {
           },
         ),
       ],
+    );
+  }
+}
+
+class _MeltingBadge extends StatelessWidget {
+  final DateTime expiresAt;
+  const _MeltingBadge({required this.expiresAt});
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = expiresAt.difference(DateTime.now());
+    final hours = remaining.inHours;
+
+    Color badgeColor;
+    if (hours > 24) {
+      badgeColor = Colors.blueAccent;
+    } else if (hours > 6) {
+      badgeColor = Colors.orangeAccent;
+    } else {
+      badgeColor = Colors.redAccent;
+    }
+
+    final label = hours > 0 ? '${hours}h' : '${remaining.inMinutes}m';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: badgeColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: badgeColor.withValues(alpha: 0.4),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            hours <= 6 ? Icons.whatshot : Icons.timer,
+            color: Colors.white,
+            size: 8,
+          ),
+          const SizedBox(width: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

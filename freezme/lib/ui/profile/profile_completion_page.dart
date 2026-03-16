@@ -56,7 +56,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
     try {
       final locationService = LocationService();
       final result = await locationService.getCoarseLocation();
-      final timezone = await FlutterTimezone.getLocalTimezone();
+      final timezoneInfo = await FlutterTimezone.getLocalTimezone();
 
       if (result.lat != null && result.lng != null) {
         final geoService = GeoService();
@@ -67,7 +67,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
             _lat = result.lat;
             _lng = result.lng;
             _geohash = geohash;
-            _timezone = timezone;
+            _timezone = timezoneInfo.identifier;
           });
         }
       }

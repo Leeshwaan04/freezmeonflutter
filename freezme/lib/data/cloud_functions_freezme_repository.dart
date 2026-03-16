@@ -345,4 +345,20 @@ class CloudFunctionsFreezmeRepository implements FreezmeRepository {
     required String commentId,
   }) =>
       _fallback.deleteComment(postId: postId, commentId: commentId);
+
+  @override
+  Stream<List<Map<String, dynamic>>> watchMeltInvites() =>
+      _fallback.watchMeltInvites();
+
+  @override
+  Stream<List<BlindSession>> watchUserBlindSessions() =>
+      _fallback.watchUserBlindSessions();
+
+  @override
+  Future<void> respondBlindReveal(String sessionId) =>
+      _fallback.respondBlindReveal(sessionId);
+
+  @override
+  Future<void> reportUser(String targetUid) =>
+      _fallback.reportUser(targetUid);
 }

@@ -16,6 +16,7 @@ class OnboardingFlowPage extends StatefulWidget {
 class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   int _step = 1;
   static const int _totalSteps = 6;
+  bool _showArchetypeResult = false;
 
   // Step 1: Intent
   DatingIntent? _selectedIntent;
@@ -39,15 +40,20 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
 
   void _handleNext(AppFlowController flow) {
     if (_step == _totalSteps) {
-      flow.updateOnboardingData(
-        bio: _bioController.text,
-        age: int.tryParse(_ageController.text),
-        interests: _selectedInterests,
-        intent: _selectedIntent,
-        personalityTraits: List.from(_selectedTraits),
-        lifestyleFactors: List.from(_selectedLifestyle),
-      );
-      // Mock completion status
+      if (!_showArchetypeResult) {
+        flow.updateOnboardingData(
+          bio: _bioController.text,
+          age: int.tryParse(_ageController.text),
+          interests: _selectedInterests,
+          intent: _selectedIntent,
+          personalityTraits: List.from(_selectedTraits),
+          lifestyleFactors: List.from(_selectedLifestyle),
+        );
+        setState(() => _showArchetypeResult = true);
+        return;
+      }
+      
+      // After archetype review, go home
       flow.isVerified = true; 
       flow.replaceStack([AppStage.dailyPool]); 
       return;
@@ -69,33 +75,34 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
         child: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const FreezmeLogo(size: LogoSize.sm, showText: true),
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 6,
-                        backgroundColor: FreezmeColors.surfaceAlt,
-                        valueColor: const AlwaysStoppedAnimation<Color>(FreezmeColors.primary),
+              if (!_showArchetypeResult)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const FreezmeLogo(size: LogoSize.sm, showText: true),
+                      const SizedBox(height: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 6,
+                          backgroundColor: FreezmeColors.surfaceAlt,
+                          valueColor: const AlwaysStoppedAnimation<Color>(FreezmeColors.primary),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Step $_step of $_totalSteps', style: FreezmeTypography.bodyMuted),
-                  ],
+                      const SizedBox(height: 8),
+                      Text('Step $_step of $_totalSteps', style: FreezmeTypography.bodyMuted),
+                    ],
+                  ),
                 ),
-              ),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
-                    child: _buildStep(context, flow),
+                    child: _showArchetypeResult ? _buildArchetypeResult(flow) : _buildStep(context, flow),
                   ),
                 ),
               ),
@@ -103,7 +110,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 padding: const EdgeInsets.all(24),
                 child: Row(
                   children: [
-                    if (_step > 1)
+                    if (_step > 1 && !_showArchetypeResult)
                       IconButton.outlined(
                         onPressed: () => setState(() => _step--),
                         icon: const Icon(Icons.chevron_left),
@@ -113,7 +120,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                       child: FilledButton(
                         onPressed: _canProceed() ? () => _handleNext(flow) : null,
                         style: FreezmeButtons.primaryFilled,
-                        child: Text(_step == _totalSteps ? 'Start Freezing' : 'Continue'),
+                        child: Text(_showArchetypeResult ? 'Let\'s Go!' : (_step == _totalSteps ? 'Finalize' : 'Continue')),
                       ),
                     ),
                   ],
@@ -159,7 +166,14 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
         const Text('What are you looking for?', style: FreezmeTypography.h1),
         const SizedBox(height: 12),
         const Text('Be honest. We use this to match you with like-minded people.', style: FreezmeTypography.body),
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
+        if (_selectedIntent != null)
+           _InsightBanner(
+             text: _selectedIntent == DatingIntent.meaningful 
+               ? "Beautiful. Most Freezme users are here for intentional dating."
+               : "Great! Let's find some interesting people for you.",
+           ),
+        const SizedBox(height: 16),
         ...DatingIntent.values.map((intent) {
           final isSelected = _selectedIntent == intent;
           return Padding(
@@ -375,6 +389,60 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
         border: Border.all(color: FreezmeColors.border),
       ),
       child: const Icon(Icons.add_a_photo, color: FreezmeColors.muted),
+    );
+  }
+  Widget _buildArchetypeResult(AppFlowController flow) {
+    final archetype = flow.userArchetype;
+    return Column(
+      key: const ValueKey('archetype'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text('YOUR DATING PERSONALITY', style: TextStyle(letterSpacing: 2, fontSize: 12, fontWeight: FontWeight.bold, color: FreezmeColors.primary)),
+        const SizedBox(height: 16),
+        Text(archetype?.label ?? "The Adventurer", style: FreezmeTypography.h1.copyWith(fontSize: 32)),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10)),
+            ],
+          ),
+          child: Text(
+            archetype?.description ?? "You are a blend of curiosity and passion.",
+            textAlign: TextAlign.center,
+            style: FreezmeTypography.bodyLarge,
+          ),
+        ),
+        const SizedBox(height: 48),
+        const Text('We\'ve updated your pool to match your vibe.', style: FreezmeTypography.bodyMuted),
+      ],
+    );
+  }
+}
+
+class _InsightBanner extends StatelessWidget {
+  final String text;
+  const _InsightBanner({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: FreezmeColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: FreezmeColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome, color: FreezmeColors.primary, size: 18),
+          const SizedBox(width: 12),
+          Expanded(child: Text(text, style: const TextStyle(color: FreezmeColors.primary, fontSize: 13, fontWeight: FontWeight.w500))),
+        ],
+      ),
     );
   }
 }

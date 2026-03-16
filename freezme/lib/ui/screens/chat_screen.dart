@@ -174,7 +174,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'ICEBREAKERS',
+                          'CONTEXTUAL ICEBREAKERS',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -187,20 +187,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                           height: 48,
                           child: ListView(
                             scrollDirection: Axis.horizontal,
-                            children: [
-                              _IcebreakerChip(
-                                text: 'Whats your favorite weekend hobby? ☕',
-                                onSelected: (val) => _controller.text = val,
-                              ),
-                              _IcebreakerChip(
-                                text: 'I love your bio! Tell me more about your travel plans ✈️',
-                                onSelected: (val) => _controller.text = val,
-                              ),
-                              _IcebreakerChip(
-                                text: 'We have a 95% lifestyle match! Do you like gym sessions too? 💪',
-                                onSelected: (val) => _controller.text = val,
-                              ),
-                            ],
+                            children: _generateIcebreakers(profile, flow.userBlueprint),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -360,6 +347,30 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
       case LifestyleArchetype.travel: return '🎒';
       case LifestyleArchetype.homebody: return '🏠';
     }
+  }
+
+  List<Widget> _generateIcebreakers(dynamic profile, dynamic userBlueprint) {
+    final List<Widget> items = [];
+    final interests = profile?.interests as List<String>? ?? [];
+    
+    if (interests.contains('Travel')) {
+      items.add(_IcebreakerChip(text: "What destination is on your bucket list? ✈️", onSelected: (val) => _controller.text = val));
+    }
+    if (interests.contains('Coffee')) {
+      items.add(_IcebreakerChip(text: "Best coffee spot in the city? ☕", onSelected: (val) => _controller.text = val));
+    }
+    
+    // Fallback/Generic
+    if (items.isEmpty) {
+      items.add(_IcebreakerChip(text: "What's something not in your bio? ✨", onSelected: (val) => _controller.text = val));
+    }
+    
+    // Blueprint based
+    if (profile?.dna != null && (profile?.dna?.overall ?? 0) > 90) {
+      items.add(_IcebreakerChip(text: "We have a ${profile.dna.overall}% match! Destined to chat? 😉", onSelected: (val) => _controller.text = val));
+    }
+
+    return items;
   }
 }
 class _IcebreakerChip extends StatelessWidget {

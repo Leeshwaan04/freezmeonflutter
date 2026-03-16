@@ -84,7 +84,8 @@ class _HomePageState extends State<HomePage> {
       final locationResult = await locationService.getCoarseLocation();
 
       // Get device timezone
-      final timezone = await FlutterTimezone.getLocalTimezone();
+      final timezoneInfo = await FlutterTimezone.getLocalTimezone();
+      final timezone = timezoneInfo.identifier;
 
       // Fetch Tonight Pool with location and timezone
       List<models.VibeProfile> profiles;

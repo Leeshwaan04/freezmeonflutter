@@ -107,6 +107,26 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
                       : 'Position your face in the frame',
                     style: const TextStyle(color: Colors.white70),
                   ),
+                  const SizedBox(height: 12),
+                  if (!_isComplete)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white10,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.shield, color: Colors.blueAccent, size: 16),
+                          const SizedBox(width: 8),
+                          const Text(
+                            '+50 TRUST SCORE',
+                            style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
                   
                   const Spacer(),
                   

@@ -178,12 +178,12 @@ class _DailyRecapPageState extends State<DailyRecapPage> with SingleTickerProvid
                               const SizedBox(height: 12),
                               _RecapBullet(
                                 color: FreezmeColors.secondary,
-                                text: '${matches.length} people viewed your profile today',
+                                text: 'Your Trust Score is now ${flow.trustScore} (+5 today) 🛡️',
                               ),
                               const SizedBox(height: 12),
                               const _RecapBullet(
                                 color: FreezmeColors.accent,
-                                text: 'You\'re in the top 10% most active users this week! 🎉',
+                                text: 'Matched with 3 people who share your Explorer archetype! 🎉',
                               ),
                             ],
                           ),

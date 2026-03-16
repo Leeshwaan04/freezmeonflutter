@@ -15,6 +15,13 @@ enum PersonalityTrait {
   planner,
 }
 
+enum TrustTier {
+  basic,
+  trusted,
+  verified,
+  elite,
+}
+
 enum LifestyleFactor {
   fitness,
   travel,
@@ -30,6 +37,8 @@ class CompatibilityDNA {
     required this.personality,
     required this.communication,
     required this.values,
+    this.personalityTraits,
+    this.lifestyleFactors,
   });
 
   final int overall;
@@ -37,6 +46,8 @@ class CompatibilityDNA {
   final int personality;
   final int communication;
   final int values;
+  final List<String>? personalityTraits;
+  final List<String>? lifestyleFactors;
 
   factory CompatibilityDNA.fromJson(Map<String, dynamic> json) {
     return CompatibilityDNA(
@@ -45,6 +56,8 @@ class CompatibilityDNA {
       personality: json['personality'] ?? 0,
       communication: json['communication'] ?? 0,
       values: json['values'] ?? 0,
+      personalityTraits: (json['personalityTraits'] as List?)?.cast<String>(),
+      lifestyleFactors: (json['lifestyleFactors'] as List?)?.cast<String>(),
     );
   }
 
@@ -54,6 +67,8 @@ class CompatibilityDNA {
     'personality': personality,
     'communication': communication,
     'values': values,
+    if (personalityTraits != null) 'personalityTraits': personalityTraits,
+    if (lifestyleFactors != null) 'lifestyleFactors': lifestyleFactors,
   };
 }
 
@@ -63,8 +78,10 @@ class UserBlueprint {
     required this.personalityTraits,
     required this.lifestyleFactors,
     this.voiceIntroUrl,
-    this.trustScore = 100,
+    this.trustScore = 150,
     this.dna,
+    this.voiceEnergy,
+    this.voiceWarmth,
   });
 
   final DatingIntent intent;
@@ -73,6 +90,15 @@ class UserBlueprint {
   final String? voiceIntroUrl;
   final int trustScore;
   final CompatibilityDNA? dna;
+  final double? voiceEnergy; // 0.0 to 1.0
+  final double? voiceWarmth; // 0.0 to 1.0
+
+  TrustTier get trustTier {
+    if (trustScore >= 260) return TrustTier.elite;
+    if (trustScore >= 220) return TrustTier.verified;
+    if (trustScore >= 180) return TrustTier.trusted;
+    return TrustTier.basic;
+  }
 
   factory UserBlueprint.fromJson(Map<String, dynamic> json) {
     return UserBlueprint(
@@ -80,8 +106,10 @@ class UserBlueprint {
       personalityTraits: (json['personalityTraits'] as List?)?.map((e) => PersonalityTrait.values.firstWhere((v) => v.name == e)).toList() ?? [],
       lifestyleFactors: (json['lifestyleFactors'] as List?)?.map((e) => LifestyleFactor.values.firstWhere((v) => v.name == e)).toList() ?? [],
       voiceIntroUrl: json['voiceIntroUrl'],
-      trustScore: json['trustScore'] ?? 100,
+      trustScore: json['trustScore'] ?? 150,
       dna: json['dna'] != null ? CompatibilityDNA.fromJson(json['dna']) : null,
+      voiceEnergy: json['voiceEnergy']?.toDouble(),
+      voiceWarmth: json['voiceWarmth']?.toDouble(),
     );
   }
 
@@ -92,5 +120,7 @@ class UserBlueprint {
     'voiceIntroUrl': voiceIntroUrl,
     'trustScore': trustScore,
     'dna': dna?.toJson(),
+    'voiceEnergy': voiceEnergy,
+    'voiceWarmth': voiceWarmth,
   };
 }

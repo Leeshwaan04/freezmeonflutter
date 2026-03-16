@@ -1,4 +1,5 @@
 import 'blueprint.dart';
+import '../core/app_stage.dart' show LifestyleArchetype;
 
 class VibeProfile {
   const VibeProfile({
@@ -20,6 +21,7 @@ class VibeProfile {
     this.lastActive,
     this.timezone,
     this.isPremium = false,
+    this.archetypes = const <LifestyleArchetype>[],
   });
 
   final String uid;
@@ -41,6 +43,7 @@ class VibeProfile {
 
   final String? timezone;
   final bool isPremium;
+  final List<LifestyleArchetype> archetypes;
 
   factory VibeProfile.fromJson(
     Map<String, dynamic> json, {
@@ -130,4 +133,48 @@ class VibeProfile {
     if (timezone != null) 'timezone': timezone,
     'isPremium': isPremium,
   };
+
+  VibeProfile copyWith({
+    String? uid,
+    int? id,
+    String? name,
+    int? age,
+    String? imageUrl,
+    List<String>? photoUrls,
+    int? compatibility,
+    CompatibilityDNA? dna,
+    List<String>? interests,
+    String? bio,
+    String? gender,
+    String? distance,
+    double? lat,
+    double? lng,
+    String? geohash,
+    DateTime? lastActive,
+    String? timezone,
+    bool? isPremium,
+    List<LifestyleArchetype>? archetypes,
+  }) {
+    return VibeProfile(
+      uid: uid ?? this.uid,
+      id: id ?? this.id,
+      name: name ?? this.name,
+      age: age ?? this.age,
+      imageUrl: imageUrl ?? this.imageUrl,
+      photoUrls: photoUrls ?? this.photoUrls,
+      compatibility: compatibility ?? this.compatibility,
+      dna: dna ?? this.dna,
+      interests: interests ?? this.interests,
+      bio: bio ?? this.bio,
+      gender: gender ?? this.gender,
+      distance: distance ?? this.distance,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      geohash: geohash ?? this.geohash,
+      lastActive: lastActive ?? this.lastActive,
+      timezone: timezone ?? this.timezone,
+      isPremium: isPremium ?? this.isPremium,
+      archetypes: archetypes ?? this.archetypes,
+    );
+  }
 }

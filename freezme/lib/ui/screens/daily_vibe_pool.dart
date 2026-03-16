@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
 import '../../models/profile.dart';
+import '../../models/vibe_profile.dart';
 import '../widgets/freezme_logo.dart';
 import '../widgets/freeze_modal.dart';
 import '../../core/app_stage.dart';
@@ -525,7 +526,7 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: profile.archetypes.map((archetype) {
-        String emoji;
+        final String emoji;
         switch (archetype) {
           case LifestyleArchetype.gym: emoji = '🏋️'; break;
           case LifestyleArchetype.brunch: emoji = '🥂'; break;
@@ -688,7 +689,7 @@ class _CompatibilityDNACardState extends State<_CompatibilityDNACard> {
           children: [
             Row(
               children: [
-                const Icon(Icons.dna, color: Colors.purpleAccent, size: 20),
+                const Icon(Icons.biotech, color: Colors.purpleAccent, size: 20),
                 if (_isExpanded) ...[
                   const SizedBox(width: 8),
                   const Text(
@@ -720,6 +721,11 @@ class _CompatibilityDNACardState extends State<_CompatibilityDNACard> {
               _DNARow(label: 'Values', value: widget.dna.values, color: Colors.orangeAccent),
               const SizedBox(height: 8),
               _DNARow(label: 'Communication', value: widget.dna.communication, color: Colors.pinkAccent),
+              const SizedBox(height: 16),
+              const Text('WHY YOU MATCH', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+              const SizedBox(height: 8),
+              _MatchReason(text: "Shared lifestyle archetypes"),
+              _MatchReason(text: "High values alignment"),
               const SizedBox(height: 12),
               const Center(
                 child: Text(
@@ -730,6 +736,25 @@ class _CompatibilityDNACardState extends State<_CompatibilityDNACard> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MatchReason extends StatelessWidget {
+  final String text;
+  const _MatchReason({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 12),
+          const SizedBox(width: 8),
+          Text(text, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+        ],
       ),
     );
   }

@@ -1,5 +1,5 @@
 import 'dart:convert';
-import '../data_models.dart';
+import '../models/vibe_profile.dart';
 
 /// VibeService handles the E2E communication with the Go Backend
 /// and Pinecone-backed Matching Engine.

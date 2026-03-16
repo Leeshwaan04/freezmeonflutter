@@ -9,6 +9,9 @@ import '../core/app_stage.dart';
 import '../models/vibe_profile.dart';
 import '../models/blueprint.dart';
 import '../models/profile.dart';
+import '../models/paths.dart';
+import '../models/blinds.dart';
+import '../models/photo_slot.dart';
 import '../data/freezme_repository.dart';
 import '../services/compatibility_engine.dart';
 import '../services/archetype_service.dart';
@@ -71,6 +74,109 @@ class AppFlowController extends ChangeNotifier {
 
   int get remainingProfiles =>
       math.max(0, dailyProfiles.length - _poolIndex - 1);
+
+  // ─── Stubs for new-style screens (remote refactor) ──────────────────────────
+  FreezmeRepository get repository => _repository;
+  int _currentTabIndex = 0;
+  int get currentTabIndex => _currentTabIndex;
+  void openTab(int index) { _currentTabIndex = index; notifyListeners(); }
+  double get completionPercent => isVerified ? 1.0 : (userBlueprint != null ? 0.6 : 0.3);
+  bool get isProfileComplete => userBlueprint != null && isVerified;
+  String? get profilePhotoUrl => null;
+  String? get profileName => FirebaseAuth.instance.currentUser?.displayName;
+  String? get profileEmail => FirebaseAuth.instance.currentUser?.email;
+  int get matchesCount => matches.length;
+  int get uploadedPhotoCount => 0;
+  List<PhotoSlot> get photoSlots => const [];
+
+  // Paths stubs
+  double _lastPathsRadiusKm = 5.0;
+  Set<String> _lastPathsIntents = const {'coffee', 'walk'};
+  List<PathsPresence> _nearbyPaths = [];
+  bool _pathsLoading = false;
+  String? _pathsError;
+  double get lastPathsRadiusKm => _lastPathsRadiusKm;
+  Set<String> get lastPathsIntents => _lastPathsIntents;
+  List<PathsPresence> get nearbyPaths => _nearbyPaths;
+  bool get pathsLoading => _pathsLoading;
+  String? get pathsError => _pathsError;
+
+  Future<void> refreshPaths({required double radiusKm, required Set<String> intents}) async {
+    _lastPathsRadiusKm = radiusKm;
+    _lastPathsIntents = intents;
+  }
+
+  Future<String> sendPathsInvite({required String receiverUid, required String intent}) =>
+      _repository.sendPathsInvite(receiverUid: receiverUid, intent: intent);
+
+  Stream<PathsInvite> inviteStatus(String inviteId) => _repository.inviteStatus(inviteId);
+
+  // Blinds stubs
+  bool _blindsConsent = false;
+  BlindSession? _activeBlindSession;
+  BlindSession? get activeBlindSession => _activeBlindSession;
+  bool get blindsConsent => _blindsConsent;
+  void setBlindsConsent(bool value) { _blindsConsent = value; notifyListeners(); }
+  Future<void> enqueueBlind({
+    required String intent,
+    required String distanceBucket,
+    required DateTime availableUntil,
+  }) async {
+    await _repository.enqueueBlind(BlindQueueEntry(
+      userId: FirebaseAuth.instance.currentUser?.uid ?? '',
+      intent: intent,
+      availableUntil: availableUntil,
+      distanceBucket: distanceBucket,
+    ));
+  }
+  void openBlindChat(BlindSession session) { _activeBlindSession = session; push(AppStage.chat); }
+  String? get activeChatId => null;
+
+  // Pending melt invites stub
+  List<Map<String, dynamic>> get pendingMeltInvites => const [];
+
+  // Chat stubs
+  void openChatDetail(VibeProfile profile, {String? chatId}) => push(AppStage.chat);
+  void openHome() => replaceStack([AppStage.dailyPool]);
+
+  // MeltChatService stub (null — not implemented)
+  dynamic get meltChatService => null;
+
+  // IAP service stub
+  dynamic get iapService => null;
+
+  // Profile stubs
+  VibeProfile? get fullProfile => activeProfile;
+  Future<void> refreshProfile() async {}
+  Future<void> setBioFilled(bool value) async {}
+  Future<void> setPreferencesSet(bool value) async {}
+  Future<void> updateProfile({
+    String? name,
+    String? bio,
+    List<String>? interests,
+    int? age,
+    String? gender,
+    String? location,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await _repository.updateProfile(
+      uid: uid,
+      displayName: name,
+      bio: bio,
+      age: age,
+      gender: gender,
+      location: location,
+      interests: interests,
+    );
+  }
+  Future<void> updateLocalProfileState({
+    bool? hasBio,
+    bool? hasPreferences,
+    PhotoSlot? photoSlot,
+    int? photoIndex,
+  }) async {}
+  Future<void> uploadPhotoForSlot(int index, [String? path]) async {}
 
   void _hydrate() {
     final completed =

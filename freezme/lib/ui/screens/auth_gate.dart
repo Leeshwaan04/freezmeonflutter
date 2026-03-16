@@ -21,11 +21,12 @@ class _AuthGatePageState extends State<AuthGatePage> {
   Future<void> _signInWithGoogle(AppFlowController flow) async {
     setState(() => _isLoading = true);
     try {
-      final googleUser = await GoogleSignIn().signIn();
+      final google = GoogleSignIn.instance;
+      await google.initialize();
+      final googleUser = await google.authenticate();
       if (googleUser == null) return;
-      final googleAuth = await googleUser.authentication;
+      final googleAuth = googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
       await FirebaseAuth.instance.signInWithCredential(credential);

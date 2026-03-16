@@ -189,6 +189,25 @@ class FreezmeTypography {
     color: FreezmeColors.muted,
   );
 
+  // Aliases used by newer screens
+  static const TextStyle h1 = TextStyle(
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+    color: FreezmeColors.neutral,
+  );
+
+  static const TextStyle bodyMedium = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    color: FreezmeColors.neutral,
+  );
+
+  static const TextStyle bodyLarge = TextStyle(
+    fontSize: 17,
+    fontWeight: FontWeight.w400,
+    color: FreezmeColors.neutral,
+  );
+
   static const TextStyle caption = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w500,

@@ -17,6 +17,9 @@ enum AppStage {
   vectorSimulation,
   circleDiscovery,
   circleChat,
+  // Stages added by remote refactor
+  profileCompletion,
+  editProfile,
 }
 
 enum LifestyleArchetype {

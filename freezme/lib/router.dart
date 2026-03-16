@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'main.dart';
+import 'controllers/flow_controller.dart';
 import 'ui/onboarding/enhanced_onboarding.dart';
 import 'ui/profile/profile_completion_page.dart';
 import 'ui/home/home_page.dart';
@@ -186,44 +186,6 @@ class FreezmeRouter {
       ),
     ),
   );
-
-  /// Map AppStage to route path
-  String? _stageToPath(AppStage stage) {
-    switch (stage) {
-      case AppStage.splash:
-        return '/splash';
-      case AppStage.authGate:
-        return '/auth';
-      case AppStage.onboarding:
-        return '/onboarding';
-      case AppStage.profileCompletion:
-        return '/profile-completion';
-      case AppStage.dailyPool:
-        return '/daily-pool';
-      case AppStage.chatList:
-        return '/chat-list';
-      case AppStage.paths:
-        return '/paths';
-      case AppStage.blinds:
-        return '/blinds';
-      case AppStage.chat:
-        return '/chat';
-      case AppStage.matchSuccess:
-        return '/match-success';
-      case AppStage.profilePreview:
-        return '/profile-preview';
-      case AppStage.editProfile:
-        return '/edit-profile';
-      case AppStage.dailyRecap:
-        return '/daily-recap';
-      case AppStage.profileSettings:
-        return '/profile-settings';
-      case AppStage.freezmePlus:
-        return '/freezme-plus';
-      case AppStage.developerMenu:
-        return null; // Developer menu not exposed in router
-    }
-  }
 
   /// Create a fade transition page for tab navigation
   Page _fadePage({required LocalKey key, required Widget child}) {

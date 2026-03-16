@@ -1,37 +1,24 @@
 import '../core/app_stage.dart';
-
-class VibeProfile {
-  const VibeProfile({
-    required this.id,
-    required this.name,
-    required this.age,
-    required this.imageUrl,
-    required this.compatibility,
-    required this.bio,
-    required this.distance,
-    this.archetypes = const [],
-  });
-
-  final int id;
-  final String name;
-  final int age;
-  final String imageUrl;
-  final int compatibility;
-  final String bio;
-  final String distance;
-  final List<LifestyleArchetype> archetypes;
-}
+import 'vibe_profile.dart';
 
 class AppMatch {
   const AppMatch({
     required this.profile,
     required this.matchedAt,
+    required this.expiresAt,
     this.scheduledSlot,
+    this.hasConversationStarted = false,
   });
 
   final VibeProfile profile;
   final DateTime matchedAt;
+  final DateTime expiresAt;
   final String? scheduledSlot;
+  final bool hasConversationStarted;
+
+  bool get isExpired => !hasConversationStarted && DateTime.now().isAfter(expiresAt);
+  
+  Duration get remainingTime => expiresAt.difference(DateTime.now());
 }
 
 class VibeCircle {
