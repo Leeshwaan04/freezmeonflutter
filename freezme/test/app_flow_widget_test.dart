@@ -1,14 +1,11 @@
-import 'dart:ui' show Size;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:freezme/main.dart';
 import 'package:freezme/services/melt_chat_service.dart';
 import 'package:freezme/services/photo_upload_service.dart';
-import 'package:freezme/ui/shared/bottom_nav_bar.dart';
 import 'package:freezme/services/iap_service.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'mocks/mock_repository.dart';

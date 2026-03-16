@@ -3,10 +3,7 @@ import 'package:freezme/models/vibe_profile.dart';
 import 'package:freezme/models/chat_message.dart';
 import 'package:freezme/models/paths.dart';
 import 'package:freezme/models/blinds.dart';
-import 'package:freezme/services/melt_chat_service.dart';
-import 'package:freezme/services/photo_upload_service.dart';
 import 'dart:async';
-import 'dart:io';
 
 /// Minimal stub implementation of [FreezmeRepository] used only for unit tests.
 class MockFreezmeRepository implements FreezmeRepository {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import '../../services/iap_service.dart';
 import '../../main.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';

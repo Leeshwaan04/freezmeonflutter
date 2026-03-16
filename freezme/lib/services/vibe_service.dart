@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../models/vibe_profile.dart';
 
 /// VibeService handles the E2E communication with the Go Backend

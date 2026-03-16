@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'dart:async'; // Added
-import '../../data/freezme_repository.dart';
 import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
 import '../../services/location_service.dart';
@@ -848,7 +847,7 @@ class _TonightProfileCard extends StatelessWidget {
                           ),
                           child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
                         ),
-                        errorWidget: (context, _, __) => Container(
+                        errorWidget: (context, _, _) => Container(
                           width: 110,
                           height: 120,
                           decoration: BoxDecoration(

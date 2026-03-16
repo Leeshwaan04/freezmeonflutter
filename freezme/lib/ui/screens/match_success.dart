@@ -1,8 +1,6 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
-import '../../core/app_stage.dart';
 import '../widgets/luxury_animations.dart';
 
 class MatchSuccessPage extends StatefulWidget {

@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
-import '../../models/profile.dart';
 import '../../models/vibe_profile.dart';
 import '../widgets/freezme_logo.dart';
 import '../widgets/freeze_modal.dart';
@@ -776,7 +775,7 @@ class _DNARow extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-            Text('${value}%', style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+            Text('$value%', style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 4),

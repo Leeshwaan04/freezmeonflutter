@@ -54,7 +54,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   final List<ChatMessageItem> _messages = <ChatMessageItem>[];
   StreamSubscription<List<ChatMessage>>? _msgSub;
   bool _sending = false;
-  bool _simulatedTyping = false;
+  final bool _simulatedTyping = false;
 
   @override
   void dispose() {

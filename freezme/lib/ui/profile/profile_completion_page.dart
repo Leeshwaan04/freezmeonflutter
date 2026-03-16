@@ -274,8 +274,11 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
                           selected: selected,
                           onTap: () {
                             setState(() {
-                              if (selected) _lookingFor.remove(opt);
-                              else _lookingFor.add(opt);
+                              if (selected) {
+                                _lookingFor.remove(opt);
+                              } else {
+                                _lookingFor.add(opt);
+                              }
                             });
                           },
                         );

@@ -16,7 +16,7 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
   bool _hideLastSeen = false;
   bool _hideReadReceipts = false;
   bool _incognitoMode = false;
-  List<String> _blockedUsers = [];
+  final List<String> _blockedUsers = [];
   bool _isLoading = false;
 
   @override
@@ -208,7 +208,7 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _blockedUsers.length,
-                          separatorBuilder: (_, __) => const Divider(color: FreezmeDesignSystem.border),
+                          separatorBuilder: (_, _) => const Divider(color: FreezmeDesignSystem.border),
                           itemBuilder: (context, index) {
                             final uid = _blockedUsers[index];
                             return Padding(

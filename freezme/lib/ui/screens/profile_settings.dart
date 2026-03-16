@@ -1,5 +1,4 @@
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
@@ -270,7 +269,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 Icon(Icons.verified, color: Colors.green, size: 12),
-                                                const SizedBox(width: 4),
+                                                SizedBox(width: 4),
                                                 Text('Verified', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
                                               ],
                                             ),

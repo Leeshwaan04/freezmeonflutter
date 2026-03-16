@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
-import '../../core/app_stage.dart';
 import '../widgets/luxury_animations.dart';
 
 class FreezeScreen extends StatefulWidget {
@@ -15,10 +13,6 @@ class FreezeScreen extends StatefulWidget {
 class _FreezeScreenState extends State<FreezeScreen> with SingleTickerProviderStateMixin {
   final GlobalKey<ShatterTransitionState> _shatterKey = GlobalKey();
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 
   void _handleUnfreeze(AppFlowController flow) async {
     _shatterKey.currentState?.start();

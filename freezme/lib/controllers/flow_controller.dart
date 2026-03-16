@@ -92,8 +92,8 @@ class AppFlowController extends ChangeNotifier {
   // Paths stubs
   double _lastPathsRadiusKm = 5.0;
   Set<String> _lastPathsIntents = const {'coffee', 'walk'};
-  List<PathsPresence> _nearbyPaths = [];
-  bool _pathsLoading = false;
+  final List<PathsPresence> _nearbyPaths = [];
+  final bool _pathsLoading = false;
   String? _pathsError;
   double get lastPathsRadiusKm => _lastPathsRadiusKm;
   Set<String> get lastPathsIntents => _lastPathsIntents;

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../theme.dart';
 import '../../main.dart';
@@ -211,8 +210,7 @@ class _AuthGatePageState extends State<AuthGatePage>
       final google = GoogleSignIn.instance;
       await google.initialize();
 
-      final googleUser = await google.authenticate();
-      if (googleUser == null) return; // cancelled
+      final googleUser = await google.authenticate(); // cancelled
 
       final googleAuth = googleUser.authentication;
       final credential = GoogleAuthProvider.credential(

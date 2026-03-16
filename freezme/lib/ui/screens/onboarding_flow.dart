@@ -4,7 +4,6 @@ import '../../controllers/flow_controller.dart';
 import '../widgets/freezme_logo.dart';
 import '../../core/app_stage.dart';
 import '../../models/blueprint.dart';
-import '../../models/profile.dart';
 
 class OnboardingFlowPage extends StatefulWidget {
   const OnboardingFlowPage({super.key});
@@ -244,8 +243,11 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 selected: isSelected,
                 onSelected: (val) {
                   setState(() {
-                    if (val) _selectedTraits.add(trait);
-                    else _selectedTraits.remove(trait);
+                    if (val) {
+                      _selectedTraits.add(trait);
+                    } else {
+                      _selectedTraits.remove(trait);
+                    }
                   });
                 },
                 selectedColor: FreezmeColors.primary,
@@ -275,8 +277,11 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                  value: isSelected,
                  onChanged: (v) {
                    setState(() {
-                     if (v!) _selectedLifestyle.add(f);
-                     else _selectedLifestyle.remove(f);
+                     if (v!) {
+                       _selectedLifestyle.add(f);
+                     } else {
+                       _selectedLifestyle.remove(f);
+                     }
                    });
                  },
                  activeColor: FreezmeColors.primary,
@@ -308,8 +313,11 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
               labelStyle: TextStyle(color: isSelected ? Colors.white : FreezmeColors.neutral),
               onPressed: () {
                 setState(() {
-                  if (isSelected) _selectedInterests.remove(interest);
-                  else _selectedInterests.add(interest);
+                  if (isSelected) {
+                    _selectedInterests.remove(interest);
+                  } else {
+                    _selectedInterests.add(interest);
+                  }
                 });
               },
             );

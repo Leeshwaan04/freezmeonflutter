@@ -104,7 +104,7 @@ class _ChatListPageState extends State<ChatListPage> {
             padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
             scrollDirection: Axis.horizontal,
             itemCount: recent.length,
-            separatorBuilder: (_, __) => const SizedBox(width: FreezmeDesignSystem.spaceMd),
+            separatorBuilder: (_, _) => const SizedBox(width: FreezmeDesignSystem.spaceMd),
             itemBuilder: (context, index) {
               final c = recent[index];
               return GestureDetector(
@@ -605,7 +605,7 @@ class _ChatListPageState extends State<ChatListPage> {
           physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
           itemCount: invites.length,
-          separatorBuilder: (_, __) => const SizedBox(height: FreezmeDesignSystem.spaceMd),
+          separatorBuilder: (_, _) => const SizedBox(height: FreezmeDesignSystem.spaceMd),
           itemBuilder: (context, index) {
             final invite = invites[index];
             return Container(

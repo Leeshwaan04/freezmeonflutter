@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme.dart';
@@ -89,7 +88,7 @@ class _DailyRecapPageState extends State<DailyRecapPage> with SingleTickerProvid
                       // Vibe Trend Chart
                       _StaggeredEntrance(
                         delayIndex: 4,
-                        child: Container(
+                        child: SizedBox(
                           height: 120,
                           width: double.infinity,
                           child: _VibeTrendChart(),

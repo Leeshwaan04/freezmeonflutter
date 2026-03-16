@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
-import '../../main.dart';
 import '../components/freezme_logo.dart';
 
 import 'package:go_router/go_router.dart';

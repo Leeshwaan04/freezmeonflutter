@@ -5,7 +5,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
-import '../../core/app_stage.dart';
 import '../widgets/freezme_logo.dart';
 
 class AuthGatePage extends StatefulWidget {
@@ -24,7 +23,6 @@ class _AuthGatePageState extends State<AuthGatePage> {
       final google = GoogleSignIn.instance;
       await google.initialize();
       final googleUser = await google.authenticate();
-      if (googleUser == null) return;
       final googleAuth = googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,

@@ -7,10 +7,10 @@ class AuroraBackground extends StatefulWidget {
   final bool isPremium;
 
   const AuroraBackground({
-    Key? key, 
+    super.key, 
     required this.child,
     this.isPremium = false,
-  }) : super(key: key);
+  });
 
   @override
   State<AuroraBackground> createState() => _AuroraBackgroundState();

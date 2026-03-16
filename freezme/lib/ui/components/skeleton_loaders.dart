@@ -47,7 +47,7 @@ class ChatListSkeleton extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(FreezmeDesignSystem.spaceMd),
       itemCount: itemCount,
-      separatorBuilder: (_, __) => const SizedBox(height: FreezmeDesignSystem.spaceMd),
+      separatorBuilder: (_, _) => const SizedBox(height: FreezmeDesignSystem.spaceMd),
       itemBuilder: (context, index) {
         return const ChatItemSkeleton();
       },
