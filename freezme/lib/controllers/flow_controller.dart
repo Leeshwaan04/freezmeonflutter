@@ -15,13 +15,19 @@ import '../models/photo_slot.dart';
 import '../data/freezme_repository.dart';
 import '../services/compatibility_engine.dart';
 import '../services/archetype_service.dart';
+import '../services/melt_chat_service.dart';
+import '../services/iap_service.dart';
 
 class AppFlowController extends ChangeNotifier {
   static const _kOnboardingCompleteKey = 'onboarding_complete';
 
-  AppFlowController._(this._prefs, this._repository) : dailyProfiles = <VibeProfile>[] {
+  AppFlowController._(this._prefs, this._repository)
+      : dailyProfiles = <VibeProfile>[],
+        meltChatService = FirebaseMeltChatService(),
+        iapService = IAPService(_repository) {
     _hydrate();
     fetchDailyPool(); // Initial fetch
+    _watchMeltInvites();
   }
 
   static Future<AppFlowController> create(FreezmeRepository repository) async {
@@ -36,6 +42,8 @@ class AppFlowController extends ChangeNotifier {
 
   final SharedPreferences? _prefs;
   final FreezmeRepository _repository;
+  final MeltChatService meltChatService;
+  final IAPService iapService;
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
   final List<AppMatch> _matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
@@ -132,18 +140,21 @@ class AppFlowController extends ChangeNotifier {
   void openBlindChat(BlindSession session) { _activeBlindSession = session; push(AppStage.chat); }
   String? get activeChatId => null;
 
-  // Pending melt invites stub
-  List<Map<String, dynamic>> get pendingMeltInvites => const [];
+  // Melt invites — backed by live Firestore stream
+  List<Map<String, dynamic>> _pendingMeltInvites = const [];
+  StreamSubscription<List<Map<String, dynamic>>>? _meltInviteSub;
+  List<Map<String, dynamic>> get pendingMeltInvites => _pendingMeltInvites;
+
+  void _watchMeltInvites() {
+    _meltInviteSub = _repository.watchMeltInvites().listen((invites) {
+      _pendingMeltInvites = invites;
+      notifyListeners();
+    });
+  }
 
   // Chat stubs
   void openChatDetail(VibeProfile profile, {String? chatId}) => push(AppStage.chat);
   void openHome() => replaceStack([AppStage.dailyPool]);
-
-  // MeltChatService stub (null — not implemented)
-  dynamic get meltChatService => null;
-
-  // IAP service stub
-  dynamic get iapService => null;
 
   // Profile stubs
   VibeProfile? get fullProfile => activeProfile;
@@ -521,6 +532,13 @@ class AppFlowController extends ChangeNotifier {
     await FirebaseAuth.instance.signOut();
     await _prefs?.clear();
     replaceStack([AppStage.authGate]);
+  }
+
+  @override
+  void dispose() {
+    _meltInviteSub?.cancel();
+    iapService.dispose();
+    super.dispose();
   }
 
   void skipProfile() {
