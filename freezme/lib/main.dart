@@ -60,11 +60,7 @@ class _FreezmeAppState extends State<FreezmeApp> {
   @override
   void initState() {
     super.initState();
-    // Use Firestore in production; only fall back to mock in debug builds
-    final repository = FirestoreFreezmeRepository(
-      fallback: kDebugMode ? const MockFreezmeRepository() : null,
-    );
-    AppFlowController.create(repository).then((controller) {
+    AppFlowController.create().then((controller) {
       if (mounted) {
         setState(() {
           _controller = controller;
@@ -186,7 +182,7 @@ class FlowNavigator extends StatelessWidget {
       case AppStage.dailyRecap:
         return const DailyRecapPage();
       case AppStage.freezmePlus:
-        return const FreezeMePlusPage();
+        return const FreezmePlusPage();
       case AppStage.developerMenu:
         return const DeveloperPreviewScreen();
       case AppStage.freeze:

@@ -1,3 +1,5 @@
+import 'blueprint.dart';
+
 class VibeProfile {
   const VibeProfile({
     required this.uid,
@@ -7,6 +9,7 @@ class VibeProfile {
     required this.imageUrl,
     this.photoUrls = const <String>[],
     required this.compatibility,
+    this.dna,
     this.interests = const <String>[],
     required this.bio,
     this.gender = '',
@@ -26,6 +29,7 @@ class VibeProfile {
   final String imageUrl;
   final List<String> photoUrls;
   final int compatibility;
+  final CompatibilityDNA? dna;
   final List<String> interests;
   final String bio;
   final String gender;
@@ -90,6 +94,7 @@ class VibeProfile {
       imageUrl: primaryImage,
       photoUrls: List<String>.unmodifiable(normalizedPhotos),
       compatibility: (json['compatibility'] as num?)?.toInt() ?? 0,
+      dna: json['dna'] != null ? CompatibilityDNA.fromJson(json['dna']) : null,
       interests: (json['interests'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
       bio: json['bio'] as String? ?? '',
       gender: json['gender'] as String? ?? '',
@@ -112,6 +117,7 @@ class VibeProfile {
     'imageUrl': imageUrl,
     'photoUrls': photoUrls,
     'compatibility': compatibility,
+    if (dna != null) 'dna': dna!.toJson(),
     'interests': interests,
     'bio': bio,
     'gender': gender,

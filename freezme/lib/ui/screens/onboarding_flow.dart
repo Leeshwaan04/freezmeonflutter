@@ -3,6 +3,8 @@ import '../theme.dart';
 import '../../controllers/flow_controller.dart';
 import '../widgets/freezme_logo.dart';
 import '../../core/app_stage.dart';
+import '../../models/blueprint.dart';
+import '../../models/profile.dart';
 
 class OnboardingFlowPage extends StatefulWidget {
   const OnboardingFlowPage({super.key});
@@ -13,42 +15,42 @@ class OnboardingFlowPage extends StatefulWidget {
 
 class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   int _step = 1;
-  String? _selectedIntent;
+  static const int _totalSteps = 6;
+
+  // Step 1: Intent
+  DatingIntent? _selectedIntent;
   bool _ageConfirmed = false;
-  final TextEditingController _bioController = TextEditingController();
-  final TextEditingController _ageController = TextEditingController();
+
+  // Step 2: Personality Traits
+  final List<PersonalityTrait> _selectedTraits = [];
+
+  // Step 3: Lifestyle Factors
+  final List<LifestyleFactor> _selectedLifestyle = [];
+
+  // Step 4: Interests
   final List<String> _selectedInterests = [];
 
-  final List<({String id, String label, String emoji})> _intents = const [
-    (id: 'meaningful', label: 'Meaningful connection', emoji: '💜'),
-    (id: 'exploring', label: 'Just exploring', emoji: '✨'),
-    (id: 'see', label: 'Let\'s see where it goes', emoji: '🌟'),
-  ];
+  // Step 5: Voice Intro
+  String? _voicePath;
 
-  final List<({LifestyleArchetype id, String label, String emoji, String subtitle})> _missions = const [
-    (id: LifestyleArchetype.gym, label: 'Gym & Sports', emoji: '🏋️', subtitle: 'Find a workout partner'),
-    (id: LifestyleArchetype.brunch, label: 'Brunch & Cafe', emoji: '🥂', subtitle: 'Coffee or aesthetic eats'),
-    (id: LifestyleArchetype.clubbing, label: 'Nightlife & Clubs', emoji: '🎶', subtitle: 'Dance the night away'),
-    (id: LifestyleArchetype.travel, label: 'Travel & Trips', emoji: '🎒', subtitle: 'Weekend getaways'),
-    (id: LifestyleArchetype.homebody, label: 'Cozy & Homey', emoji: '🏠', subtitle: 'Netflix & deep talks'),
-  ];
+  // Step 6: Profile
+  final TextEditingController _bioController = TextEditingController();
+  final TextEditingController _ageController = TextEditingController();
 
   void _handleNext(AppFlowController flow) {
-    if (_step == 4) {
+    if (_step == _totalSteps) {
       flow.updateOnboardingData(
         bio: _bioController.text,
         age: int.tryParse(_ageController.text),
         interests: _selectedInterests,
+        intent: _selectedIntent,
+        personalityTraits: List.from(_selectedTraits),
+        lifestyleFactors: List.from(_selectedLifestyle),
       );
-      flow.beginCompatibilityQuiz();
+      // Mock completion status
+      flow.isVerified = true; 
+      flow.replaceStack([AppStage.dailyPool]); 
       return;
-    }
-
-    // Sync current step data
-    if (_step == 1) {
-      flow.updateOnboardingData(interests: [_selectedIntent!]); // Store intent as a starting interest
-    } else if (_step == 2) {
-      flow.updateOnboardingData(archetype: flow.selectedArchetype);
     }
 
     setState(() => _step++);
@@ -57,7 +59,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
-    final progress = _step / 4;
+    final progress = _step / _totalSteps;
 
     return Scaffold(
       body: Container(
@@ -68,41 +70,29 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  FreezmeInsets.pageGutter,
-                  FreezmeInsets.sectionSpacing,
-                  FreezmeInsets.pageGutter,
-                  FreezmeInsets.sectionSpacing / 2,
-                ),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const FreezmeLogo(size: LogoSize.sm, showText: true),
-                    const SizedBox(height: FreezmeInsets.elementSpacing),
+                    const SizedBox(height: 16),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(999),
                       child: LinearProgressIndicator(
                         value: progress,
-                        minHeight: 8,
+                        minHeight: 6,
                         backgroundColor: FreezmeColors.surfaceAlt,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          FreezmeColors.primary,
-                        ),
+                        valueColor: const AlwaysStoppedAnimation<Color>(FreezmeColors.primary),
                       ),
                     ),
-                    const SizedBox(height: FreezmeInsets.elementSpacing / 1.5),
-                    Text(
-                      'Step $_step of 4',
-                      style: FreezmeTypography.bodyMuted,
-                    ),
+                    const SizedBox(height: 8),
+                    Text('Step $_step of $_totalSteps', style: FreezmeTypography.bodyMuted),
                   ],
                 ),
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FreezmeInsets.pageGutter,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
                     child: _buildStep(context, flow),
@@ -110,31 +100,20 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  FreezmeInsets.pageGutter,
-                  FreezmeInsets.sectionSpacing / 1.5,
-                  FreezmeInsets.pageGutter,
-                  FreezmeInsets.sectionSpacing,
-                ),
+                padding: const EdgeInsets.all(24),
                 child: Row(
                   children: [
                     if (_step > 1)
-                      OutlinedButton(
+                      IconButton.outlined(
                         onPressed: () => setState(() => _step--),
-                        style: FreezmeButtons.secondaryOutlined,
-                        child: const Icon(Icons.chevron_left),
-                      )
-                    else
-                      const SizedBox(width: 0, height: 0),
-                    const SizedBox(width: FreezmeInsets.elementSpacing / 1.5),
+                        icon: const Icon(Icons.chevron_left),
+                      ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: (_step == 1 && (_selectedIntent == null || !_ageConfirmed)) ||
-                                (_step == 2 && flow.selectedArchetype == null)
-                            ? null
-                            : () => _handleNext(flow),
+                        onPressed: _canProceed() ? () => _handleNext(flow) : null,
                         style: FreezmeButtons.primaryFilled,
-                        child: Text(_step == 4 ? 'Continue' : 'Next'),
+                        child: Text(_step == _totalSteps ? 'Start Freezing' : 'Continue'),
                       ),
                     ),
                   ],
@@ -147,511 +126,255 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
     );
   }
 
+  bool _canProceed() {
+    switch (_step) {
+      case 1: return _selectedIntent != null && _ageConfirmed;
+      case 2: return _selectedTraits.isNotEmpty;
+      case 3: return _selectedLifestyle.isNotEmpty;
+      case 4: return _selectedInterests.length >= 3;
+      case 5: return true; // Voice intro is optional for now
+      case 6: return _bioController.text.length > 5 && _ageController.text.isNotEmpty;
+      default: return false;
+    }
+  }
+
   Widget _buildStep(BuildContext context, AppFlowController flow) {
     switch (_step) {
-      case 1:
-        return Column(
-          key: const ValueKey<int>(1),
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: FreezmeInsets.elementSpacing),
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    'What brings you here?',
-                    style: FreezmeTypography.title.copyWith(
-                      color: FreezmeColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: FreezmeInsets.elementSpacing / 2),
-                  const Text(
-                    'Choose what feels right 💫',
-                    style: FreezmeTypography.bodyMuted,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: FreezmeInsets.sectionSpacing),
-            for (int i = 0; i < _intents.length; i++) ...[
-              _StaggeredEntrance(
-                index: i,
-                child: GestureDetector(
-                  onTap: () => setState(() => _selectedIntent = _intents[i].id),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.only(
-                      bottom: FreezmeInsets.elementSpacing,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: FreezmeInsets.elementSpacing,
-                      vertical: FreezmeInsets.sectionSpacing / 1.5,
-                    ),
-                    transform: Matrix4.identity()
-                      ..scale(_selectedIntent == _intents[i].id ? 1.02 : 1.0),
-                    decoration: BoxDecoration(
-                      color: _selectedIntent == _intents[i].id
-                          ? FreezmeColors.primary
-                          : Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(FreezmeInsets.cardRadius),
-                      boxShadow: _selectedIntent == _intents[i].id
-                          ? [
-                              BoxShadow(
-                                color: FreezmeColors.primary.withValues(alpha: 0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              )
-                            ]
-                          : null,
-                      border: Border.all(
-                        color: _selectedIntent == _intents[i].id
-                            ? FreezmeColors.primary
-                            : FreezmeColors.border,
-                        width: 2,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(_intents[i].emoji, style: const TextStyle(fontSize: 24)),
-                        const SizedBox(width: FreezmeInsets.elementSpacing),
-                        Expanded(
-                          child: Text(
-                            _intents[i].label,
-                            style: TextStyle(
-                              color: _selectedIntent == _intents[i].id
-                                  ? Colors.white
-                                  : FreezmeColors.neutral,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+      case 1: return _buildIntentStep();
+      case 2: return _buildPersonalityStep();
+      case 3: return _buildLifestyleStep();
+      case 4: return _buildInterestsStep();
+      case 5: return _buildVoiceStep();
+      case 6: return _buildProfileStep();
+      default: return const SizedBox();
+    }
+  }
+
+  Widget _buildIntentStep() {
+    return Column(
+      key: const ValueKey(1),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Text('What are you looking for?', style: FreezmeTypography.h1),
+        const SizedBox(height: 12),
+        const Text('Be honest. We use this to match you with like-minded people.', style: FreezmeTypography.body),
+        const SizedBox(height: 32),
+        ...DatingIntent.values.map((intent) {
+          final isSelected = _selectedIntent == intent;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: InkWell(
+              onTap: () => setState(() => _selectedIntent = intent),
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isSelected ? FreezmeColors.primary : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isSelected ? FreezmeColors.primary : FreezmeColors.border),
                 ),
-              ),
-            ],
-            const SizedBox(height: FreezmeInsets.elementSpacing),
-            GestureDetector(
-              onTap: () => setState(() => _ageConfirmed = !_ageConfirmed),
-              child: Row(
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    height: 22,
-                    width: 22,
-                    decoration: BoxDecoration(
-                      color: _ageConfirmed ? FreezmeColors.primary : Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: _ageConfirmed ? FreezmeColors.primary : FreezmeColors.border,
-                        width: 2,
-                      ),
-                    ),
-                    child: _ageConfirmed
-                        ? const Icon(Icons.check, color: Colors.white, size: 14)
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'I confirm I am 18 years or older',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: FreezmeColors.neutral,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      case 2:
-        return _buildArchetypeStep(context, flow);
-      case 3:
-        return Column(
-          key: const ValueKey<int>(3),
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: FreezmeInsets.elementSpacing),
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    'Show your vibe',
-                    style: FreezmeTypography.title.copyWith(
-                      color: FreezmeColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: FreezmeInsets.elementSpacing / 2),
-                  const Text(
-                    'Add at least 3 photos 📸',
-                    style: FreezmeTypography.bodyMuted,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: FreezmeInsets.sectionSpacing),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 3,
-                crossAxisSpacing: FreezmeInsets.elementSpacing,
-                mainAxisSpacing: FreezmeInsets.elementSpacing,
-                children: List.generate(
-                  6,
-                  (index) => Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(FreezmeInsets.cardRadius),
-                      border: Border.all(
-                        color: FreezmeColors.border,
-                        width: 2,
-                        style: BorderStyle.solid,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt_outlined,
-                      color: FreezmeColors.muted,
-                      size: 32,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: FreezmeInsets.elementSpacing),
-            Center(
-              child: TextButton(
-                onPressed: () => _handleNext(flow),
-                child: const Text('Skip for now (Dev Mode)'),
-              ),
-            ),
-          ],
-        );
-      case 4:
-      default:
-        return SingleChildScrollView(
-          key: const ValueKey<int>(4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: FreezmeInsets.elementSpacing),
-              Center(
-                child: Column(
+                child: Row(
                   children: [
                     Text(
-                      'Tell us about you',
-                      style: FreezmeTypography.title.copyWith(
-                        color: FreezmeColors.primary,
-                      ),
+                      intent == DatingIntent.meaningful ? '💜' : (intent == DatingIntent.exploring ? '✨' : '🤝'),
+                      style: const TextStyle(fontSize: 24),
                     ),
-                    const SizedBox(height: FreezmeInsets.elementSpacing / 2),
-                    const Text(
-                      'Share your story 💜',
-                      style: FreezmeTypography.bodyMuted,
+                    const SizedBox(width: 16),
+                    Text(
+                      intent.name.toUpperCase(),
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : FreezmeColors.neutral,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: FreezmeInsets.sectionSpacing),
-              const Text(
-                'Bio',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: FreezmeColors.neutral,
-                ),
-              ),
-              const SizedBox(height: FreezmeInsets.elementSpacing / 2),
-              TextField(
-                controller: _bioController,
-                maxLines: 5,
-                decoration: InputDecoration(
-                  hintText: 'What makes you, you?',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(FreezmeInsets.cardRadius),
-                    borderSide: const BorderSide(color: FreezmeColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(FreezmeInsets.cardRadius),
-                    borderSide: const BorderSide(color: FreezmeColors.border),
-                  ),
-                ),
-              ),
-              const SizedBox(height: FreezmeInsets.sectionSpacing),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Age',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: FreezmeColors.neutral,
-                          ),
-                        ),
-                        const SizedBox(
-                          height: FreezmeInsets.elementSpacing / 2,
-                        ),
-                        TextField(
-                          controller: _ageController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            hintText: '25',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                FreezmeInsets.cardRadius,
-                              ),
-                              borderSide:
-                                  const BorderSide(color: FreezmeColors.border),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                FreezmeInsets.cardRadius,
-                              ),
-                              borderSide:
-                                  const BorderSide(color: FreezmeColors.border),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: FreezmeInsets.elementSpacing),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Distance (km)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: FreezmeColors.neutral,
-                          ),
-                        ),
-                        const SizedBox(
-                          height: FreezmeInsets.elementSpacing / 2,
-                        ),
-                        TextField(
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            hintText: '50',
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                FreezmeInsets.cardRadius,
-                              ),
-                              borderSide:
-                                  const BorderSide(color: FreezmeColors.border),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                FreezmeInsets.cardRadius,
-                              ),
-                              borderSide:
-                                  const BorderSide(color: FreezmeColors.border),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: FreezmeInsets.sectionSpacing),
-              const Text(
-                'Interests',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: FreezmeColors.neutral,
-                ),
-              ),
-              const SizedBox(height: FreezmeInsets.elementSpacing),
-              Wrap(
-                spacing: FreezmeInsets.elementSpacing,
-                runSpacing: FreezmeInsets.elementSpacing,
-                children: [
-                  'Music', 'Travel', 'Art', 'Fitness', 'Food', 'Books'
-                ].map((interest) {
-                  final isSelected = _selectedInterests.contains(interest);
-                  return GestureDetector(
-                    onTap: () => setState(() {
-                      if (isSelected) {
-                        _selectedInterests.remove(interest);
-                      } else {
-                        _selectedInterests.add(interest);
-                      }
-                    }),
-                    child: _InterestChip(
-                      label: interest,
-                      isSelected: isSelected,
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 80),
-            ],
-          ),
-        );
-    }
+            ),
+          );
+        }),
+        const Spacer(),
+        Row(
+          children: [
+            Checkbox(
+              value: _ageConfirmed,
+              onChanged: (v) => setState(() => _ageConfirmed = v ?? false),
+              activeColor: FreezmeColors.primary,
+            ),
+            const Expanded(child: Text('I confirm I am over 18 years old.')),
+          ],
+        ),
+      ],
+    );
   }
 
-  Widget _buildArchetypeStep(BuildContext context, AppFlowController flow) {
+  Widget _buildPersonalityStep() {
     return Column(
-      key: const ValueKey<int>(2),
+      key: const ValueKey(2),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: FreezmeInsets.elementSpacing),
-        Center(
-          child: Column(
-            children: [
-              Text(
-                'What\'s your mission?',
-                style: FreezmeTypography.title.copyWith(
-                  color: FreezmeColors.primary,
-                ),
-              ),
-              const SizedBox(height: FreezmeInsets.elementSpacing / 2),
-              const Text(
-                'What\'s on your agenda this week? 🗓️',
-                style: FreezmeTypography.bodyMuted,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: FreezmeInsets.sectionSpacing),
+        const SizedBox(height: 24),
+        const Text('Describe your vibe', style: FreezmeTypography.h1),
+        const SizedBox(height: 12),
+        const Text('Choose traits that best describe you.', style: FreezmeTypography.body),
+        const SizedBox(height: 24),
         Expanded(
-          child: ListView.builder(
-            itemCount: _missions.length,
-            itemBuilder: (context, index) {
-              final mission = _missions[index];
-              final isSelected = flow.selectedArchetype == mission.id;
-              return _StaggeredEntrance(
-                index: index,
-                child: GestureDetector(
-                  onTap: () {
-                    flow.setLifestyleArchetype(mission.id);
-                    setState(() {});
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.only(
-                      bottom: FreezmeInsets.elementSpacing,
-                    ),
-                    padding: const EdgeInsets.all(FreezmeInsets.elementSpacing),
-                    transform: Matrix4.identity()..scale(isSelected ? 1.02 : 1.0),
-                    decoration: BoxDecoration(
-                      color: isSelected ? FreezmeColors.primary : Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(FreezmeInsets.cardRadius),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: FreezmeColors.primary.withValues(alpha: 0.3),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              )
-                            ]
-                          : null,
-                      border: Border.all(
-                        color: isSelected ? FreezmeColors.primary : FreezmeColors.border,
-                        width: 2,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(mission.emoji, style: const TextStyle(fontSize: 28)),
-                        const SizedBox(width: FreezmeInsets.elementSpacing),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                mission.label,
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : FreezmeColors.neutral,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                mission.subtitle,
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white70 : FreezmeColors.muted,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (isSelected)
-                          const Icon(Icons.check_circle, color: Colors.white),
-                      ],
-                    ),
-                  ),
-                ),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: PersonalityTrait.values.map((trait) {
+              final isSelected = _selectedTraits.contains(trait);
+              return FilterChip(
+                label: Text(trait.name),
+                selected: isSelected,
+                onSelected: (val) {
+                  setState(() {
+                    if (val) _selectedTraits.add(trait);
+                    else _selectedTraits.remove(trait);
+                  });
+                },
+                selectedColor: FreezmeColors.primary,
+                labelStyle: TextStyle(color: isSelected ? Colors.white : FreezmeColors.neutral),
               );
-            },
+            }).toList(),
           ),
         ),
       ],
     );
   }
-}
 
-class _InterestChip extends StatelessWidget {
-  const _InterestChip({required this.label, this.isSelected = false});
-
-  final String label;
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      label: Text(label),
-      backgroundColor: isSelected ? FreezmeColors.primary : Colors.white,
-      shape: const StadiumBorder(),
-      labelStyle: FreezmeTypography.body.copyWith(
-        fontWeight: FontWeight.w500,
-        color: isSelected ? Colors.white : FreezmeColors.neutral,
-      ),
-      side: BorderSide(color: isSelected ? FreezmeColors.primary : FreezmeColors.border),
+  Widget _buildLifestyleStep() {
+    return Column(
+      key: const ValueKey(3),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Text('Your Lifestyle', style: FreezmeTypography.h1),
+        const SizedBox(height: 24),
+        Expanded(
+          child: ListView(
+            children: LifestyleFactor.values.map((f) {
+               final isSelected = _selectedLifestyle.contains(f);
+               return CheckboxListTile(
+                 title: Text(f.name.toUpperCase()),
+                 value: isSelected,
+                 onChanged: (v) {
+                   setState(() {
+                     if (v!) _selectedLifestyle.add(f);
+                     else _selectedLifestyle.remove(f);
+                   });
+                 },
+                 activeColor: FreezmeColors.primary,
+               );
+            }).toList(),
+          ),
+        ),
+      ],
     );
   }
-}
-class _StaggeredEntrance extends StatelessWidget {
-  final int index;
-  final Widget child;
-  const _StaggeredEntrance({required this.index, required this.child});
 
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 400 + (index * 100)),
-      curve: Curves.easeOutQuart,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 30 * (1 - value)),
-            child: child,
+  Widget _buildInterestsStep() {
+    final List<String> available = ['Music', 'Art', 'Coffee', 'Travel', 'Gaming', 'Fitness', 'Movies', 'Books'];
+    return Column(
+      key: const ValueKey(4),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        const Text('Passions', style: FreezmeTypography.h1),
+        const SizedBox(height: 32),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: available.map((interest) {
+            final isSelected = _selectedInterests.contains(interest);
+            return ActionChip(
+              label: Text(interest),
+              backgroundColor: isSelected ? FreezmeColors.primary : Colors.white,
+              labelStyle: TextStyle(color: isSelected ? Colors.white : FreezmeColors.neutral),
+              onPressed: () {
+                setState(() {
+                  if (isSelected) _selectedInterests.remove(interest);
+                  else _selectedInterests.add(interest);
+                });
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVoiceStep() {
+    return Column(
+      key: const ValueKey(5),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.mic, size: 80, color: FreezmeColors.primary),
+        const SizedBox(height: 24),
+        const Text('Voice Introduction', style: FreezmeTypography.h1),
+        const SizedBox(height: 12),
+        const Text('Add a 15-second voice clip. Voices create 3x more meaningful matches.', textAlign: TextAlign.center, style: FreezmeTypography.body),
+        const SizedBox(height: 40),
+        ElevatedButton.icon(
+          onPressed: () {}, 
+          icon: const Icon(Icons.play_arrow),
+          label: const Text('Record Introduction'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: FreezmeColors.primary,
+            minimumSize: const Size(200, 50),
           ),
-        );
-      },
-      child: child,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileStep() {
+    return SingleChildScrollView(
+      key: const ValueKey(6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          const Text('Almost there!', style: FreezmeTypography.h1),
+          const SizedBox(height: 32),
+          TextField(
+            controller: _ageController,
+            decoration: const InputDecoration(labelText: 'Age', hintText: 'How old are you?'),
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _bioController,
+            decoration: const InputDecoration(labelText: 'Bio', hintText: 'Write a quick introduction...'),
+            maxLines: 3,
+          ),
+          const SizedBox(height: 40),
+          const Text('Top Profile Photos', style: FreezmeTypography.bodyMedium),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildPhotoSlot(),
+              const SizedBox(width: 12),
+              _buildPhotoSlot(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoSlot() {
+    return Container(
+      width: 100,
+      height: 130,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: FreezmeColors.border),
+      ),
+      child: const Icon(Icons.add_a_photo, color: FreezmeColors.muted),
     );
   }
 }

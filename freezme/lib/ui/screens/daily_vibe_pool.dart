@@ -7,6 +7,7 @@ import '../../models/profile.dart';
 import '../widgets/freezme_logo.dart';
 import '../widgets/freeze_modal.dart';
 import '../../core/app_stage.dart';
+import '../../models/blueprint.dart';
 
 class DailyVibePoolPage extends StatefulWidget {
   const DailyVibePoolPage({super.key});
@@ -304,40 +305,12 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
                                 child: Icon(Icons.person, size: 48),
                               ),
                             ),
-                            Positioned(
-                              top: 20,
-                              right: 20,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      FreezmeColors.primary,
-                                      FreezmeColors.secondary,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(999),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.2),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  '${profile.compatibility}% Match',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                            if (profile.dna != null)
+                              Positioned(
+                                top: 20,
+                                right: 20,
+                                child: _CompatibilityDNACard(dna: profile.dna!),
                               ),
-                            ),
                             Positioned(
                               top: 20,
                               left: 20,
@@ -672,6 +645,126 @@ class _AnimatedEntrance extends StatelessWidget {
         );
       },
       child: child,
+    );
+  }
+}
+
+class _CompatibilityDNACard extends StatefulWidget {
+  final CompatibilityDNA dna;
+
+  const _CompatibilityDNACard({required this.dna});
+
+  @override
+  State<_CompatibilityDNACard> createState() => _CompatibilityDNACardState();
+}
+
+class _CompatibilityDNACardState extends State<_CompatibilityDNACard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => setState(() => _isExpanded = !_isExpanded),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutQuart,
+        width: _isExpanded ? 240 : 100,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.dna, color: Colors.purpleAccent, size: 20),
+                if (_isExpanded) ...[
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Compatibility DNA',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ] else ...[
+                  const Spacer(),
+                  Text(
+                    '${widget.dna.overall}%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            if (_isExpanded) ...[
+              const SizedBox(height: 16),
+              _DNARow(label: 'Lifestyle', value: widget.dna.lifestyle, color: Colors.blueAccent),
+              const SizedBox(height: 8),
+              _DNARow(label: 'Personality', value: widget.dna.personality, color: Colors.greenAccent),
+              const SizedBox(height: 8),
+              _DNARow(label: 'Values', value: widget.dna.values, color: Colors.orangeAccent),
+              const SizedBox(height: 8),
+              _DNARow(label: 'Communication', value: widget.dna.communication, color: Colors.pinkAccent),
+              const SizedBox(height: 12),
+              const Center(
+                child: Text(
+                  'Tap to collapse',
+                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DNARow extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color color;
+
+  const _DNARow({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Text('${value}%', style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(
+            value: value / 100,
+            backgroundColor: Colors.white10,
+            valueColor: AlwaysStoppedAnimation(color),
+            minHeight: 3,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -167,6 +167,47 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                     ),
                   ),
                 ),
+                if (_messages.length <= 1)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'ICEBREAKERS',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: FreezmeColors.muted,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 48,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              _IcebreakerChip(
+                                text: 'Whats your favorite weekend hobby? ☕',
+                                onSelected: (val) => _controller.text = val,
+                              ),
+                              _IcebreakerChip(
+                                text: 'I love your bio! Tell me more about your travel plans ✈️',
+                                onSelected: (val) => _controller.text = val,
+                              ),
+                              _IcebreakerChip(
+                                text: 'We have a 95% lifestyle match! Do you like gym sessions too? 💪',
+                                onSelected: (val) => _controller.text = val,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(color: FreezmeColors.border),
+                      ],
+                    ),
+                  ),
               Expanded(
                 child: ListView.builder(
                   controller: _scrollController,
@@ -319,5 +360,25 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
       case LifestyleArchetype.travel: return '🎒';
       case LifestyleArchetype.homebody: return '🏠';
     }
+  }
+}
+class _IcebreakerChip extends StatelessWidget {
+  final String text;
+  final Function(String) onSelected;
+
+  const _IcebreakerChip({required this.text, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ActionChip(
+        label: Text(text),
+        onPressed: () => onSelected(text),
+        backgroundColor: Colors.white,
+        shape: StadiumBorder(side: BorderSide(color: FreezmeColors.primary.withValues(alpha: 0.2))),
+        labelStyle: const TextStyle(fontSize: 12, color: FreezmeColors.primary),
+      ),
+    );
   }
 }

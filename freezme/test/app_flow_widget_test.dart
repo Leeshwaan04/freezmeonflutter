@@ -49,8 +49,16 @@ void main() {
           ),
         ),
       );
-      await tester.pump(const Duration(seconds: 4));
-      await tester.pumpAndSettle();
+      // Pump in stages to avoid pumpAndSettle timing out on infinite animations.
+      // Stage 1: Let async controllerBuilder resolve + splash render.
+      await tester.pump();
+      // Stage 2: Advance past the splash 2s Future.delayed auto-navigation.
+      await tester.pump(const Duration(seconds: 3));
+      // Stage 3: Let go_router process the context.go('/auth') navigation.
+      await tester.pump();
+      await tester.pump();
+      // Stage 4: Flush any remaining frame callbacks from auth gate's initState.
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Continue with Apple'), findsOneWidget);
       expect(find.text('Continue with Google'), findsOneWidget);
@@ -76,7 +84,14 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      // Pump in stages to avoid pumpAndSettle timing out on infinite animations.
+      await tester.pump(); // resolve async controller
+      await tester.pump(const Duration(seconds: 3)); // past splash delay
+      await tester.pump(); // navigation fires
+      await tester.pump(); // new route builds
+      // Flush periodic timers (typewriter, count animation) so none are
+      // pending when the test framework disposes the widget tree.
+      await tester.pump(const Duration(seconds: 2));
 
       // Verify the app renders successfully after onboarding (checks that we navigated past splash/auth)
       // HomePage may have async dependencies that make specific UI checks unreliable in tests

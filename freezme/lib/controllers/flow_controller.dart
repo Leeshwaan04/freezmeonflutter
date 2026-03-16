@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/app_stage.dart';
 import '../models/vibe_profile.dart';
+import '../models/blueprint.dart';
+import '../models/profile.dart';
 import '../data/freezme_repository.dart';
 
 class AppFlowController extends ChangeNotifier {
@@ -43,6 +45,7 @@ class AppFlowController extends ChangeNotifier {
   bool _isVerified = false;
   bool _isPremium = false;
   int _vibeCredits = 3;
+  UserBlueprint? userBlueprint;
 
   set isVerified(bool value) {
     _isVerified = value;
@@ -258,9 +261,23 @@ class AppFlowController extends ChangeNotifier {
     String? bio,
     LifestyleArchetype? archetype,
     List<String>? interests,
+    DatingIntent? intent,
+    List<PersonalityTrait>? personalityTraits,
+    List<LifestyleFactor>? lifestyleFactors,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return; // Not signed in — skip write
+    // We update local blueprint first
+    userBlueprint = UserBlueprint(
+      intent: intent ?? userBlueprint?.intent ?? DatingIntent.meaningful,
+      personalityTraits: personalityTraits ?? userBlueprint?.personalityTraits ?? [],
+      lifestyleFactors: lifestyleFactors ?? userBlueprint?.lifestyleFactors ?? [],
+      trustScore: userBlueprint?.trustScore ?? 100,
+    );
+
+    if (uid == null) {
+      notifyListeners();
+      return; 
+    }
 
     await _repository.updateProfile(
       uid: uid,
