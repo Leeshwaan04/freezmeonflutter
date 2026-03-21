@@ -43,6 +43,25 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+android/build/
+
+# iOS / macOS CocoaPods
+ios/Pods/
+macos/Pods/
+ios/Podfile.lock
+macos/Podfile.lock
+
+# Dart tool cache
+**/.dart_tool/
+
+# Local analysis / build output logs
+analyze_*.txt
+build_*.txt
+current_analyze*.txt
+e2e_*.txt
+full_analyze.txt
+final_check_analyze.txt
+xcode_raw_error.txt
 
 # Signing keys
 /android/key.properties
