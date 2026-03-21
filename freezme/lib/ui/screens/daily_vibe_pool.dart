@@ -17,13 +17,6 @@ class DailyVibePoolPage extends StatefulWidget {
 }
 
 class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
-  static const List<String> _timeSlots = <String>[
-    'Today 7:00 PM',
-    'Today 8:00 PM',
-    'Tomorrow 6:00 PM',
-    'Tomorrow 7:00 PM',
-    'Tomorrow 8:00 PM',
-  ];
 
   Future<void> _handleVibe(
     BuildContext context,
@@ -46,91 +39,6 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
 
   void _trackEvent(String name, Map<String, dynamic> props) {
     debugPrint('ANALYTICS [EVENT]: $name | PROPS: $props');
-  }
-
-  Future<String?> _showInviteDialog(BuildContext context) async {
-    String? selected = _timeSlots.first;
-    return showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          child: StatefulBuilder(
-            builder: (context, setStateDialog) {
-              return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Invite for a Vibe Date?',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: FreezmeColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Choose a time for your 20-minute video date:',
-                      style: TextStyle(
-                        color: FreezmeColors.muted,
-                        fontSize: 13,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        for (final slot in _timeSlots)
-                          ChoiceChip(
-                            label: Text(slot),
-                            selected: selected == slot,
-                            onSelected: (_) => setStateDialog(() {
-                              selected = slot;
-                            }),
-                            selectedColor: FreezmeColors.primary,
-                            labelStyle: TextStyle(
-                              color: selected == slot
-                                  ? Colors.white
-                                  : FreezmeColors.neutral,
-                            ),
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              side: BorderSide(
-                                color: selected == slot
-                                    ? FreezmeColors.primary
-                                    : FreezmeColors.border,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: FreezmeColors.primary,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(52),
-                        shape: const StadiumBorder(),
-                      ),
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(selected),
-                      child: const Text('Confirm Vibe'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
   }
 
   String _getNudgeText(LifestyleArchetype? userMission, VibeProfile profile) {
@@ -159,8 +67,6 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
         return hasOverlap
             ? "Cozy night and deep talks. Perfect match for a slow weekend 🏠"
             : "A bit higher energy than home, but opposites attract! ⚡";
-      default:
-        return "You both have amazing vibes! Match to see more 💫";
     }
   }
 
@@ -723,8 +629,8 @@ class _CompatibilityDNACardState extends State<_CompatibilityDNACard> {
               const SizedBox(height: 16),
               const Text('WHY YOU MATCH', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
               const SizedBox(height: 8),
-              _MatchReason(text: "Shared lifestyle archetypes"),
-              _MatchReason(text: "High values alignment"),
+              const _MatchReason(text: "Shared lifestyle archetypes"),
+              const _MatchReason(text: "High values alignment"),
               const SizedBox(height: 12),
               const Center(
                 child: Text(

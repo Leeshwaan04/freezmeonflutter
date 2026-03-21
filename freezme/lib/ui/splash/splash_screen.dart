@@ -56,7 +56,7 @@ class _SplashScreenState extends State<SplashScreen>
       context.go('/auth');
     } catch (e) {
       // Fallback
-      print('Navigation error: $e');
+      debugPrint('Navigation error: $e');
     }
   }
 

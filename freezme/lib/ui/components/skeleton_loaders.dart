@@ -150,31 +150,31 @@ class PathsUserSkeleton extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(FreezmeDesignSystem.spaceMd),
       decoration: FreezmeDesignSystem.cardDecoration,
-      child: Row(
+      child: const Row(
         children: [
-          const SkeletonLoader(
+          SkeletonLoader(
             width: 60,
             height: 60,
             borderRadius: FreezmeDesignSystem.radiusFull,
           ),
-          const SizedBox(width: FreezmeDesignSystem.spaceMd),
+          SizedBox(width: FreezmeDesignSystem.spaceMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SkeletonLoader(width: 100, height: 16),
-                const SizedBox(height: FreezmeDesignSystem.spaceSm),
-                const SkeletonLoader(width: 80, height: 14),
-                const SizedBox(height: FreezmeDesignSystem.spaceSm),
+                SkeletonLoader(width: 100, height: 16),
+                SizedBox(height: FreezmeDesignSystem.spaceSm),
+                SkeletonLoader(width: 80, height: 14),
+                SizedBox(height: FreezmeDesignSystem.spaceSm),
                 Row(
                   children: [
-                    const SkeletonLoader(
+                    SkeletonLoader(
                       width: 80,
                       height: 28,
                       borderRadius: FreezmeDesignSystem.radiusFull,
                     ),
-                    const SizedBox(width: FreezmeDesignSystem.spaceSm),
-                    const SkeletonLoader(
+                    SizedBox(width: FreezmeDesignSystem.spaceSm),
+                    SkeletonLoader(
                       width: 80,
                       height: 28,
                       borderRadius: FreezmeDesignSystem.radiusFull,

@@ -1,0 +1,142 @@
+Resolving dependencies...
+Downloading packages...
+  archive 4.0.7 (4.0.9 available)
+  cloud_firestore 6.1.0 (6.1.3 available)
+  cloud_firestore_platform_interface 7.0.4 (7.0.7 available)
+  cloud_firestore_web 5.1.0 (5.1.3 available)
+  cloud_functions 6.0.4 (6.0.7 available)
+  cloud_functions_platform_interface 5.8.7 (5.8.10 available)
+  cloud_functions_web 5.1.0 (5.1.3 available)
+  cross_file 0.3.5+1 (0.3.5+2 available)
+  dbus 0.7.11 (0.7.12 available)
+  ffi 2.1.4 (2.2.0 available)
+  firebase_auth 6.1.2 (6.2.0 available)
+  firebase_auth_platform_interface 8.1.4 (8.1.7 available)
+  firebase_auth_web 6.1.0 (6.1.3 available)
+  firebase_messaging 16.0.4 (16.1.2 available)
+  firebase_messaging_platform_interface 4.7.4 (4.7.7 available)
+  firebase_messaging_web 4.1.0 (4.1.3 available)
+  firebase_storage 13.0.4 (13.1.0 available)
+  firebase_storage_platform_interface 5.2.15 (5.2.18 available)
+  firebase_storage_web 3.11.0 (3.11.3 available)
+  flutter_svg 2.2.3 (2.2.4 available)
+  geolocator_linux 0.2.3 (0.2.4 available)
+  google_sign_in_android 7.2.6 (7.2.9 available)
+  google_sign_in_ios 6.2.4 (6.3.0 available)
+  google_sign_in_web 1.1.0 (1.1.3 available)
+  image 4.5.4 (4.8.0 available)
+  image_picker_android 0.8.13+10 (0.8.13+14 available)
+  image_picker_ios 0.8.13+2 (0.8.13+6 available)
+  in_app_purchase_storekit 0.4.6+2 (0.4.8+1 available)
+  json_annotation 4.9.0 (4.11.0 available)
+  lints 6.0.0 (6.1.0 available)
+  meta 1.17.0 (1.18.1 available)
+  package_info_plus 8.3.1 (9.0.0 available)
+  path_provider_foundation 2.5.1 (2.6.0 available)
+  petitparser 7.0.1 (7.0.2 available)
+  posix 6.0.3 (6.5.0 available)
+  shared_preferences 2.5.3 (2.5.4 available)
+  shared_preferences_android 2.4.17 (2.4.21 available)
+  source_span 1.10.1 (1.10.2 available)
+  sqflite_android 2.4.2+2 (2.4.2+3 available)
+  url_launcher_ios 6.3.6 (6.4.1 available)
+  url_launcher_web 2.4.1 (2.4.2 available)
+  uuid 4.5.2 (4.5.3 available)
+  vector_graphics 1.1.19 (1.1.20 available)
+  vector_graphics_compiler 1.1.19 (1.2.0 available)
+  win32 5.15.0 (6.0.0 available)
+Got dependencies!
+45 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing freezme...                                            
+
+warning • Don't invoke 'print' in production code • integration_test/e2e_test.dart:21:9 • avoid_print
+warning • Don't invoke 'print' in production code • integration_test/e2e_test.dart:23:9 • avoid_print
+warning • Don't invoke 'print' in production code • integration_test/e2e_test.dart:37:9 • avoid_print
+warning • Don't invoke 'print' in production code • integration_test/e2e_test.dart:76:7 • avoid_print
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:36:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:44:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:52:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:60:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:68:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:76:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:84:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:92:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:100:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:108:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:116:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:124:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:132:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:140:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:148:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/router.dart:180:26 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/blinds/blinds_page.dart:109:21 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/chat/chat_list_page.dart:453:58 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/chat/chat_list_page.dart:455:60 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/chat/chat_list_page.dart:616:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/chat/chat_list_page.dart:622:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/chat/chat_list_page.dart:623:28 • prefer_const_constructors
+   info • Use 'const' literals as arguments to constructors of '@immutable' classes • lib/ui/chat/chat_list_page.dart:625:33 • prefer_const_literals_to_create_immutables
+   info • Use 'const' with the constructor to improve performance • lib/ui/chat/chat_list_page.dart:627:25 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/chat/chat_screen_page.dart:710:22 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/chat/freeze_modal.dart:92:17 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/chat/typing_indicator.dart:119:18 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/components/premium_components.dart:298:27 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/components/premium_components.dart:371:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/components/premium_components.dart:961:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/components/skeleton_loaders.dart:153:14 • prefer_const_constructors
+   info • Use 'const' literals as arguments to constructors of '@immutable' classes • lib/ui/components/skeleton_loaders.dart:154:19 • prefer_const_literals_to_create_immutables
+   info • Use 'const' with the constructor to improve performance • lib/ui/components/skeleton_loaders.dart:161:11 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/components/skeleton_loaders.dart:162:20 • prefer_const_constructors
+   info • Use 'const' literals as arguments to constructors of '@immutable' classes • lib/ui/components/skeleton_loaders.dart:164:25 • prefer_const_literals_to_create_immutables
+   info • Use 'const' with the constructor to improve performance • lib/ui/components/skeleton_loaders.dart:169:17 • prefer_const_constructors
+   info • Use 'const' literals as arguments to constructors of '@immutable' classes • lib/ui/components/skeleton_loaders.dart:170:29 • prefer_const_literals_to_create_immutables
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:212:25 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:368:11 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:395:20 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:481:31 • prefer_const_constructors
+   info • Use 'const' literals as arguments to constructors of '@immutable' classes • lib/ui/home/home_page.dart:483:36 • prefer_const_literals_to_create_immutables
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:484:28 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:551:13 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:553:22 • prefer_const_constructors
+   info • Use 'const' literals as arguments to constructors of '@immutable' classes • lib/ui/home/home_page.dart:554:27 • prefer_const_literals_to_create_immutables
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:555:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:557:19 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:782:39 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:790:39 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:862:35 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/home/home_page.dart:888:31 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/match_success/match_success_page.dart:79:23 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/onboarding/onboarding_step1.dart:25:29 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/onboarding/onboarding_step2.dart:25:29 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/recap/daily_recap_page.dart:203:32 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/compatibility_quiz.dart:144:25 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/compatibility_quiz.dart:146:34 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/daily_recap.dart:210:34 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/daily_vibe_pool.dart:632:15 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/daily_vibe_pool.dart:633:15 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/match_success.dart:90:27 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/profile_preview.dart:99:15 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/vector_simulation.dart:164:28 • prefer_const_constructors
+   info • Use 'const' literals as arguments to constructors of '@immutable' classes • lib/ui/screens/vector_simulation.dart:165:33 • prefer_const_literals_to_create_immutables
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/verification_screen.dart:120:30 • prefer_const_constructors
+   info • Use 'const' literals as arguments to constructors of '@immutable' classes • lib/ui/screens/verification_screen.dart:122:35 • prefer_const_literals_to_create_immutables
+   info • Use 'const' literals as arguments to constructors of '@immutable' classes • lib/ui/screens/video_date.dart:252:38 • prefer_const_literals_to_create_immutables
+   info • Use 'const' with the constructor to improve performance • lib/ui/screens/video_date.dart:252:39 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/settings/freezme_plus_page.dart:81:31 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/settings/freezme_plus_page.dart:92:17 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/settings/freezme_plus_page.dart:150:33 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/settings/freezme_plus_page.dart:159:29 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • lib/ui/settings/freezme_plus_page.dart:291:17 • prefer_const_constructors
+   info • The import of 'package:flutter/foundation.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' • lib/ui/splash/splash_screen.dart:1:8 • unnecessary_import
+   info • Use 'const' with the constructor to improve performance • lib/ui/widgets/freeze_modal.dart:92:17 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • test/mocks/mock_repository.dart:19:7 • prefer_const_constructors
+   info • Use 'const' with the constructor to improve performance • test/mocks/mock_repository.dart:29:7 • prefer_const_constructors
+   info • Use 'const' for final variables initialized to a constant value • test/services/tonight_algorithm_test.dart:89:9 • prefer_const_declarations
+   info • Use 'const' for final variables initialized to a constant value • test/services/tonight_algorithm_test.dart:96:9 • prefer_const_declarations
+   info • Use 'const' for final variables initialized to a constant value • test/services/tonight_algorithm_test.dart:99:9 • prefer_const_declarations
+   info • Use 'const' for final variables initialized to a constant value • test/services/tonight_algorithm_test.dart:111:9 • prefer_const_declarations
+   info • Use 'const' for final variables initialized to a constant value • test/services/tonight_algorithm_test.dart:120:9 • prefer_const_declarations
+   info • Use 'const' for final variables initialized to a constant value • test/services/tonight_algorithm_test.dart:210:9 • prefer_const_declarations
+   info • Use 'const' for final variables initialized to a constant value • test/services/tonight_algorithm_test.dart:213:9 • prefer_const_declarations
+

@@ -195,7 +195,7 @@ class FreezmeDesignSystem {
   
   static List<BoxShadow> get shadowSm => [
     BoxShadow(
-      color: textPrimary.withValues(alpha: 0.03),
+      color: textPrimary.withAlpha(8),
       blurRadius: 4,
       offset: const Offset(0, 2),
     ),
@@ -203,7 +203,7 @@ class FreezmeDesignSystem {
   
   static List<BoxShadow> get shadowMd => [
     BoxShadow(
-      color: textPrimary.withValues(alpha: 0.05),
+      color: textPrimary.withAlpha(13),
       blurRadius: 8,
       offset: const Offset(0, 4),
     ),
@@ -211,7 +211,7 @@ class FreezmeDesignSystem {
   
   static List<BoxShadow> get shadowLg => [
     BoxShadow(
-      color: textPrimary.withValues(alpha: 0.08),
+      color: textPrimary.withAlpha(20),
       blurRadius: 16,
       offset: const Offset(0, 8),
     ),
@@ -219,7 +219,7 @@ class FreezmeDesignSystem {
   
   static List<BoxShadow> get shadowXl => [
     BoxShadow(
-      color: textPrimary.withValues(alpha: 0.1),
+      color: textPrimary.withAlpha(25),
       blurRadius: 24,
       offset: const Offset(0, 12),
     ),

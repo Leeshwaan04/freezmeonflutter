@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
 
@@ -52,9 +53,11 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
           Positioned.fill(
             child: Opacity(
               opacity: 0.6,
-              child: Image.network(
-                'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=1080',
+              child: CachedNetworkImage(
+                imageUrl: 'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=1080',
                 fit: BoxFit.cover,
+                placeholder: (context, url) => Container(color: Colors.black12),
+                errorWidget: (context, url, error) => const Icon(Icons.error),
               ),
             ),
           ),
@@ -114,12 +117,12 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
                         color: Colors.white10,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.shield, color: Colors.blueAccent, size: 16),
-                          const SizedBox(width: 8),
-                          const Text(
+                          Icon(Icons.shield, color: Colors.blueAccent, size: 16),
+                          SizedBox(width: 8),
+                          Text(
                             '+50 TRUST SCORE',
                             style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 11),
                           ),

@@ -1,4 +1,4 @@
-enum PhotoSlotStatus { empty, uploading, uploaded }
+enum PhotoSlotStatus { empty, uploading, uploaded, error }
 
 class PhotoSlot {
   const PhotoSlot({

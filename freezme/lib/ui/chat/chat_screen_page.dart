@@ -56,6 +56,15 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   bool _sending = false;
   final bool _simulatedTyping = false;
 
+  // Milestone tracking — celebrate first message and 10-message mark once each.
+  final Set<int> _celebratedMilestones = {};
+  ConversationEnergy? _latestEnergy;
+
+  static const _milestones = {
+    1: '💬 First message sent!',
+    10: '🔥 10 messages! The conversation is alive.',
+  };
+
   @override
   void dispose() {
     _controller.dispose();
@@ -121,6 +130,16 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
         );
       }
     });
+  }
+
+  void _showHealthSheet(BuildContext context, ConversationEnergy energy) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => _ConversationHealthSheet(energy: energy),
+    );
   }
 
   @override
@@ -189,8 +208,25 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                               color: FreezmeDesignSystem.textPrimary,
                             ),
                           ),
+                          if (profile?.dna?.highlights != null && profile!.dna!.highlights!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                profile.dna!.highlights!.first,
+                                style: const TextStyle(
+                                  color: FreezmeDesignSystem.secondary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           const SizedBox(height: 4),
-                          _EnergyChip(messages: _messages),
+                          GestureDetector(
+                            onTap: _latestEnergy == null
+                                ? null
+                                : () => _showHealthSheet(context, _latestEnergy!),
+                            child: _EnergyChip(messages: _messages),
+                          ),
                         ],
                       ),
                     ),
@@ -284,12 +320,61 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                                 ),
                               )
                               .toList();
-                          
+
+                          final energy = ConversationEnergy.compute(mapped);
+                          final stage = ConversationEnergy.stageFor(mapped.length);
+                          final showPrompts = mapped.length < 9;
+                          final showDiscovery =
+                              mapped.length >= 8 && mapped.length < 13 &&
+                              energy.level == EnergyLevel.medium;
+                          final showDateCatalyst =
+                              energy.level == EnergyLevel.high && mapped.length >= 10;
+
+                          // Milestone detection — schedule post-frame to avoid
+                          // setState during build.
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            setState(() => _latestEnergy = energy);
+                            for (final entry in _milestones.entries) {
+                              if (mapped.length >= entry.key &&
+                                  !_celebratedMilestones.contains(entry.key)) {
+                                _celebratedMilestones.add(entry.key);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(entry.value),
+                                    duration: const Duration(seconds: 2),
+                                    behavior: SnackBarBehavior.floating,
+                                    backgroundColor: FreezmeDesignSystem.primary,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          });
+
                           // Typing logic
                           final showTyping = _simulatedTyping;
                           final itemCount = mapped.length + (showTyping ? 1 : 0);
 
-                          return ListView.builder(
+                          return Column(
+                            children: [
+                              if (showPrompts)
+                                _AdaptivePromptStrip(
+                                  stage: stage,
+                                  interests: flow.activeProfile?.interests ?? const [],
+                                  onChipTap: (text) => setState(() => _controller.text = text),
+                                ),
+                              if (showDiscovery)
+                                _SharedDiscoveryCard(
+                                  onSend: (text) => setState(() => _controller.text = text),
+                                ),
+                              if (showDateCatalyst)
+                                _DateCatalystBanner(
+                                  matchName: flow.activeProfile?.name ?? 'your match',
+                                ),
+                              Expanded(child: ListView.builder(
                             controller: _scrollController,
                             padding: const EdgeInsets.symmetric(
                               horizontal: FreezmeDesignSystem.spaceLg,
@@ -402,6 +487,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                                 ),
                               );
                             },
+                          )),
+                            ],
                           );
                         },
                       ),
@@ -523,6 +610,517 @@ class SmallButton extends StatelessWidget {
       ),
       onPressed: onPressed,
       child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+    );
+  }
+}
+
+// ─── Adaptive Prompt Strip — stage-aware conversation starters ────────────────
+class _AdaptivePromptStrip extends StatelessWidget {
+  const _AdaptivePromptStrip({
+    required this.stage,
+    required this.interests,
+    required this.onChipTap,
+  });
+
+  final ConversationStage stage;
+  final List<String> interests;
+  final void Function(String) onChipTap;
+
+  // Templates keyed by stage — rotate through per interest.
+  static const _templates = {
+    ConversationStage.early: [
+      'What got you into {interest}?',
+      'If you had a full weekend for {interest}, what would you do?',
+      "What's the best part of {interest} for you?",
+    ],
+    ConversationStage.mid: [
+      'How did {interest} shape who you are?',
+      'Has {interest} ever surprised you?',
+      'What would you tell someone just getting into {interest}?',
+    ],
+    ConversationStage.late: [
+      'Where would you take someone to share your love of {interest}?',
+      'What does {interest} look like for you on your ideal day?',
+      'If we explored {interest} together, where would we start?',
+    ],
+  };
+
+  static const _fallback = {
+    ConversationStage.early: [
+      'What do you do for fun? 🎉',
+      'Favorite travel spot? ✈️',
+      'Morning person or night owl? 🌙',
+    ],
+    ConversationStage.mid: [
+      "What's something you're proud of lately?",
+      'Best decision you made this year?',
+      'What recharges you after a long week?',
+    ],
+    ConversationStage.late: [
+      'What would your ideal weekend together look like?',
+      'If we could be anywhere right now, where?',
+      "What's something you've never told anyone on a first date?",
+    ],
+  };
+
+  static const _headers = {
+    ConversationStage.early: 'Break the ice 👋',
+    ConversationStage.mid: 'Go deeper 💬',
+    ConversationStage.late: 'Imagine together 🌟',
+  };
+
+  List<String> _buildPrompts() {
+    final templates = _templates[stage]!;
+    final List<String> p = [];
+
+    // Prioritize specific DNA highlights for early stage
+    if (stage == ConversationStage.early && interests.isNotEmpty) {
+      final capped = interests.take(2).toList();
+      for (int i = 0; i < capped.length; i++) {
+        p.add(templates[i % templates.length].replaceFirst('{interest}', capped[i].toLowerCase()));
+      }
+      p.add('Explain our compatibility highlights! ✨');
+      return p;
+    }
+
+    if (interests.isNotEmpty) {
+      final capped = interests.take(3).toList();
+      return List.generate(capped.length, (i) {
+        return templates[i % templates.length]
+            .replaceFirst('{interest}', capped[i].toLowerCase());
+      });
+    }
+    return _fallback[stage]!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final prompts = _buildPrompts();
+    final header = _headers[stage]!;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      color: Colors.transparent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Text(
+              header,
+              style: const TextStyle(
+                color: FreezmeDesignSystem.textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: prompts.map((prompt) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () => onChipTap(prompt),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: FreezmeDesignSystem.primary.withValues(alpha: 0.3),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        prompt,
+                        style: const TextStyle(
+                          color: FreezmeDesignSystem.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Shared Discovery Card (shown mid-stage, medium energy) ───────────────────
+class _SharedDiscoveryCard extends StatelessWidget {
+  const _SharedDiscoveryCard({required this.onSend});
+  final void Function(String) onSend;
+
+  static const _discoveries = [
+    _Discovery('🗺️', 'Travel Style', 'Beach vacation or mountain hiking?'),
+    _Discovery('🍳', 'Food Life', 'Cooking at home or trying new restaurants?'),
+    _Discovery('🎵', 'Music Mood', "What's your go-to song for a road trip?"),
+    _Discovery('📚', 'Free Time', 'Reading a book or watching a series?'),
+    _Discovery('🌅', 'Morning Ritual', 'First thing you do when you wake up?'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final discovery = _discoveries[DateTime.now().minute % _discoveries.length];
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: FreezmeDesignSystem.primary.withValues(alpha: 0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(discovery.emoji, style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 8),
+              Text(
+                discovery.title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: FreezmeDesignSystem.primary,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              const Text(
+                'Discovery',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: FreezmeDesignSystem.textTertiary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            discovery.prompt,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: FreezmeDesignSystem.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => onSend(discovery.prompt),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                gradient: FreezmeGradients.primary,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Text(
+                  'Ask this question',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Discovery {
+  const _Discovery(this.emoji, this.title, this.prompt);
+  final String emoji;
+  final String title;
+  final String prompt;
+}
+
+// ─── Conversation Health Dashboard (bottom sheet) ─────────────────────────────
+class _ConversationHealthSheet extends StatelessWidget {
+  const _ConversationHealthSheet({required this.energy});
+  final ConversationEnergy energy;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Color(energy.colorValue);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              const Text('Conversation Health', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  energy.label,
+                  style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            energy.healthSummary,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF666666), height: 1.4),
+          ),
+          const SizedBox(height: 24),
+          _HealthBar(label: 'Message depth', score: energy.depthScore, color: const Color(0xFF7B2FBE)),
+          const SizedBox(height: 12),
+          _HealthBar(label: 'Warmth & emoji', score: energy.warmthScore, color: const Color(0xFFFF7043)),
+          const SizedBox(height: 12),
+          _HealthBar(label: 'Turn balance', score: energy.alternationScore, color: const Color(0xFF42A5F5)),
+          const SizedBox(height: 12),
+          _HealthBar(label: 'Reply balance', score: energy.reciprocityScore, color: const Color(0xFF26A69A)),
+          const SizedBox(height: 24),
+          const Text(
+            'Tap the energy chip in the header anytime to check back.',
+            style: TextStyle(fontSize: 11, color: Color(0xFF999999)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthBar extends StatelessWidget {
+  const _HealthBar({required this.label, required this.score, required this.color});
+  final String label;
+  final int score;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF444444))),
+            ),
+            Text('$score', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: score / 100,
+            minHeight: 6,
+            backgroundColor: color.withValues(alpha: 0.1),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Date Catalyst Banner (shown when energy high + 10+ messages) ─────────────
+class _DateCatalystBanner extends StatefulWidget {
+  const _DateCatalystBanner({required this.matchName});
+  final String matchName;
+
+  @override
+  State<_DateCatalystBanner> createState() => _DateCatalystBannerState();
+}
+
+class _DateCatalystBannerState extends State<_DateCatalystBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _glowController;
+  late final Animation<double> _slideIn;
+  late final Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+
+    _slideIn = CurvedAnimation(
+      parent: AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 400),
+      )..forward(),
+      curve: Curves.easeOutCubic,
+    );
+
+    _glow = Tween<double>(begin: 0.25, end: 0.55).animate(_glowController);
+  }
+
+  @override
+  void dispose() {
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_slideIn, _glow]),
+      builder: (context, _) {
+        return Transform.translate(
+          offset: Offset(0, 16 * (1 - _slideIn.value)),
+          child: Opacity(
+            opacity: _slideIn.value.clamp(0.0, 1.0),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF7B2FBE), Color(0xFFFF6B6B)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF7B2FBE).withValues(alpha: _glow.value),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Text('✨', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'The vibe is real!',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          'Ready to meet ${widget.matchName} in real life?',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF7B2FBE),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () {
+                      showDialog<void>(
+                        context: context,
+                        builder: (_) => _SuggestDateDialog(matchName: widget.matchName),
+                      );
+                    },
+                    child: const Text(
+                      'Suggest a date',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SuggestDateDialog extends StatelessWidget {
+  const _SuggestDateDialog({required this.matchName});
+  final String matchName;
+
+  static const _ideas = <String>[
+    '☕ Coffee at a local cafe',
+    '🎨 Visit a gallery or museum',
+    '🌿 Walk in a nearby park',
+    '🎬 Catch a movie together',
+    '🍕 Dinner at a cozy spot',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: Text('Suggest a date with $matchName'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: _ideas
+            .map(
+              (idea) => ListTile(
+                dense: true,
+                title: Text(idea, style: const TextStyle(fontSize: 14)),
+                onTap: () => Navigator.of(context).pop(),
+              ),
+            )
+            .toList(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Maybe later'),
+        ),
+      ],
     );
   }
 }

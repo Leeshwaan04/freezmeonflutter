@@ -209,7 +209,7 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         const Icon(Icons.location_off_outlined, size: 64, color: FreezmeDesignSystem.textTertiary),
                         const SizedBox(height: 24),
-                        Text(
+                        const Text(
                           'Location Access Required',
                           style: FreezmeDesignSystem.h2,
                           textAlign: TextAlign.center,
@@ -246,69 +246,6 @@ class _HomePageState extends State<HomePage> {
       ),
     ),
   );
-  }
-
-  SliverToBoxAdapter _buildProfileGate(AppFlowController flow) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg, vertical: FreezmeDesignSystem.spaceMd),
-        child: PremiumCard(
-          gradient: FreezmeGradients.primary,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                   Container(
-                    padding: const EdgeInsets.all(FreezmeDesignSystem.spaceSm),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusMd),
-                    ),
-                    child: const Icon(Icons.rocket_launch, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: FreezmeDesignSystem.spaceMd),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Unlock Tonight Mode',
-                          style: FreezmeDesignSystem.bodyMedium.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: FreezmeDesignSystem.spaceXs),
-                        Text(
-                          '${flow.completionPercent}% complete · Match with people nearby',
-                          style: FreezmeDesignSystem.caption.copyWith(
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: FreezmeDesignSystem.spaceMd),
-              SizedBox(
-                width: double.infinity,
-                child: PremiumButton(
-                  label: 'Complete Profile',
-                  onPressed: () => AppFlowScope.of(context, listen: false)
-                      .replaceStack(<AppStage>[AppStage.profileCompletion]),
-                  variant: ButtonVariant.filled,
-                  // Use a white button style for contrast
-                  backgroundColor: Colors.white,
-                  textColor: FreezmeDesignSystem.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildHeader() {
@@ -428,9 +365,9 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
-            child: const SkeletonLoader(width: 100, height: 20),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
+            child: SkeletonLoader(width: 100, height: 20),
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceMd),
           SizedBox(
@@ -455,9 +392,9 @@ class _HomePageState extends State<HomePage> {
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg, vertical: FreezmeDesignSystem.spaceSm),
-              child: const SkeletonLoader(width: 150, height: 24),
+            return const Padding(
+              padding: EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg, vertical: FreezmeDesignSystem.spaceSm),
+              child: SkeletonLoader(width: 150, height: 24),
             );
           }
           return const Padding(
@@ -541,12 +478,12 @@ class _HomePageState extends State<HomePage> {
                      child: Container(
                        height: 120,
                        alignment: Alignment.center,
-                       child: Column(
+                       child: const Column(
                          mainAxisAlignment: MainAxisAlignment.center,
                          children: [
                            Icon(Icons.auto_awesome, color: FreezmeDesignSystem.primary, size: 32),
-                           const SizedBox(height: FreezmeDesignSystem.spaceSm),
-                           const Text('Feed Integration Coming Soon', style: FreezmeDesignSystem.caption),
+                           SizedBox(height: FreezmeDesignSystem.spaceSm),
+                           Text('Feed Integration Coming Soon', style: FreezmeDesignSystem.caption),
                          ],
                        ),
                      ),
@@ -611,12 +548,12 @@ class _FeedPostItem extends StatelessWidget {
                 child: Text(caption, style: FreezmeDesignSystem.body),
               ),
             // Actions
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Row(
                 children: [
                   Icon(Icons.favorite_border_rounded, size: 20, color: FreezmeDesignSystem.textSecondary),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 16),
                   Icon(Icons.chat_bubble_outline_rounded, size: 20, color: FreezmeDesignSystem.textSecondary),
                 ],
               ),
@@ -842,7 +779,7 @@ class _TonightProfileCard extends StatelessWidget {
                         placeholder: (context, _) => Container(
                           width: 110,
                           height: 120,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: FreezmeDesignSystem.primaryLight,
                           ),
                           child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
@@ -850,7 +787,7 @@ class _TonightProfileCard extends StatelessWidget {
                         errorWidget: (context, _, _) => Container(
                           width: 110,
                           height: 120,
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: FreezmeDesignSystem.primaryLight,
                           ),
                           child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
@@ -922,7 +859,7 @@ class _TonightProfileCard extends StatelessWidget {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.location_on,
                                     size: 12,
                                     color: FreezmeDesignSystem.primary,
@@ -948,7 +885,7 @@ class _TonightProfileCard extends StatelessWidget {
                 // Like Button
                 Container(
                   margin: const EdgeInsets.only(right: FreezmeDesignSystem.spaceMd),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: FreezmeDesignSystem.primaryLight,
                     shape: BoxShape.circle,
                   ),

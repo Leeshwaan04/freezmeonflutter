@@ -207,8 +207,8 @@ class _DailyRecapPageState extends State<DailyRecapPage> with SingleTickerProvid
                               ),
                             ],
                           ),
-                          child: Column(
-                            children: const [
+                          child: const Column(
+                            children: [
                               Text('💫', style: TextStyle(fontSize: 32)),
                               SizedBox(height: 12),
                               Text(

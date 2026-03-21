@@ -295,7 +295,7 @@ class EmptyStateView extends StatelessWidget {
             Container(
               width: 80,
               height: 80,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: FreezmeDesignSystem.primaryLight,
                 shape: BoxShape.circle,
               ),
@@ -368,7 +368,7 @@ class ErrorStateView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: FreezmeDesignSystem.spaceLg),
-            Text(
+            const Text(
               'Oops!',
               style: FreezmeDesignSystem.h3,
               textAlign: TextAlign.center,
@@ -958,7 +958,7 @@ class PremiumBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: FreezmeGradients.header,
         shape: BoxShape.circle,
       ),

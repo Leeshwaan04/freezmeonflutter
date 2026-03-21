@@ -48,10 +48,6 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
         final weeklyPrice = weeklyProduct?.price ?? '₹149';
         final monthlyPrice = monthlyProduct?.price ?? '₹499';
         
-        // Simple heuristic for raw price display if simple string format
-        String weeklyRaw = weeklyPrice.replaceAll(RegExp(r'[^0-9.]'), '');
-        String monthlyRaw = monthlyPrice.replaceAll(RegExp(r'[^0-9.]'), '');
-        
         return Scaffold(
           backgroundColor: FreezmeDesignSystem.background,
           appBar: AppBar(
@@ -82,7 +78,7 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                 Container(
                   width: 80,
                   height: 80,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: FreezmeDesignSystem.primaryLight,
                     shape: BoxShape.circle,
                   ),
@@ -93,7 +89,7 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                   ),
                 ),
                 const SizedBox(height: FreezmeDesignSystem.spaceMd),
-                Text(
+                const Text(
                   'Upgrade to Freezme+',
                   style: FreezmeDesignSystem.h2,
                   textAlign: TextAlign.center,
@@ -151,7 +147,7 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                                     ],
                                   ),
                                 ),
-                                Icon(
+                                const Icon(
                                   Icons.check_circle_rounded,
                                   color: FreezmeDesignSystem.success,
                                   size: 22,
@@ -160,7 +156,7 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                             ),
                           ),
                           if (!isLast)
-                            Divider(height: 1, color: FreezmeDesignSystem.border),
+                            const Divider(height: 1, color: FreezmeDesignSystem.border),
                         ],
                       );
                     }).toList(),
@@ -292,7 +288,7 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                 const SizedBox(height: FreezmeDesignSystem.spaceMd),
                 
                 // Footer
-                Text(
+                const Text(
                   'Join 10,000+ premium members',
                   style: FreezmeDesignSystem.caption,
                   textAlign: TextAlign.center,

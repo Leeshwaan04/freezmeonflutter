@@ -106,8 +106,8 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: const [
+                    const Row(
+                      children: [
                         FreezmeLogo(size: LogoSize.sm, showText: true),
                         Spacer(),
                         Text('Blinds', style: FreezmeDesignSystem.h3),

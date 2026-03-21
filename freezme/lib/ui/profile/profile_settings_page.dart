@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import '../../main.dart'; // For AppFlowScope, AppStage
 import '../design_system.dart';
@@ -50,25 +51,52 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     }
   }
 
-  Widget _fallbackAvatar(String initials) {
-    return Container(
-      height: 80,
-      width: 80,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: FreezmeGradients.primary,
-      ),
-      child: Center(
-        child: Text(
-          initials.toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-          ),
+  bool _deletingAccount = false;
+
+  Future<void> _confirmDeleteAccount(AppFlowController flow) async {
+    if (_deletingAccount) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete account?'),
+        content: const Text(
+          'This will permanently delete your profile, matches, and all data. This cannot be undone.',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete Forever'),
+          ),
+        ],
       ),
     );
+    if (confirmed != true) return;
+    setState(() => _deletingAccount = true);
+    try {
+      await FirebaseFunctions.instance
+          .httpsCallable('deleteAccount')
+          .call<Map<String, dynamic>>();
+      await flow.signOut();
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not delete: ${e.message}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deletingAccount = false);
+    }
   }
 
   @override
@@ -243,7 +271,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                                 leading: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: FreezmeDesignSystem.primary.withValues(alpha: 0.1),
+                                    color: FreezmeDesignSystem.primary.withAlpha(25),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(menuItems[i].icon, color: FreezmeDesignSystem.primary),
@@ -253,7 +281,23 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                                 onTap: menuItems[i].action,
                                 trailing: const Icon(Icons.chevron_right, color: FreezmeDesignSystem.textTertiary),
                               ),
-                            ]
+                            ],
+                            const Divider(indent: 60),
+                            SwitchListTile(
+                              value: flow.isFreezed,
+                              onChanged: (value) => flow.toggleFreeze(value),
+                              activeThumbColor: FreezmeDesignSystem.primary,
+                              secondary: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withAlpha(25),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.ac_unit, color: Colors.blue),
+                              ),
+                              title: const Text('Freeze Mode', style: FreezmeDesignSystem.bodyMedium),
+                              subtitle: const Text('Pause matching & keep your vibe', style: FreezmeDesignSystem.caption),
+                            ),
                           ],
                         ),
                       ),
@@ -268,6 +312,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                          fullWidth: true,
                          loading: _signingOut,
                        ),
+                        const SizedBox(height: 12),
+                        TextButton.icon(
+                          onPressed: () => _confirmDeleteAccount(flow),
+                          icon: const Icon(Icons.delete_forever_outlined, color: Colors.red, size: 18),
+                          label: Text(
+                            'Delete Account',
+                            style: TextStyle(color: Colors.red.shade600),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -289,7 +342,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: FreezmeDesignSystem.primary.withValues(alpha: 0.2),
+              color: FreezmeDesignSystem.primary.withAlpha(51),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -302,7 +355,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: Colors.white.withAlpha(51),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(
@@ -334,7 +387,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
                             value: completion / 100,
-                            backgroundColor: Colors.white.withValues(alpha: 0.2),
+                            backgroundColor: Colors.white.withAlpha(51),
                             valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                             minHeight: 4,
                           ),
@@ -344,7 +397,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                       Text(
                         '${completion.toInt()}%',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
+                          color: Colors.white.withAlpha(230),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -355,7 +408,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                   Text(
                     'Unlock Tonight Mode to match nearby',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: Colors.white.withAlpha(217),
                       fontSize: 12,
                     ),
                   ),
@@ -365,7 +418,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
             // Arrow
             Icon(
               Icons.chevron_right_rounded,
-              color: Colors.white.withValues(alpha: 0.8),
+              color: Colors.white.withAlpha(204),
               size: 24,
             ),
           ],

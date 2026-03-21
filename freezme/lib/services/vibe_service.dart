@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../models/vibe_profile.dart';
 
 /// VibeService handles the E2E communication with the Go Backend
@@ -7,13 +8,13 @@ class VibeService {
 
   Future<void> toggleFreeze(bool status) async {
     // POST /user/toggle-freeze
-    print("API CALL: Sending freeze status $status to backend...");
+    debugPrint("API CALL: Sending freeze status $status to backend...");
     // await http.post("$baseUrl/user/toggle-freeze", body: {"status": status});
   }
 
   Future<List<VibeProfile>> fetchDailyPool() async {
     // GET /matches/daily
-    print("API CALL: Fetching 7 AM curated pool...");
+    debugPrint("API CALL: Fetching 7 AM curated pool...");
     // final response = await http.get("$baseUrl/matches/daily");
     // return (json.decode(response.body) as List).map((p) => VibeProfile.fromJson(p)).toList();
     return []; // Mock return for now
@@ -21,11 +22,11 @@ class VibeService {
 
   Future<void> submitVibeRating(String dateId, int rating) async {
     // POST /matches/vibe/rate
-    print("API CALL: Submitting vibe rating $rating for session $dateId");
+    debugPrint("API CALL: Submitting vibe rating $rating for session $dateId");
   }
 
   Future<void> verifySelfie(String imagePath) async {
     // POST /user/verify
-    print("API CALL: Uploading selfie for AI verification...");
+    debugPrint("API CALL: Uploading selfie for AI verification...");
   }
 }

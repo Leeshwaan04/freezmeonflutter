@@ -450,7 +450,7 @@ class _ChatListPageState extends State<ChatListPage> {
                                                     color: FreezmeDesignSystem.success.withValues(alpha: 0.1),
                                                     borderRadius: BorderRadius.circular(8),
                                                   ),
-                                                  child: Text(
+                                                  child: const Text(
                                                     'typing...',
                                                     style: TextStyle(
                                                       fontSize: 10,
@@ -613,17 +613,17 @@ class _ChatListPageState extends State<ChatListPage> {
               decoration: FreezmeDesignSystem.cardDecorationFlat,
               child: Row(
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 24,
                     backgroundColor: FreezmeDesignSystem.surfaceAlt,
-                    child: const Icon(Icons.person, color: FreezmeDesignSystem.textTertiary),
+                    child: Icon(Icons.person, color: FreezmeDesignSystem.textTertiary),
                   ),
                   const SizedBox(width: 16),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Secret Admirer', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Secret Admirer', style: TextStyle(fontWeight: FontWeight.bold)),
                         Text('Sent you a ice melter!', style: FreezmeDesignSystem.small),
                       ],
                     ),

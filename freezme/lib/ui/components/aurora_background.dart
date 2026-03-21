@@ -43,14 +43,16 @@ class _AuroraBackgroundState extends State<AuroraBackground>
         Container(color: FreezmeDesignSystem.primaryLight), // Soft Purple Base
         
         // Animated Aurora
-        AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return CustomPaint(
-              painter: _AuroraPainter(_controller.value, widget.isPremium),
-              size: Size.infinite,
-            );
-          },
+        RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return CustomPaint(
+                painter: _AuroraPainter(_controller.value, widget.isPremium),
+                size: Size.infinite,
+              );
+            },
+          ),
         ),
         
         // Glass Overlay (optional)
@@ -66,7 +68,6 @@ class _AuroraBackgroundState extends State<AuroraBackground>
 class _AuroraPainter extends CustomPainter {
   final double progress;
   final bool isPremium;
-  final Random _random = Random(42); 
 
   _AuroraPainter(this.progress, this.isPremium);
 
@@ -75,7 +76,7 @@ class _AuroraPainter extends CustomPainter {
     final paint = Paint()..maskFilter = const MaskFilter.blur(BlurStyle.normal, 60);
 
     void drawBlob(Color color, double x, double y, double radius) {
-      paint.color = color.withValues(alpha: 0.4);
+      paint.color = color.withAlpha(102);
       // Animate position slightly based on progress
       final dx = x + sin(progress * 2 * pi) * 20;
       final dy = y + cos(progress * 2 * pi) * 20;
@@ -108,11 +109,11 @@ class _AuroraPainter extends CustomPainter {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.0),
-          Colors.white.withOpacity(0.1),
+          Colors.white.withAlpha(25),
+          Colors.white.withAlpha(0),
+          Colors.white.withAlpha(25),
         ],
-        stops: [0.0, 0.5, 1.0],
+        stops: const [0.0, 0.5, 1.0],
       );
       canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
     }

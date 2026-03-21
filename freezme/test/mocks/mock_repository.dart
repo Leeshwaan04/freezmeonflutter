@@ -16,7 +16,7 @@ class MockFreezmeRepository implements FreezmeRepository {
   // Helper method to generate dummy profiles for testing
   List<VibeProfile> _dummyProfiles() {
     return [
-      VibeProfile(
+      const VibeProfile(
         uid: 'test_user_1',
         name: 'Alex',
         age: 25,
@@ -26,7 +26,7 @@ class MockFreezmeRepository implements FreezmeRepository {
         bio: 'Coffee enthusiast',
         distance: '2 km away',
       ),
-      VibeProfile(
+      const VibeProfile(
         uid: 'test_user_2',
         name: 'Jordan',
         age: 27,

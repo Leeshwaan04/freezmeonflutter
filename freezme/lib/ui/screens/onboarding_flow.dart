@@ -31,7 +31,6 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   final List<String> _selectedInterests = [];
 
   // Step 5: Voice Intro
-  String? _voicePath;
 
   // Step 6: Profile
   final TextEditingController _bioController = TextEditingController();

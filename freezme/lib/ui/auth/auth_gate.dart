@@ -34,23 +34,10 @@ class _AuthGatePageState extends State<AuthGatePage>
   late Animation<double> _floatAnimation;
   late Animation<double> _successScaleAnimation;
 
-  // Typewriter effect
-  final String _tagline = "Tonight. Not someday.";
-  String _displayedTagline = "";
-  int _taglineIndex = 0;
-  Timer? _typewriterTimer;
-
-  // User count animation
-  int _displayedUserCount = 0;
-  final int _targetUserCount = 12847;
-  Timer? _countTimer;
-
   @override
   void initState() {
     super.initState();
     _initAnimations();
-    _startTypewriter();
-    _startUserCountAnimation();
   }
 
   void _initAnimations() {
@@ -107,38 +94,6 @@ class _AuthGatePageState extends State<AuthGatePage>
     });
   }
 
-  void _startTypewriter() {
-    _typewriterTimer = Timer.periodic(const Duration(milliseconds: 80), (timer) {
-      if (_taglineIndex < _tagline.length) {
-        setState(() {
-          _displayedTagline = _tagline.substring(0, _taglineIndex + 1);
-          _taglineIndex++;
-        });
-      } else {
-        timer.cancel();
-      }
-    });
-  }
-
-  void _startUserCountAnimation() {
-    const duration = Duration(milliseconds: 2000);
-    const steps = 60;
-    final increment = _targetUserCount / steps;
-    var current = 0.0;
-
-    _countTimer = Timer.periodic(
-      Duration(milliseconds: duration.inMilliseconds ~/ steps),
-      (timer) {
-        current += increment;
-        if (current >= _targetUserCount) {
-          setState(() => _displayedUserCount = _targetUserCount);
-          timer.cancel();
-        } else {
-          setState(() => _displayedUserCount = current.toInt());
-        }
-      },
-    );
-  }
 
   @override
   void dispose() {
@@ -147,8 +102,6 @@ class _AuthGatePageState extends State<AuthGatePage>
     _pulseController.dispose();
     _floatController.dispose();
     _successController.dispose();
-    _typewriterTimer?.cancel();
-    _countTimer?.cancel();
     super.dispose();
   }
 
@@ -231,176 +184,6 @@ class _AuthGatePageState extends State<AuthGatePage>
     }
   }
 
-  Future<void> _signInWithPhone() async {
-    _hapticFeedback();
-    final result = await _showPhoneAuthDialog();
-    if (result == null || !mounted) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: result,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          await FirebaseAuth.instance.signInWithCredential(credential);
-          if (mounted) {
-            await _showSuccessAndNavigate();
-          }
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          if (mounted) {
-            setState(() => _isLoading = false);
-            _showErrorSnackBar('Verification failed: ${e.message}');
-          }
-        },
-        codeSent: (String verificationId, int? resendToken) async {
-          if (mounted) {
-            setState(() => _isLoading = false);
-            final code = await _showOtpDialog();
-            if (code != null && code.length == 6) {
-              setState(() => _isLoading = true);
-              try {
-                final credential = PhoneAuthProvider.credential(
-                  verificationId: verificationId,
-                  smsCode: code,
-                );
-                await FirebaseAuth.instance.signInWithCredential(credential);
-                if (mounted) {
-                  await _showSuccessAndNavigate();
-                }
-              } catch (e) {
-                if (mounted) {
-                  _showErrorSnackBar('Invalid OTP');
-                }
-              } finally {
-                if (mounted) {
-                  setState(() => _isLoading = false);
-                }
-              }
-            }
-          }
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {},
-      );
-    } catch (e) {
-      if (mounted) {
-        _showErrorSnackBar('Phone sign-in failed');
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _signInWithWhatsApp() async {
-    _hapticFeedback();
-    
-    // WhatsApp login flow - uses phone verification
-    final phone = await _showPhoneAuthDialog(isWhatsApp: true);
-    if (phone == null || !mounted) return;
-
-    // Open WhatsApp with a deep link for verification
-    // In production, you'd use WhatsApp Business API
-    final whatsappUrl = Uri.parse('https://wa.me/$phone');
-    
-    // Show info dialog
-    final proceed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF25D366).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.chat, color: Color(0xFF25D366)),
-            ),
-            const SizedBox(width: 12),
-            const Text('WhatsApp Verification'),
-          ],
-        ),
-        content: const Text(
-          'We\'ll send you a verification code via WhatsApp. '
-          'Make sure WhatsApp is installed on your device.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF25D366),
-            ),
-            child: const Text('Continue'),
-          ),
-        ],
-      ),
-    );
-
-    if (proceed != true) return;
-
-    // Use phone auth with the provided number
-    await _signInWithPhoneNumber(phone);
-  }
-
-  Future<void> _signInWithPhoneNumber(String phone) async {
-    setState(() => _isLoading = true);
-
-    try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: phone,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          await FirebaseAuth.instance.signInWithCredential(credential);
-          if (mounted) {
-            await _showSuccessAndNavigate();
-          }
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          if (mounted) {
-            setState(() => _isLoading = false);
-            _showErrorSnackBar('Verification failed');
-          }
-        },
-        codeSent: (String verificationId, int? resendToken) async {
-          if (mounted) {
-            setState(() => _isLoading = false);
-            final code = await _showOtpDialog(isWhatsApp: true);
-            if (code != null && code.length == 6) {
-              setState(() => _isLoading = true);
-              try {
-                final credential = PhoneAuthProvider.credential(
-                  verificationId: verificationId,
-                  smsCode: code,
-                );
-                await FirebaseAuth.instance.signInWithCredential(credential);
-                if (mounted) {
-                  await _showSuccessAndNavigate();
-                }
-              } catch (e) {
-                if (mounted) {
-                  _showErrorSnackBar('Invalid OTP');
-                }
-              } finally {
-                if (mounted) {
-                  setState(() => _isLoading = false);
-                }
-              }
-            }
-          }
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {},
-      );
-    } catch (e) {
-      if (mounted) {
-        _showErrorSnackBar('Verification failed');
-        setState(() => _isLoading = false);
-      }
-    }
-  }
 
   Future<void> _signInWithEmail() async {
     _hapticFeedback();
@@ -483,278 +266,9 @@ class _AuthGatePageState extends State<AuthGatePage>
     );
   }
 
-  Future<String?> _showPhoneAuthDialog({bool isWhatsApp = false}) async {
-    final phoneController = TextEditingController();
-    String countryCode = '+91';
 
-    return showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: isWhatsApp
-                            ? const Color(0xFF25D366).withValues(alpha: 0.1)
-                            : FreezmeColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        isWhatsApp ? Icons.chat : Icons.phone,
-                        color: isWhatsApp
-                            ? const Color(0xFF25D366)
-                            : FreezmeColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isWhatsApp ? 'WhatsApp Login' : 'Phone Login',
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            isWhatsApp
-                                ? 'Get OTP via WhatsApp'
-                                : 'Get OTP via SMS',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: DropdownButton<String>(
-                        value: countryCode,
-                        underline: const SizedBox(),
-                        isDense: true,
-                        items: const [
-                          DropdownMenuItem(value: '+91', child: Text('🇮🇳 +91')),
-                          DropdownMenuItem(value: '+1', child: Text('🇺🇸 +1')),
-                          DropdownMenuItem(value: '+44', child: Text('🇬🇧 +44')),
-                          DropdownMenuItem(value: '+971', child: Text('🇦🇪 +971')),
-                        ],
-                        onChanged: (value) {
-                          setModalState(() => countryCode = value!);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          hintText: 'Phone number',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: isWhatsApp
-                                  ? const Color(0xFF25D366)
-                                  : FreezmeColors.primary,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: FilledButton(
-                    onPressed: () {
-                      if (phoneController.text.length >= 10) {
-                        Navigator.pop(
-                          context,
-                          '$countryCode${phoneController.text.trim()}',
-                        );
-                      }
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: isWhatsApp
-                          ? const Color(0xFF25D366)
-                          : FreezmeColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                    ),
-                    child: Text(
-                      isWhatsApp ? 'Send WhatsApp OTP' : 'Send SMS OTP',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
-  Future<String?> _showOtpDialog({bool isWhatsApp = false}) async {
-    final otpController = TextEditingController();
 
-    return showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 32),
-              Icon(
-                isWhatsApp ? Icons.chat : Icons.sms,
-                size: 48,
-                color: isWhatsApp
-                    ? const Color(0xFF25D366)
-                    : FreezmeColors.primary,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Enter Verification Code',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                isWhatsApp
-                    ? 'Check your WhatsApp for the 6-digit code'
-                    : 'Check your SMS for the 6-digit code',
-                style: TextStyle(color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: otpController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                maxLength: 6,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 8,
-                ),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '• • • • • •',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isWhatsApp
-                          ? const Color(0xFF25D366)
-                          : FreezmeColors.primary,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                onChanged: (value) {
-                  if (value.length == 6) {
-                    Navigator.pop(context, value);
-                  }
-                },
-              ),
-              const SizedBox(height: 24),
-              TextButton(
-                onPressed: () {},
-                child: Text(
-                  'Resend Code',
-                  style: TextStyle(
-                    color: isWhatsApp
-                        ? const Color(0xFF25D366)
-                        : FreezmeColors.primary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Future<Map<String, String>?> _showEmailDialog() async {
     final emailController = TextEditingController();
@@ -797,7 +311,7 @@ class _AuthGatePageState extends State<AuthGatePage>
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: FreezmeColors.primary.withValues(alpha: 0.1),
+                        color: FreezmeColors.primary.withAlpha(25),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
@@ -1096,7 +610,7 @@ class _AuthGatePageState extends State<AuthGatePage>
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
+                              color: Colors.black.withAlpha(25),
                               blurRadius: 10,
                             ),
                           ],
@@ -1157,7 +671,7 @@ class _AuthGatePageState extends State<AuthGatePage>
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF22C55E).withValues(alpha: 0.4),
+                              color: const Color(0xFF22C55E).withAlpha(102),
                               blurRadius: 30,
                               spreadRadius: 5,
                             ),
@@ -1203,7 +717,7 @@ class _AuthGatePageState extends State<AuthGatePage>
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: FreezmeColors.primary.withValues(alpha: opacity),
+        color: FreezmeColors.primary.withAlpha((opacity * 255).round()),
       ),
     );
   }
@@ -1212,12 +726,12 @@ class _AuthGatePageState extends State<AuthGatePage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: Colors.white.withAlpha(204),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withAlpha(10),
             blurRadius: 15,
             offset: const Offset(0, 6),
           ),
@@ -1241,182 +755,4 @@ class _AuthGatePageState extends State<AuthGatePage>
     );
   }
 
-  Widget _buildCompactFeature(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Icon(icon, color: FreezmeColors.primary, size: 24),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPremiumButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback? onPressed,
-    required bool isPrimary,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [FreezmeColors.primary, Color(0xFF8B5CF6)],
-          ),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: FreezmeColors.primary.withValues(alpha: 0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: FilledButton.icon(
-          onPressed: onPressed,
-          icon: Icon(icon, size: 22),
-          label: Text(
-            label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSecondaryButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback? onPressed,
-  }) {
-    return SizedBox(
-      height: 56,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 20),
-        label: Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: FreezmeColors.primary,
-          backgroundColor: Colors.white,
-          side: BorderSide(color: FreezmeColors.primary.withValues(alpha: 0.3), width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSmallButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback? onPressed,
-    Color? color,
-  }) {
-    return SizedBox(
-      height: 52,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 20, color: color),
-        label: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: color ?? Colors.black87,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: color ?? Colors.black87,
-          backgroundColor: Colors.white,
-          side: BorderSide(color: color ?? Colors.grey.shade300),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(26),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSocialButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback? onPressed,
-    required Color backgroundColor,
-    required Color textColor,
-    Color? borderColor,
-    bool useGradientText = false,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: FilledButton(
-        onPressed: () {
-          HapticFeedback.lightImpact();
-          onPressed?.call();
-        },
-        style: FilledButton.styleFrom(
-          backgroundColor: backgroundColor,
-          foregroundColor: textColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-            side: borderColor != null 
-                ? BorderSide(color: borderColor, width: 1.5)
-                : BorderSide.none,
-          ),
-          elevation: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 24, color: useGradientText ? FreezmeColors.primary : textColor),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: useGradientText ? FreezmeColors.primary : textColor,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

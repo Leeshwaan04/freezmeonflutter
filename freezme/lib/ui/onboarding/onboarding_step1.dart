@@ -22,7 +22,7 @@ class OnboardingStep1 extends StatelessWidget {
               Container(
                 width: 200,
                 height: 200,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   gradient: FreezmeGradients.primary,
                   shape: BoxShape.circle,
                 ),

@@ -161,11 +161,11 @@ class _VectorSimulationScreenState extends State<VectorSimulationScreen>
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: Colors.white10),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        const Icon(Icons.bolt, color: Colors.amber),
-                        const SizedBox(width: 12),
-                        const Expanded(
+                        Icon(Icons.bolt, color: Colors.amber),
+                        SizedBox(width: 12),
+                        Expanded(
                           child: Text(
                             'High-Similarity leads are pulled into your 7 AM Daily Pool automatically.',
                             style: TextStyle(color: Colors.white70, fontSize: 13),

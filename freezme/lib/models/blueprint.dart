@@ -39,6 +39,7 @@ class CompatibilityDNA {
     required this.values,
     this.personalityTraits,
     this.lifestyleFactors,
+    this.highlights,
   });
 
   final int overall;
@@ -48,6 +49,7 @@ class CompatibilityDNA {
   final int values;
   final List<String>? personalityTraits;
   final List<String>? lifestyleFactors;
+  final List<String>? highlights;
 
   factory CompatibilityDNA.fromJson(Map<String, dynamic> json) {
     return CompatibilityDNA(
@@ -58,6 +60,7 @@ class CompatibilityDNA {
       values: json['values'] ?? 0,
       personalityTraits: (json['personalityTraits'] as List?)?.cast<String>(),
       lifestyleFactors: (json['lifestyleFactors'] as List?)?.cast<String>(),
+      highlights: (json['highlights'] as List?)?.cast<String>(),
     );
   }
 
@@ -69,6 +72,7 @@ class CompatibilityDNA {
     'values': values,
     if (personalityTraits != null) 'personalityTraits': personalityTraits,
     if (lifestyleFactors != null) 'lifestyleFactors': lifestyleFactors,
+    if (highlights != null) 'highlights': highlights,
   };
 }
 

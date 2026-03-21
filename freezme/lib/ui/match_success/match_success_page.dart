@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../main.dart';
 import '../design_system.dart';
 import '../shared/bottom_nav_bar.dart';
@@ -75,7 +76,7 @@ class MatchSuccessPage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _MatchAvatar(
+                      const _MatchAvatar(
                         imageUrl:
                             'https://images.unsplash.com/flagged/photo-1596479042555-9265a7fa7983?fit=crop&w=320',
                         label: 'You',
@@ -154,7 +155,12 @@ class _MatchAvatar extends StatelessWidget {
             ],
           ),
           clipBehavior: Clip.antiAlias,
-          child: Image.network(imageUrl, fit: BoxFit.cover),
+          child: CachedNetworkImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(color: Colors.white24),
+            errorWidget: (context, url, error) => const Icon(Icons.error),
+          ),
         ),
         const SizedBox(height: 8),
         Text(label, style: const TextStyle(color: Colors.white70)),

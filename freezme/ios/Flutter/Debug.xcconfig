@@ -1,5 +1,5 @@
 #include? "../Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
-CODE_SIGNING_ALLOWED = NO
-CODE_SIGNING_REQUIRED = NO
-CODE_SIGN_IDENTITY = 
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements

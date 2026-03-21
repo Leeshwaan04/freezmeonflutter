@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme.dart';
 
 class MeetupPlannerHUD extends StatefulWidget {
@@ -109,7 +110,12 @@ class _MeetupPlannerHUDState extends State<MeetupPlannerHUD> {
                       child: Stack(
                         children: [
                           Positioned.fill(
-                            child: Image.network(venue['image']!, fit: BoxFit.cover),
+                            child: CachedNetworkImage(
+                              imageUrl: venue['image']!,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(color: Colors.black12),
+                              errorWidget: (context, url, error) => const Icon(Icons.error),
+                            ),
                           ),
                           Positioned.fill(
                             child: Container(

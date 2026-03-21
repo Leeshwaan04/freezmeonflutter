@@ -7,6 +7,9 @@ import 'package:freezme/main.dart';
 import 'package:freezme/services/melt_chat_service.dart';
 import 'package:freezme/services/photo_upload_service.dart';
 
+import 'package:freezme/data/mock_freezme_repository.dart';
+import 'package:freezme/services/iap_service.dart';
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -24,6 +27,8 @@ void main() {
           prefs: prefs,
           photoUploadService: MockPhotoUploadService(),
           meltChatService: MockMeltChatService(),
+          repository: const MockFreezmeRepository(),
+          iapService: IAPService(const MockFreezmeRepository()),
         ),
       ),
     );

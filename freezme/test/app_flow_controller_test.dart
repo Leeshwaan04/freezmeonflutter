@@ -139,7 +139,7 @@ void main() {
         throwsA(isA<PhotoUploadException>()),
       );
 
-      expect(controller.photoSlots.first.status, PhotoSlotStatus.failed);
+      expect(controller.photoSlots.first.status, PhotoSlotStatus.error);
     });
   });
 

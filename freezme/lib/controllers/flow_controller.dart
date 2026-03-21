@@ -17,17 +17,41 @@ import '../services/compatibility_engine.dart';
 import '../services/archetype_service.dart';
 import '../services/melt_chat_service.dart';
 import '../services/iap_service.dart';
+import '../services/photo_upload_service.dart';
 
 class AppFlowController extends ChangeNotifier {
   static const _kOnboardingCompleteKey = 'onboarding_complete';
 
-  AppFlowController._(this._prefs, this._repository)
-      : dailyProfiles = <VibeProfile>[],
-        meltChatService = FirebaseMeltChatService(),
-        iapService = IAPService(_repository) {
+  AppFlowController._(
+    this._prefs,
+    this._repository, {
+    MeltChatService? meltChatService,
+    IAPService? iapService,
+    PhotoUploadService? photoUploadService,
+  })  : dailyProfiles = <VibeProfile>[],
+        meltChatService = meltChatService ?? FirebaseMeltChatService(),
+        iapService = iapService ?? IAPService(_repository),
+        photoUploadService = photoUploadService ?? FirebasePhotoUploadService() {
     _hydrate();
+    _listenToAuth();
     fetchDailyPool(); // Initial fetch
     _watchMeltInvites();
+  }
+
+  factory AppFlowController.test({
+    required FreezmeRepository repository,
+    required MeltChatService meltChatService,
+    required IAPService iapService,
+    required PhotoUploadService photoUploadService,
+    SharedPreferences? prefs,
+  }) {
+    return AppFlowController._(
+      prefs,
+      repository,
+      meltChatService: meltChatService,
+      iapService: iapService,
+      photoUploadService: photoUploadService,
+    );
   }
 
   static Future<AppFlowController> create(FreezmeRepository repository) async {
@@ -44,14 +68,17 @@ class AppFlowController extends ChangeNotifier {
   final FreezmeRepository _repository;
   final MeltChatService meltChatService;
   final IAPService iapService;
+  final PhotoUploadService photoUploadService;
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
   final List<AppMatch> _matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
   final List<VibeCircle> activeCircles = <VibeCircle>[];
+  final List<PhotoSlot> _photoSlots = List.generate(
+    6, (i) => const PhotoSlot(status: PhotoSlotStatus.empty));
+  
   VibeProfile? activeProfile;
   VibeCircle? activeCircle;
   LifestyleArchetype? selectedArchetype;
-  String? _pendingInviteSlot;
   int _poolIndex = 0;
   bool _isFreezed = false;
   DateTime? _freezeUntil;
@@ -93,9 +120,30 @@ class AppFlowController extends ChangeNotifier {
   String? get profilePhotoUrl => null;
   String? get profileName => FirebaseAuth.instance.currentUser?.displayName;
   String? get profileEmail => FirebaseAuth.instance.currentUser?.email;
+  int get uploadedPhotoCount => _photoSlots.where((s) => s.status == PhotoSlotStatus.uploaded).length;
+  List<PhotoSlot> get photoSlots => List.unmodifiable(_photoSlots);
+
+  Future<void> uploadPhotoForSlot(int index, [String? path]) async {
+    if (index < 0 || index >= _photoSlots.length) return;
+    
+    _photoSlots[index] = const PhotoSlot(status: PhotoSlotStatus.uploading);
+    notifyListeners();
+
+    try {
+      final uploaded = await photoUploadService.pickAndUpload(slotIndex: index);
+      _photoSlots[index] = PhotoSlot(
+        status: PhotoSlotStatus.uploaded,
+        imageUrl: uploaded.url,
+        localPath: uploaded.localPath,
+      );
+      notifyListeners();
+    } catch (e) {
+      _photoSlots[index] = const PhotoSlot(status: PhotoSlotStatus.error);
+      notifyListeners();
+      rethrow;
+    }
+  }
   int get matchesCount => matches.length;
-  int get uploadedPhotoCount => 0;
-  List<PhotoSlot> get photoSlots => const [];
 
   // Paths stubs
   double _lastPathsRadiusKm = 5.0;
@@ -152,6 +200,18 @@ class AppFlowController extends ChangeNotifier {
     });
   }
 
+  Future<bool> sendMeltChatInvite(VibeProfile target, String slotLabel) async {
+    try {
+      await meltChatService.sendInvite(
+        targetUid: target.uid,
+        slotLabel: slotLabel,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // Chat stubs
   void openChatDetail(VibeProfile profile, {String? chatId}) => push(AppStage.chat);
   void openHome() => replaceStack([AppStage.dailyPool]);
@@ -187,7 +247,6 @@ class AppFlowController extends ChangeNotifier {
     PhotoSlot? photoSlot,
     int? photoIndex,
   }) async {}
-  Future<void> uploadPhotoForSlot(int index, [String? path]) async {}
 
   void _hydrate() {
     final completed =
@@ -214,6 +273,23 @@ class AppFlowController extends ChangeNotifier {
     }
   }
 
+  void _listenToAuth() {
+    FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null) {
+        // Only go back to authGate if we are fully logged out and weren't in splash
+        if (current != AppStage.authGate && current != AppStage.splash) {
+          replaceStack([AppStage.authGate]);
+        }
+      } else {
+        // Authenticated. Ensure we are not stuck at Splash/AuthGate
+        if (current == AppStage.authGate || current == AppStage.splash) {
+          final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+          replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
+        }
+      }
+    });
+  }
+
   void replaceStack(List<AppStage> stages) {
     _stack
       ..clear()
@@ -221,17 +297,6 @@ class AppFlowController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addMatch(VibeProfile profile) {
-    // Matches expire in 48 hours unless a conversation starts
-    final expiry = DateTime.now().add(const Duration(hours: 48));
-    _matches.add(AppMatch(
-      profile: profile,
-      matchedAt: DateTime.now(),
-      expiresAt: expiry,
-    ));
-    replaceStack([AppStage.matchSuccess]);
-    notifyListeners();
-  }
 
   // ─── Trust Score Event System ────────────────────────────────────────────────
 
@@ -557,6 +622,7 @@ class AppFlowController extends ChangeNotifier {
 
   void matchProfile(VibeProfile profile) {
     activeProfile = profile;
+    // Matches expire in 48 hours unless a conversation starts
     _matches.add(
       AppMatch(
         profile: profile,
@@ -565,6 +631,7 @@ class AppFlowController extends ChangeNotifier {
       ),
     );
     replaceTop(AppStage.matchSuccess);
+    notifyListeners();
   }
 
   void finishMatchSuccessToChat() {

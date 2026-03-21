@@ -1,0 +1,30 @@
+appId: com.freezme.app
+---
+- launchApp
+- assertVisible: "FREEZME"
+- tapOn: "Tonight. Not someday." # Tap splash/auth gate
+- tapOn: "Get Started" # Assuming there's a button to start onboarding
+- assertVisible: "Personality Onboarding"
+
+# Step 1: Intent
+- tapOn: "Serious Dating" # Example intent
+- tapOn: "Next"
+
+# Step 2: Traits
+- tapOn: "Adventurous"
+- tapOn: "Next"
+
+# Step 3: Lifestyle
+- tapOn: "Active"
+- tapOn: "Next"
+
+# Step 4: Interests
+- tapOn: "Traveling"
+- tapOn: "Next"
+
+# Step 5: Bio/Age
+- inputText: "Adrenaline junkie and coffee lover. Always looking for the next adventure."
+- tapOn: "Next"
+
+# Verify Completion
+- assertVisible: "Vibe Pool"

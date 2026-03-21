@@ -141,11 +141,11 @@ class _CompatibilityQuizPageState extends State<CompatibilityQuizPage> {
                           activeColor: FreezmeColors.primary,
                           inactiveColor: FreezmeColors.border,
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
+                            children: [
                               Text(
                                 'Disagree',
                                 style: TextStyle(color: FreezmeColors.muted),

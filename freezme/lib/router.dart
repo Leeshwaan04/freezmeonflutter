@@ -33,7 +33,7 @@ class FreezmeRouter {
         name: 'splash',
         pageBuilder: (context, state) => NoTransitionPage(
           key: state.pageKey,
-          child: SplashScreen(),
+          child: const SplashScreen(),
         ),
       ),
       GoRoute(
@@ -41,7 +41,7 @@ class FreezmeRouter {
         name: 'auth',
         pageBuilder: (context, state) => NoTransitionPage(
           key: state.pageKey,
-          child: AuthGatePage(),
+          child: const AuthGatePage(),
         ),
       ),
       GoRoute(
@@ -49,7 +49,7 @@ class FreezmeRouter {
         name: 'onboarding',
         pageBuilder: (context, state) => NoTransitionPage(
           key: state.pageKey,
-          child: EnhancedOnboardingFlow(),
+          child: const EnhancedOnboardingFlow(),
         ),
       ),
       GoRoute(
@@ -57,7 +57,7 @@ class FreezmeRouter {
         name: 'profile-completion',
         pageBuilder: (context, state) => NoTransitionPage(
           key: state.pageKey,
-          child: ProfileCompletionPage(),
+          child: const ProfileCompletionPage(),
         ),
       ),
       GoRoute(
@@ -65,7 +65,7 @@ class FreezmeRouter {
         name: 'daily-pool',
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
-          child: HomePage(),
+          child: const HomePage(),
         ),
       ),
       GoRoute(
@@ -73,7 +73,7 @@ class FreezmeRouter {
         name: 'chat-list',
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
-          child: ChatListPage(),
+          child: const ChatListPage(),
         ),
       ),
       GoRoute(
@@ -81,7 +81,7 @@ class FreezmeRouter {
         name: 'paths',
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
-          child: PathsPage(),
+          child: const PathsPage(),
         ),
       ),
       GoRoute(
@@ -89,7 +89,7 @@ class FreezmeRouter {
         name: 'blinds',
         pageBuilder: (context, state) => _fadePage(
           key: state.pageKey,
-          child: BlindsPage(),
+          child: const BlindsPage(),
         ),
       ),
       GoRoute(
@@ -97,7 +97,7 @@ class FreezmeRouter {
         name: 'chat',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: ChatScreenPage(),
+          child: const ChatScreenPage(),
         ),
       ),
       GoRoute(
@@ -105,7 +105,7 @@ class FreezmeRouter {
         name: 'match-success',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: MatchSuccessPage(),
+          child: const MatchSuccessPage(),
         ),
       ),
       GoRoute(
@@ -113,7 +113,7 @@ class FreezmeRouter {
         name: 'profile-preview',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: ProfilePreviewPage(),
+          child: const ProfilePreviewPage(),
         ),
       ),
       GoRoute(
@@ -121,7 +121,7 @@ class FreezmeRouter {
         name: 'edit-profile',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: EditProfilePage(),
+          child: const EditProfilePage(),
         ),
       ),
       GoRoute(
@@ -129,7 +129,7 @@ class FreezmeRouter {
         name: 'daily-recap',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: DailyRecapPage(),
+          child: const DailyRecapPage(),
         ),
       ),
       GoRoute(
@@ -137,7 +137,7 @@ class FreezmeRouter {
         name: 'profile-settings',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: ProfileSettingsPage(),
+          child: const ProfileSettingsPage(),
         ),
       ),
       GoRoute(
@@ -145,7 +145,7 @@ class FreezmeRouter {
         name: 'freezme-plus',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: FreezmePlusPage(),
+          child: const FreezmePlusPage(),
         ),
       ),
     ],
@@ -177,7 +177,7 @@ class FreezmeRouter {
                 const SizedBox(height: 32),
                 ElevatedButton(
                   onPressed: () => context.go('/splash'),
-                  child: Text('Return to Home'),
+                  child: const Text('Return to Home'),
                 ),
               ],
             ),

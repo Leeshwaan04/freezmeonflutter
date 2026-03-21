@@ -20,10 +20,11 @@ import 'ui/screens/auth_gate.dart';
 import 'ui/screens/onboarding_flow.dart';
 import 'ui/screens/compatibility_quiz.dart';
 import 'ui/screens/daily_vibe_pool.dart';
+import 'ui/home/home_page.dart';
 import 'ui/screens/video_date.dart';
 import 'ui/screens/match_success.dart';
 import 'ui/screens/chat_screen.dart';
-import 'ui/screens/profile_settings.dart';
+import 'ui/profile/profile_settings_page.dart';
 import 'ui/screens/profile_preview.dart';
 import 'ui/screens/daily_recap.dart';
 import 'ui/screens/freezme_plus.dart' show FreezeMePlusPage;
@@ -42,10 +43,47 @@ void main() async {
 
   // Crashlytics — capture uncaught Flutter + platform errors in release builds
   if (!kDebugMode) {
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    FlutterError.onError = (errorDetails) {
+       FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+    };
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
       return true;
+    };
+    
+    // Fallback UI for production crashes (no Red Screen of Death)
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.grey, size: 48),
+                const SizedBox(height: 16),
+                const Text(
+                  'Something went wrong',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'We have been notified and are working on it.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () { 
+                    // Simple way to restart or go back
+                  },
+                  child: const Text('Return to Home'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     };
   }
 
@@ -53,7 +91,9 @@ void main() async {
 }
 
 class FreezmeApp extends StatefulWidget {
-  const FreezmeApp({super.key});
+  const FreezmeApp({this.controllerBuilder, super.key});
+
+  final Future<AppFlowController> Function()? controllerBuilder;
 
   @override
   State<FreezmeApp> createState() => _FreezmeAppState();
@@ -65,7 +105,11 @@ class _FreezmeAppState extends State<FreezmeApp> {
   @override
   void initState() {
     super.initState();
-    AppFlowController.create(FirestoreFreezmeRepository(fallback: const MockFreezmeRepository())).then((controller) {
+    final builder = widget.controllerBuilder ??
+        () => AppFlowController.create(
+            FirestoreFreezmeRepository(fallback: const MockFreezmeRepository()));
+
+    builder().then((controller) {
       if (mounted) {
         setState(() {
           _controller = controller;
@@ -173,7 +217,7 @@ class FlowNavigator extends StatelessWidget {
       case AppStage.compatibilityQuiz:
         return const CompatibilityQuizPage();
       case AppStage.dailyPool:
-        return const DailyVibePoolPage();
+        return const HomePage();
       case AppStage.videoDate:
         return const VideoDatePage();
       case AppStage.matchSuccess:

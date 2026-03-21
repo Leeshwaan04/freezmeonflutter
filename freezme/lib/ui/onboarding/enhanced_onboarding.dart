@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
 import '../theme.dart';
 import '../../main.dart';
@@ -684,7 +685,12 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
                         else if (slot.imageUrl != null)
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.network(slot.imageUrl!, fit: BoxFit.cover),
+                            child: CachedNetworkImage(
+                              imageUrl: slot.imageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(color: Colors.grey.shade200),
+                              errorWidget: (context, url, error) => const Icon(Icons.error),
+                            ),
                           )
                         else if (slot.status == PhotoSlotStatus.uploading)
                           const Center(child: CircularProgressIndicator())
@@ -847,12 +853,6 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     
     // Mock Logic based on state
     final interests = _selectedInterests.take(3).toList();
-    final vibeStrings = {
-      'chill': 'chill vibes',
-      'adventure': 'adventure seeking',
-      'deep': 'deep conversations',
-      'fun': 'fun times',
-    };
     
     String interestStr = interests.isNotEmpty ? "I love ${interests.join(', ')}." : "I love trying new things.";
     

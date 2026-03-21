@@ -89,8 +89,8 @@ class FreezeModalContent extends StatelessWidget {
                     icon: const Icon(Icons.close, color: Colors.white),
                   ),
                 ),
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     Icon(Icons.ac_unit, color: Colors.white, size: 48),
                     SizedBox(width: 16),
                     Expanded(

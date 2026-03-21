@@ -116,7 +116,7 @@ class ReadReceipt extends StatelessWidget {
         return SizedBox(
           width: size,
           height: size,
-          child: CircularProgressIndicator(
+          child: const CircularProgressIndicator(
             strokeWidth: 1.5,
             color: FreezmeDesignSystem.textTertiary,
           ),

@@ -164,6 +164,9 @@ class FakeFreezmeRepository implements FreezmeRepository {
 
   @override
   Future<List<ChatMessage>> loadMoreMessages(String chatId, {required ChatMessage lastMessage, int limit = 50}) async => [];
+
+  @override
+  Future<void> reportUser(String targetUid) async {}
 }
 
 

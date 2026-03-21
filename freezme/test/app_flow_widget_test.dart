@@ -78,6 +78,7 @@ void main() {
             photoUploadService: MockPhotoUploadService(),
             meltChatService: MockMeltChatService(),
             repository: MockFreezmeRepository(),
+            iapService: _FakeIAPService(),
           ),
         ),
       );

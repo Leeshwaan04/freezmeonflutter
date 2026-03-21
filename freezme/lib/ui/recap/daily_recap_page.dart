@@ -200,8 +200,8 @@ class DailyRecapPage extends StatelessWidget {
                             ),
                           ],
                         ),
-                        child: Column(
-                          children: const [
+                        child: const Column(
+                          children: [
                             Text('💫', style: TextStyle(fontSize: 32)),
                             SizedBox(height: 12),
                             Text(

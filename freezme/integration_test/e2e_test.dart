@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:freezme/main.dart';
 
 void main() {
@@ -25,26 +26,42 @@ void main() {
     });
 
     testWidgets('Chat Journey: Login as Bob and message Alice', (tester) async {
-      await tester.pumpWidget(const FreezmeApp());
-      await tester.pumpAndSettle();
+      // Pre-seed onboarding_complete so the app lands on dailyPool after login
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('onboarding_complete', true);
 
+      // Disable app verification (bypasses APNs checks on iOS simulator)
+      await FirebaseAuth.instance.setSettings(appVerificationDisabledForTesting: true);
+
+      // Sign Bob in BEFORE pumpWidget so the auth state is ready when the
+      // AppFlowController initialises and calls _listenToAuth().
       try {
-         await FirebaseAuth.instance.signInWithEmailAndPassword(
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: 'bob@example.com',
           password: 'password123',
         );
-      } catch (e) {
-        print('ℹ️ Sign-in might have failed if user doesn\'t exist in emulator: $e');
+        print('✅ Bob signed in: ${FirebaseAuth.instance.currentUser?.uid}');
+      } on FirebaseAuthException catch (e) {
+        print('❌ FirebaseAuthException code=${e.code} msg=${e.message}');
+        rethrow;
       }
-      
-      await tester.pumpAndSettle(const Duration(seconds: 2));
 
-      // 1. Check if we are in Daily Pool
-      expect(find.byIcon(Icons.chat_bubble_outline_rounded), findsOneWidget);
+      await tester.pumpWidget(const FreezmeApp());
+      // pump() instead of pumpAndSettle() to bypass infinite splash animations
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 2));
+
+      // Wait for Auth listener in AppFlowController to settle on dailyPool
+      await tester.pump(const Duration(seconds: 2));
+
+      // 1. Check if we are in Home/Daily Pool
+      // The bottom nav has 'Chats' text
+      expect(find.text('Chats'), findsOneWidget);
       
-      // 2. Navigate to Chat (Modular Navigator uses FlowController.openChat)
-      // In the test, we simulate the tap on the navigation bar
-      final chatTab = find.byIcon(Icons.chat_bubble_outline_rounded);
+      // 2. Navigate to Chat 
+      // Tap by text is more robust than icon variant
+      final chatTab = find.text('Chats');
       await tester.tap(chatTab);
       await tester.pumpAndSettle();
 

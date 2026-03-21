@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
 
@@ -30,11 +31,13 @@ class ProfilePreviewPage extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(32),
-                child: Image.network(
-                  imageUrl,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
                   height: 480,
                   width: double.infinity,
                   fit: BoxFit.cover,
+                  placeholder: (context, url) => Container(color: Colors.grey.shade200),
+                  errorWidget: (context, url, error) => const Icon(Icons.error),
                 ),
               ),
               const SizedBox(height: 24),
@@ -93,10 +96,10 @@ class ProfilePreviewPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Wrap(
+              const Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: const [
+                children: [
                   _PreviewChip(label: 'Digital Art'),
                   _PreviewChip(label: 'Coffee'),
                   _PreviewChip(label: 'Travel'),

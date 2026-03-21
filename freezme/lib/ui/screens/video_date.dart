@@ -249,7 +249,7 @@ class _VideoDatePageState extends State<VideoDatePage> with SingleTickerProvider
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(color: Colors.white24, width: 2),
-                          boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 20)],
+                          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 20)],
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: Image.network(

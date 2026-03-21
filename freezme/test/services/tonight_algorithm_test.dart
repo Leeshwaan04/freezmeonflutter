@@ -17,10 +17,6 @@ void main() {
 
     group('Recency Score', () {
       test('recent activity scores higher', () {
-        final now = DateTime.now();
-        final oneHourAgo = now.subtract(const Duration(hours: 1));
-        final tenHoursAgo = now.subtract(const Duration(hours: 10));
-
         // Simulate scoring logic: (100 - (hoursSinceActive * 4)).clamp(0, 100)
         final recentScore = (100 - (1 * 4)).clamp(0.0, 100.0);
         final olderScore = (100 - (10 * 4)).clamp(0.0, 100.0);
@@ -31,14 +27,14 @@ void main() {
       });
 
       test('24+ hours old activity scores near zero', () {
-        final hoursSinceActive = 25;
+        const hoursSinceActive = 25;
         final recencyScore = (100 - (hoursSinceActive * 4)).clamp(0.0, 100.0);
 
         expect(recencyScore, 0.0);
       });
 
       test('current activity scores 100', () {
-        final hoursSinceActive = 0;
+        const hoursSinceActive = 0;
         final recencyScore = (100 - (hoursSinceActive * 4)).clamp(0.0, 100.0);
 
         expect(recencyScore, 100.0);
@@ -47,16 +43,16 @@ void main() {
 
     group('Proximity Score', () {
       test('nearby location scores higher', () {
-        final userLat = 40.7128;
-        final userLng = -74.0060;
+        const userLat = 40.7128;
+        const userLng = -74.0060;
 
         // 1km away
-        final nearbyLat = 40.7138;
-        final nearbyLng = -74.0060;
+        const nearbyLat = 40.7138;
+        const nearbyLng = -74.0060;
 
         // 40km away
-        final farLat = 40.8128;
-        final farLng = -74.0060;
+        const farLat = 40.8128;
+        const farLng = -74.0060;
 
         final nearbyDistance = geoService.distanceBetween(userLat, userLng, nearbyLat, nearbyLng);
         final farDistance = geoService.distanceBetween(userLat, userLng, farLat, farLng);
@@ -70,14 +66,14 @@ void main() {
       });
 
       test('50+ km distance scores zero', () {
-        final distance = 60.0;
+        const distance = 60.0;
         final proximityScore = (100 - (distance * 2)).clamp(0.0, 100.0);
 
         expect(proximityScore, 0.0);
       });
 
       test('same location scores 100', () {
-        final distance = 0.0;
+        const distance = 0.0;
         final proximityScore = (100 - (distance * 2)).clamp(0.0, 100.0);
 
         expect(proximityScore, 100.0);
@@ -87,20 +83,20 @@ void main() {
     group('Weighted Tonight Score', () {
       test('calculates correct weighted average', () {
         // Recent and nearby: should score very high
-        final recencyScore = 96.0; // 1 hour ago
-        final proximityScore = 98.0; // 1 km away
+        const recencyScore = 96.0; // 1 hour ago
+        const proximityScore = 98.0; // 1 km away
 
-        final tonightScore = (recencyScore * 0.6) + (proximityScore * 0.4);
+        const tonightScore = (recencyScore * 0.6) + (proximityScore * 0.4);
 
         expect(tonightScore, closeTo(96.8, 0.1));
       });
 
       test('recency weights more than proximity', () {
         // Recent but far
-        final recentFar = (96.0 * 0.6) + (20.0 * 0.4); // 1 hour, 40km = 65.6
+        const recentFar = (96.0 * 0.6) + (20.0 * 0.4); // 1 hour, 40km = 65.6
 
         // Old but near
-        final oldNear = (60.0 * 0.6) + (98.0 * 0.4); // 10 hours, 1km = 75.2
+        const oldNear = (60.0 * 0.6) + (98.0 * 0.4); // 10 hours, 1km = 75.2
 
         // Actually, oldNear scores higher (75.2 > 65.6), so this test expectation is incorrect
         // Let's adjust to test that the weight difference is correct
@@ -109,19 +105,19 @@ void main() {
       });
 
       test('perfect score is 100', () {
-        final recencyScore = 100.0;
-        final proximityScore = 100.0;
+        const recencyScore = 100.0;
+        const proximityScore = 100.0;
 
-        final tonightScore = (recencyScore * 0.6) + (proximityScore * 0.4);
+        const tonightScore = (recencyScore * 0.6) + (proximityScore * 0.4);
 
         expect(tonightScore, 100.0);
       });
 
       test('worst score is 0', () {
-        final recencyScore = 0.0;
-        final proximityScore = 0.0;
+        const recencyScore = 0.0;
+        const proximityScore = 0.0;
 
-        final tonightScore = (recencyScore * 0.6) + (proximityScore * 0.4);
+        const tonightScore = (recencyScore * 0.6) + (proximityScore * 0.4);
 
         expect(tonightScore, 0.0);
       });
@@ -201,8 +197,8 @@ void main() {
       });
 
             test('precision 5 gives approximately 25km radius', () {
-        final centerLat = 40.7128;
-        final centerLng = -74.0060;
+        const centerLat = 40.7128;
+        const centerLng = -74.0060;
 
         final centerGeohash = geoService.encodeGeohash(centerLat, centerLng, precision: 5);
 
@@ -211,10 +207,10 @@ void main() {
         expect(centerGeohash.length, equals(5));
 
         // Test points at roughly 20km distance
-        final northLat = centerLat + 0.18; // ~20km north
+        const northLat = centerLat + 0.18; // ~20km north
         final northGeohash = geoService.encodeGeohash(northLat, centerLng, precision: 5);
 
-        final eastLng = centerLng + 0.25; // ~20km east
+        const eastLng = centerLng + 0.25; // ~20km east
         final eastGeohash = geoService.encodeGeohash(centerLat, eastLng, precision: 5);
 
         // Nearby locations may have different geohashes at precision 5 if they're ~20km apart

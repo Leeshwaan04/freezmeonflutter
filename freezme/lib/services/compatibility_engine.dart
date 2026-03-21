@@ -11,7 +11,6 @@ class CompatibilityEngine {
     );
 
     // 2. Values Alignment (25%)
-    // Deriving from DatingIntent and shared interests/lifestyle
     final valuesScore = _calculateValuesAlignment(user, target);
 
     // 3. Lifestyle Compatibility (20%)
@@ -21,7 +20,6 @@ class CompatibilityEngine {
     );
 
     // 4. Communication Style (20%)
-    // Derive from personality traits (e.g. Introvert vs Extrovert)
     final communicationScore = _calculateCommunicationCompatibility(user, target);
 
     // Weighted Overall
@@ -38,7 +36,55 @@ class CompatibilityEngine {
       values: valuesScore.round(),
       personalityTraits: target.dna?.personalityTraits,
       lifestyleFactors: target.dna?.lifestyleFactors,
+      highlights: getCompatibilityHighlights(user, target),
     );
+  }
+
+  /// Extracts textual reasons why two users match.
+  static List<String> getCompatibilityHighlights(UserBlueprint user, VibeProfile target) {
+    final highlights = <String>[];
+    
+    // 1. Same Personality Traits
+    final targetTraits = target.dna?.personalityTraits?.map((t) => t.toLowerCase()).toSet() ?? {};
+    final sharedTraits = user.personalityTraits
+        .map((e) => e.name.toLowerCase())
+        .toSet()
+        .intersection(targetTraits);
+
+    if (sharedTraits.isNotEmpty) {
+      final label = sharedTraits.take(2).join(' & ');
+      highlights.add('Shared $label vibes');
+    }
+
+    // 2. Same Lifestyle Factors
+    final targetFactors = target.dna?.lifestyleFactors?.map((f) => f.toLowerCase()).toSet() ?? {};
+    final sharedFactors = user.lifestyleFactors
+        .map((e) => e.name.toLowerCase())
+        .toSet()
+        .intersection(targetFactors);
+
+    if (sharedFactors.isNotEmpty) {
+      highlights.add('Both prioritize ${sharedFactors.first}');
+    }
+
+    // 3. Shared Archetypes (Modern lifestyle alignment)
+    final sharedArchetypes = user.dna?.lifestyleFactors?.toSet().intersection(target.archetypes.map((a) => a.name).toSet()) ?? {};
+    if (sharedArchetypes.isNotEmpty) {
+       highlights.add('Connected by ${sharedArchetypes.first}');
+    }
+
+    // 4. Mission/Intent Alignment
+    if (user.intent == DatingIntent.meaningful) {
+      highlights.add('Both looking for depth');
+    }
+
+    // Baseline fallbacks if too few highlights
+    if (highlights.length < 2) {
+      highlights.add('High communication affinity');
+      highlights.add('Balanced energy levels');
+    }
+
+    return highlights.take(3).toList();
   }
 
   static double _calculateSimilarity(List<String> listA, List<String> listB) {
