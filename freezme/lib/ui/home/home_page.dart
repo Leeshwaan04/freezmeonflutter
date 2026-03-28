@@ -12,6 +12,10 @@ import '../components/premium_components.dart';
 import '../components/skeleton_loaders.dart';
 import '../shared/bottom_nav_bar.dart';
 import '../profile/profile_detail_page.dart';
+import '../profile/profile_settings_page.dart';
+import '../chat/chat_list_page.dart';
+import '../paths/paths_page.dart';
+import '../blinds/blinds_page.dart';
 import '../components/aurora_background.dart';
 
 class HomePage extends StatefulWidget {
@@ -184,14 +188,28 @@ class _HomePageState extends State<HomePage> {
           onTap: flow.openTab,
         ),
       ),
-      body: AuroraBackground(
-        isPremium: flow.isPremium,
-        child: SafeArea(
-          child: RefreshIndicator(
+      body: IndexedStack(
+        index: flow.currentTabIndex,
+        children: [
+          _buildFeedTab(flow),
+          const ChatListPage(),
+          const PathsPage(),
+          const BlindsPage(),
+          const ProfileSettingsPage(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeedTab(AppFlowController flow) {
+    return AuroraBackground(
+      isPremium: flow.isPremium,
+      child: SafeArea(
+        child: RefreshIndicator(
           color: FreezmeDesignSystem.primary,
           backgroundColor: FreezmeDesignSystem.surface,
           onRefresh: _loadData,
-            child: CustomScrollView(
+          child: CustomScrollView(
             // Key removed to prevent Duplicate GlobalKey collision during transitions
             slivers: [
               _buildHeader(),
@@ -245,8 +263,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildHeader() {
