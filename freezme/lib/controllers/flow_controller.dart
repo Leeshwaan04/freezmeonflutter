@@ -87,6 +87,15 @@ class AppFlowController extends ChangeNotifier {
   int _vibeCredits = 3;
   int _trustScore = 150; // Initial score
   UserBlueprint? userBlueprint;
+  bool _disposed = false;
+  StreamSubscription<User?>? _authSub;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) {
+      super.notifyListeners();
+    }
+  }
 
   set isVerified(bool value) {
     _isVerified = value;
@@ -274,19 +283,22 @@ class AppFlowController extends ChangeNotifier {
   }
 
   void _listenToAuth() {
-    FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (user == null) {
-        // Only go back to authGate if we are fully logged out and weren't in splash
-        if (current != AppStage.authGate && current != AppStage.splash) {
-          replaceStack([AppStage.authGate]);
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_disposed) return;
+        if (user == null) {
+          // Only go back to authGate if we are fully logged out and weren't in splash
+          if (current != AppStage.authGate && current != AppStage.splash) {
+            replaceStack([AppStage.authGate]);
+          }
+        } else {
+          // Authenticated. Ensure we are not stuck at Splash/AuthGate
+          if (current == AppStage.authGate || current == AppStage.splash) {
+            final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+            replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
+          }
         }
-      } else {
-        // Authenticated. Ensure we are not stuck at Splash/AuthGate
-        if (current == AppStage.authGate || current == AppStage.splash) {
-          final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
-          replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
-        }
-      }
+      });
     });
   }
 
@@ -601,7 +613,9 @@ class AppFlowController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _meltInviteSub?.cancel();
+    _authSub?.cancel();
     iapService.dispose();
     super.dispose();
   }

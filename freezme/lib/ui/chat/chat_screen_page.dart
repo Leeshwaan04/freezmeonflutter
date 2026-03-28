@@ -102,6 +102,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
           status: 'sent',
         ),
       );
+      if (!mounted) return;
       setState(() {
         message.status = MessageStatus.sent;
       });
@@ -109,6 +110,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
 
 
     } catch (_) {
+      if (!mounted) return;
       setState(() {
         message.status = MessageStatus.failed;
       });
@@ -122,7 +124,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
       _sending = false;
     }
     Future<void>.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
+      if (mounted && _scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 250),
@@ -334,7 +336,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                           // setState during build.
                           WidgetsBinding.instance.addPostFrameCallback((_) {
                             if (!mounted) return;
-                            setState(() => _latestEnergy = energy);
+                            // Update milestones - only celebrate once
+                            _latestEnergy = energy;
                             for (final entry in _milestones.entries) {
                               if (mapped.length >= entry.key &&
                                   !_celebratedMilestones.contains(entry.key)) {
@@ -974,6 +977,7 @@ class _DateCatalystBanner extends StatefulWidget {
 class _DateCatalystBannerState extends State<_DateCatalystBanner>
     with SingleTickerProviderStateMixin {
   late final AnimationController _glowController;
+  late final AnimationController _slideController;
   late final Animation<double> _slideIn;
   late final Animation<double> _glow;
 
@@ -985,13 +989,15 @@ class _DateCatalystBannerState extends State<_DateCatalystBanner>
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
 
+    _slideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
     _slideIn = CurvedAnimation(
-      parent: AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 400),
-      )..forward(),
+      parent: _slideController,
       curve: Curves.easeOutCubic,
     );
+    _slideController.forward();
 
     _glow = Tween<double>(begin: 0.25, end: 0.55).animate(_glowController);
   }
@@ -999,6 +1005,7 @@ class _DateCatalystBannerState extends State<_DateCatalystBanner>
   @override
   void dispose() {
     _glowController.dispose();
+    _slideController.dispose();
     super.dispose();
   }
 

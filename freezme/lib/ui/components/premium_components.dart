@@ -1082,6 +1082,10 @@ class _CountdownTimerState extends State<CountdownTimer> {
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       if (_remaining.inSeconds > 0) {
         setState(() {
           _remaining = _remaining - const Duration(seconds: 1);

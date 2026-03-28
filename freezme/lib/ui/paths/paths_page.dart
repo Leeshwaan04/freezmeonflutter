@@ -105,7 +105,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
         setState(() {
           inviteStatusByUser[person.uid] = invite.status;
         });
-        if (invite.status == 'accepted') {
+        if (invite.status == 'accepted' && mounted) {
           _openChat(flow);
         }
       });

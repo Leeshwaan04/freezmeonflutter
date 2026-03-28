@@ -35,6 +35,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
     _locationController = TextEditingController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final flow = AppFlowScope.of(context, listen: false);
       setState(() {
         _nameController.text = flow.fullProfile?.name ?? flow.profileName ?? '';

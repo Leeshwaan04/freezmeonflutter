@@ -177,9 +177,9 @@ class FlowNavigator extends StatelessWidget {
       animation: flow,
       builder: (context, _) {
         final pages = <Page<dynamic>>[
-          for (final stage in flow.stack)
+          for (final (index, stage) in flow.stack.indexed)
             _FreezmeTransitionPage<dynamic>(
-              key: ValueKey<AppStage>(stage),
+              key: ValueKey<String>('${stage.name}_$index'),
               transitionsBuilder: (context, animation, secondaryAnimation, child) {
                 return FadeTransition(
                   opacity: animation,
@@ -199,7 +199,9 @@ class FlowNavigator extends StatelessWidget {
         return Navigator(
           pages: pages,
           onDidRemovePage: (page) {
-            flow.pop();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+               flow.pop();
+            });
           },
         );
       },

@@ -81,8 +81,8 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.send);
       await tester.pumpAndSettle();
 
-      // Tap the send button
-      final sendButton = find.byIcon(Icons.send);
+      // Tap the send button (chat screen uses Icons.send_rounded)
+      final sendButton = find.byIcon(Icons.send_rounded);
       if (sendButton.evaluate().isNotEmpty) {
         await tester.tap(sendButton);
         await tester.pumpAndSettle();

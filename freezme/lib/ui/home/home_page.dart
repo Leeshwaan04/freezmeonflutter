@@ -197,10 +197,11 @@ class _HomePageState extends State<HomePage> {
               _buildHeader(),
               // Profile completion prompt moved to Profile page - no longer a blocker here
               if (_isLoading) ...[
-                 _buildLivePathsSkeleton(),
-                 _buildTonightPoolSkeleton(),
+                 _buildLivePathsSkeleton(key: const ValueKey('live_paths_skeleton')),
+                 _buildTonightPoolSkeleton(key: const ValueKey('tonight_pool_skeleton')),
               ] else if (_hasError && _tonightPool.isEmpty) ...[
                 SliverFillRemaining(
+                  key: const ValueKey('error_retry_fill'),
                   hasScrollBody: false,
                   child: Padding(
                     padding: const EdgeInsets.all(32),
@@ -235,9 +236,9 @@ class _HomePageState extends State<HomePage> {
                   ),
                 )
               ] else ...[
-                _buildLivePathsSection(),
-                _buildTonightPoolSection(),
-                _buildTrendingFeedSection(),
+                _buildLivePathsSection(key: const ValueKey('live_paths_section')),
+                _buildTonightPoolSection(key: const ValueKey('tonight_pool_section')),
+                _buildTrendingFeedSection(key: const ValueKey('trending_feed_section')),
               ],
               const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
             ],
@@ -313,7 +314,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildLivePathsSection() {
+  Widget _buildLivePathsSection({Key? key}) {
     final flow = AppFlowScope.of(context);
     final paths = flow.nearbyPaths;
 
@@ -322,6 +323,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     return SliverToBoxAdapter(
+      key: key,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -360,8 +362,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
   
-  Widget _buildLivePathsSkeleton() {
+  Widget _buildLivePathsSkeleton({Key? key}) {
     return SliverToBoxAdapter(
+      key: key,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -387,8 +390,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
   
-  Widget _buildTonightPoolSkeleton() {
+  Widget _buildTonightPoolSkeleton({Key? key}) {
     return SliverList(
+      key: key,
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           if (index == 0) {
@@ -407,12 +411,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTonightPoolSection() {
+  Widget _buildTonightPoolSection({Key? key}) {
     if (_tonightPool.isEmpty) {
-      return const SliverToBoxAdapter(
+      return SliverToBoxAdapter(
+        key: const ValueKey('empty_pool_state'),
         child: Padding(
-          padding: EdgeInsets.all(FreezmeDesignSystem.spaceLg),
-          child: EmptyStateView(
+          padding: const EdgeInsets.all(FreezmeDesignSystem.spaceLg),
+          child: const EmptyStateView(
             icon: Icons.nightlife,
             title: "No vibes tonight yet",
             subtitle: "Check back closer to 6 PM or adjust your radius to find people nearby.",
@@ -422,6 +427,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     return SliverList(
+      key: key,
       delegate: SliverChildBuilderDelegate(
         (context, index) {
           if (index == 0) {
@@ -444,9 +450,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildTrendingFeedSection() {
+  Widget _buildTrendingFeedSection({Key? key}) {
     final flow = AppFlowScope.of(context);
     return SliverToBoxAdapter(
+      key: key,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
