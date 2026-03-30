@@ -1,18 +1,21 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import 'api_client.dart';
+
+/// Push notification service — keeps firebase_messaging for APNs/FCM delivery,
+/// but reports the FCM token to the EC2 API instead of Firestore.
 class PushNotificationService {
-  static final PushNotificationService _instance = PushNotificationService._internal();
+  static final PushNotificationService _instance =
+      PushNotificationService._internal();
   factory PushNotificationService() => _instance;
   PushNotificationService._internal();
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  final _client = ApiClient.instance;
 
   Future<void> initialize() async {
     try {
-      // Request permission
       final settings = await _messaging.requestPermission(
         alert: true,
         badge: true,
@@ -20,76 +23,61 @@ class PushNotificationService {
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        debugPrint('Push notifications authorized');
-        
-        // Save token initially if logged in
+        debugPrint('[Push] notifications authorized');
         await _saveFcmToken();
-        
-        // Listen for auth changes to save token on login
-        FirebaseAuth.instance.authStateChanges().listen((user) {
-          if (user != null) {
-            _saveFcmToken();
-          }
-        });
-
         _setupTokenRefresh();
         _setupForegroundHandler();
       }
     } catch (e) {
-      debugPrint('Push notification initialization failed: $e');
+      debugPrint('[Push] initialization failed: $e');
     }
   }
 
   Future<void> _saveFcmToken() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
     try {
       final token = await _messaging.getToken();
       if (token != null) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-          {'fcmToken': token},
-          SetOptions(merge: true),
-        );
-        debugPrint('FCM Token saved: $token');
+        await _client.dio.post('/users/fcm-token', data: {'fcmToken': token});
+        debugPrint('[Push] FCM token saved to EC2');
       }
     } catch (e) {
       if (e.toString().contains('apns-token-not-set')) {
-        debugPrint('Push notifications not supported on iOS Simulator (APNS token missing).');
+        debugPrint('[Push] APNS token not set (iOS Simulator) — skipping');
       } else {
-        debugPrint('Failed to get FCM token: $e');
+        debugPrint('[Push] failed to save FCM token: $e');
       }
     }
   }
 
   void _setupTokenRefresh() {
     _messaging.onTokenRefresh.listen((token) async {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-          'fcmToken': token,
-        });
+      try {
+        await _client.dio.post('/users/fcm-token', data: {'fcmToken': token});
+      } catch (e) {
+        debugPrint('[Push] failed to refresh FCM token on EC2: $e');
       }
     });
   }
 
   void _setupForegroundHandler() {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Foreground message: ${message.notification?.title}');
-      // Handle foreground notification (show in-app banner, etc.)
+      debugPrint('[Push] foreground: ${message.notification?.title}');
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('Notification opened: ${message.data}');
-      // Navigate to appropriate screen based on message.data
+      debugPrint('[Push] opened: ${message.data}');
     });
   }
 
-  Future<void> subscribeToTopic(String topic) async {
-    await _messaging.subscribeToTopic(topic);
-  }
+  Future<void> subscribeToTopic(String topic) =>
+      _messaging.subscribeToTopic(topic);
 
-  Future<void> unsubscribeFromTopic(String topic) async {
-    await _messaging.unsubscribeFromTopic(topic);
+  Future<void> unsubscribeFromTopic(String topic) =>
+      _messaging.unsubscribeFromTopic(topic);
+
+  Future<void> clearToken() async {
+    try {
+      await _client.dio.delete('/users/fcm-token');
+    } catch (_) {}
   }
 }

@@ -1,8 +1,9 @@
 import 'dart:async';
 
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+
+import '../../services/api_client.dart';
 
 /// Product identifiers configured in the Play Console / App Store.
 class FreezmeProductIds {
@@ -17,14 +18,11 @@ class FreezmeProductIds {
 class PremiumPaywallController extends ChangeNotifier {
   PremiumPaywallController({
     required Future<void> Function({required bool active, DateTime? expiry}) setMembership,
-    FirebaseFunctions? functions,
     InAppPurchase? inAppPurchase,
   })  : _setMembership = setMembership,
-        _functions = functions ?? FirebaseFunctions.instance,
         _inAppPurchase = inAppPurchase ?? InAppPurchase.instance;
 
   final Future<void> Function({required bool active, DateTime? expiry}) _setMembership;
-  final FirebaseFunctions _functions;
   final InAppPurchase _inAppPurchase;
 
   bool _isAvailable = false;
@@ -206,17 +204,19 @@ class PremiumPaywallController extends ChangeNotifier {
 
   Future<bool> _verifyPurchaseWithBackend(PurchaseDetails purchase) async {
     try {
-      final callable = _functions.httpsCallable('verifyAndroidPurchase');
-      final response = await callable.call<Map<String, dynamic>>(<String, dynamic>{
-        'productId': purchase.productID,
-        'purchaseId': purchase.purchaseID,
-        'verificationData': {
-          'source': purchase.verificationData.source,
-          'serverVerificationData': purchase.verificationData.serverVerificationData,
+      final response = await ApiClient.instance.dio.post<Map<String, dynamic>>(
+        '/iap/verify-android',
+        data: <String, dynamic>{
+          'productId': purchase.productID,
+          'purchaseId': purchase.purchaseID,
+          'verificationData': {
+            'source': purchase.verificationData.source,
+            'serverVerificationData': purchase.verificationData.serverVerificationData,
+          },
+          'transactionDate': purchase.transactionDate,
         },
-        'transactionDate': purchase.transactionDate,
-      });
-      final data = response.data;
+      );
+      final data = response.data ?? {};
       final valid = data['valid'] == true;
       if (valid) {
         final expiryIso = data['expiry'] as String?;

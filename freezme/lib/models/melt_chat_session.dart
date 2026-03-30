@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class MeltChatSession {
   const MeltChatSession({
     required this.id,
@@ -33,20 +31,15 @@ class MeltChatSession {
     );
   }
 
-  static MeltChatSession fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? <String, dynamic>{};
+  static MeltChatSession fromJson(Map<String, dynamic> json, {String? id}) {
     return MeltChatSession(
-      id: doc.id,
-      hostUid: data['hostUid'] as String? ?? 'unknown',
-      targetUid: data['targetUid'] as String? ?? 'unknown',
-      slotLabel: data['slotLabel'] as String? ?? 'Tonight',
-      status: data['status'] as String? ?? 'active',
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ??
-          DateTime.fromMillisecondsSinceEpoch(0),
-      expiresAt:
-          (data['expiresAt'] as Timestamp?)?.toDate() ??
-          DateTime.fromMillisecondsSinceEpoch(0),
+      id: id ?? json['id'] as String? ?? '',
+      hostUid: json['hostUid'] as String? ?? 'unknown',
+      targetUid: json['targetUid'] as String? ?? 'unknown',
+      slotLabel: json['slotLabel'] as String? ?? 'Tonight',
+      status: json['status'] as String? ?? 'active',
+      createdAt: _parseDateTime(json['createdAt']),
+      expiresAt: _parseDateTime(json['expiresAt']),
     );
   }
 
@@ -55,7 +48,13 @@ class MeltChatSession {
     'targetUid': targetUid,
     'slotLabel': slotLabel,
     'status': status,
-    'createdAt': Timestamp.fromDate(createdAt),
-    'expiresAt': Timestamp.fromDate(expiresAt),
+    'createdAt': createdAt.toIso8601String(),
+    'expiresAt': expiresAt.toIso8601String(),
   };
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
 }

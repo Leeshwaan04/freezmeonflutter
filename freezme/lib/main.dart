@@ -1,13 +1,18 @@
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'firebase_options.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
 import 'ui/theme.dart';
 import 'controllers/flow_controller.dart';
 import 'core/app_stage.dart';
-import 'data/firestore_freezme_repository.dart';
+import 'data/ec2_freezme_repository.dart';
 import 'data/mock_freezme_repository.dart';
+import 'services/auth_service.dart';
+import 'services/api_client.dart';
+import 'services/push_notification_service.dart';
+import 'services/websocket_service.dart';
 
 // Re-export controller and stages so UI files that import main.dart stay compiling.
 export 'controllers/flow_controller.dart' show AppFlowController, AppFlowScope;
@@ -35,60 +40,46 @@ import 'ui/screens/vector_simulation.dart';
 import 'ui/screens/circle_discovery.dart';
 import 'ui/screens/circle_chat.dart';
 
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  debugPrint('[Push] background message: ${message.notification?.title}');
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
 
-  // Crashlytics — capture uncaught Flutter + platform errors in release builds
-  if (!kDebugMode) {
-    FlutterError.onError = (errorDetails) {
-       FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-    };
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
-    
-    // Fallback UI for production crashes (no Red Screen of Death)
-    ErrorWidget.builder = (FlutterErrorDetails details) {
-      return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, color: Colors.grey, size: 48),
-                const SizedBox(height: 16),
-                const Text(
-                  'Something went wrong',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'We have been notified and are working on it.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () { 
-                    // Simple way to restart or go back
-                  },
-                  child: const Text('Return to Home'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    };
+  // FCM requires Firebase core — initialize only for push notification delivery
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Initialise auth state from stored JWT
+  await AuthService.instance.init();
+
+  // Connect WebSocket if already logged in
+  final loggedIn = await ApiClient.instance.isLoggedIn;
+  if (loggedIn) {
+    unawaited(WebSocketService.instance.connect());
+    unawaited(PushNotificationService().initialize());
   }
 
-  runApp(const FreezmeApp());
+  const sentryDsn = String.fromEnvironment('SENTRY_DSN');
+
+  if (sentryDsn.isNotEmpty && !kDebugMode) {
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = sentryDsn;
+        options.tracesSampleRate = 0.2;
+        options.environment = 'production';
+      },
+      appRunner: () => runApp(const FreezmeApp()),
+    );
+  } else {
+    runApp(const FreezmeApp());
+  }
 }
+
+// ignore: prefer_void_to_null
+Future<Null> unawaited(Future<void> future) => future.then((_) => null);
 
 class FreezmeApp extends StatefulWidget {
   const FreezmeApp({this.controllerBuilder, super.key});
@@ -107,7 +98,7 @@ class _FreezmeAppState extends State<FreezmeApp> {
     super.initState();
     final builder = widget.controllerBuilder ??
         () => AppFlowController.create(
-            FirestoreFreezmeRepository(fallback: const MockFreezmeRepository()));
+            Ec2FreezmeRepository(fallback: const MockFreezmeRepository()));
 
     builder().then((controller) {
       if (mounted) {
@@ -121,6 +112,8 @@ class _FreezmeAppState extends State<FreezmeApp> {
   @override
   void dispose() {
     _controller?.dispose();
+    WebSocketService.instance.dispose();
+    AuthService.instance.dispose();
     super.dispose();
   }
 
@@ -155,7 +148,8 @@ class _FreezmeTransitionPage<T> extends Page<T> {
   });
 
   final Widget child;
-  final Widget Function(BuildContext, Animation<double>, Animation<double>, Widget) transitionsBuilder;
+  final Widget Function(BuildContext, Animation<double>, Animation<double>,
+      Widget) transitionsBuilder;
 
   @override
   Route<T> createRoute(BuildContext context) {
@@ -180,7 +174,8 @@ class FlowNavigator extends StatelessWidget {
           for (final (index, stage) in flow.stack.indexed)
             _FreezmeTransitionPage<dynamic>(
               key: ValueKey<String>('${stage.name}_$index'),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
                 return FadeTransition(
                   opacity: animation,
                   child: SlideTransition(
@@ -200,7 +195,7 @@ class FlowNavigator extends StatelessWidget {
           pages: pages,
           onDidRemovePage: (page) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-               flow.pop();
+              flow.pop();
             });
           },
         );

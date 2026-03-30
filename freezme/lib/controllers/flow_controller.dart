@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/auth_service.dart';
 
 import '../core/app_stage.dart';
 import '../models/vibe_profile.dart';
@@ -29,9 +30,9 @@ class AppFlowController extends ChangeNotifier {
     IAPService? iapService,
     PhotoUploadService? photoUploadService,
   })  : dailyProfiles = <VibeProfile>[],
-        meltChatService = meltChatService ?? FirebaseMeltChatService(),
+        meltChatService = meltChatService ?? ApiMeltChatService(),
         iapService = iapService ?? IAPService(_repository),
-        photoUploadService = photoUploadService ?? FirebasePhotoUploadService() {
+        photoUploadService = photoUploadService ?? S3PhotoUploadService() {
     _hydrate();
     _listenToAuth();
     fetchDailyPool(); // Initial fetch
@@ -44,6 +45,7 @@ class AppFlowController extends ChangeNotifier {
     required IAPService iapService,
     required PhotoUploadService photoUploadService,
     SharedPreferences? prefs,
+    String? testCurrentUserId,
   }) {
     return AppFlowController._(
       prefs,
@@ -51,7 +53,7 @@ class AppFlowController extends ChangeNotifier {
       meltChatService: meltChatService,
       iapService: iapService,
       photoUploadService: photoUploadService,
-    );
+    ).._testCurrentUserId = testCurrentUserId;
   }
 
   static Future<AppFlowController> create(FreezmeRepository repository) async {
@@ -77,6 +79,8 @@ class AppFlowController extends ChangeNotifier {
     6, (i) => const PhotoSlot(status: PhotoSlotStatus.empty));
   
   VibeProfile? activeProfile;
+  String? _activeChatId;
+  String? _testCurrentUserId;
   VibeCircle? activeCircle;
   LifestyleArchetype? selectedArchetype;
   int _poolIndex = 0;
@@ -88,7 +92,7 @@ class AppFlowController extends ChangeNotifier {
   int _trustScore = 150; // Initial score
   UserBlueprint? userBlueprint;
   bool _disposed = false;
-  StreamSubscription<User?>? _authSub;
+  StreamSubscription<AuthUser?>? _authSub;
 
   @override
   void notifyListeners() {
@@ -127,8 +131,8 @@ class AppFlowController extends ChangeNotifier {
   double get completionPercent => isVerified ? 1.0 : (userBlueprint != null ? 0.6 : 0.3);
   bool get isProfileComplete => userBlueprint != null && isVerified;
   String? get profilePhotoUrl => null;
-  String? get profileName => FirebaseAuth.instance.currentUser?.displayName;
-  String? get profileEmail => FirebaseAuth.instance.currentUser?.email;
+  String? get profileName => AuthService.instance.currentUser?.displayName;
+  String? get profileEmail => AuthService.instance.currentUser?.email;
   int get uploadedPhotoCount => _photoSlots.where((s) => s.status == PhotoSlotStatus.uploaded).length;
   List<PhotoSlot> get photoSlots => List.unmodifiable(_photoSlots);
 
@@ -188,14 +192,15 @@ class AppFlowController extends ChangeNotifier {
     required DateTime availableUntil,
   }) async {
     await _repository.enqueueBlind(BlindQueueEntry(
-      userId: FirebaseAuth.instance.currentUser?.uid ?? '',
+      userId: AuthService.instance.currentUser?.uid ?? '',
       intent: intent,
       availableUntil: availableUntil,
       distanceBucket: distanceBucket,
     ));
   }
   void openBlindChat(BlindSession session) { _activeBlindSession = session; push(AppStage.chat); }
-  String? get activeChatId => null;
+  String? get activeChatId => _activeChatId;
+  String? get currentUserId => _testCurrentUserId ?? AuthService.instance.currentUser?.uid;
 
   // Melt invites — backed by live Firestore stream
   List<Map<String, dynamic>> _pendingMeltInvites = const [];
@@ -222,7 +227,11 @@ class AppFlowController extends ChangeNotifier {
   }
 
   // Chat stubs
-  void openChatDetail(VibeProfile profile, {String? chatId}) => push(AppStage.chat);
+  void openChatDetail(VibeProfile profile, {String? chatId}) {
+    activeProfile = profile;
+    _activeChatId = chatId ?? profile.uid;
+    push(AppStage.chat);
+  }
   void openHome() => replaceStack([AppStage.dailyPool]);
 
   // Profile stubs
@@ -238,7 +247,7 @@ class AppFlowController extends ChangeNotifier {
     String? gender,
     String? location,
   }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
     await _repository.updateProfile(
       uid: uid,
@@ -283,16 +292,14 @@ class AppFlowController extends ChangeNotifier {
   }
 
   void _listenToAuth() {
-    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+    _authSub = AuthService.instance.authStateChanges.listen((user) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_disposed) return;
         if (user == null) {
-          // Only go back to authGate if we are fully logged out and weren't in splash
           if (current != AppStage.authGate && current != AppStage.splash) {
             replaceStack([AppStage.authGate]);
           }
         } else {
-          // Authenticated. Ensure we are not stuck at Splash/AuthGate
           if (current == AppStage.authGate || current == AppStage.splash) {
             final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
             replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
@@ -504,6 +511,7 @@ class AppFlowController extends ChangeNotifier {
   void exitChat() {
     if (pop()) {
       activeProfile = null;
+      _activeChatId = null;
     }
   }
 
@@ -577,7 +585,7 @@ class AppFlowController extends ChangeNotifier {
     List<PersonalityTrait>? personalityTraits,
     List<LifestyleFactor>? lifestyleFactors,
   }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = AuthService.instance.currentUser?.uid;
     // We update local blueprint first
     userBlueprint = UserBlueprint(
       intent: intent ?? userBlueprint?.intent ?? DatingIntent.meaningful,
@@ -606,7 +614,7 @@ class AppFlowController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    await FirebaseAuth.instance.signOut();
+    await AuthService.instance.signOut();
     await _prefs?.clear();
     replaceStack([AppStage.authGate]);
   }

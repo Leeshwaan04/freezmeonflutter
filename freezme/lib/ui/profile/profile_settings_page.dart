@@ -1,5 +1,5 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import '../../services/api_client.dart';
 import '../../main.dart'; // For AppFlowScope, AppStage
 import '../design_system.dart';
 import '../components/premium_components.dart';
@@ -78,16 +78,8 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     if (confirmed != true) return;
     setState(() => _deletingAccount = true);
     try {
-      await FirebaseFunctions.instance
-          .httpsCallable('deleteAccount')
-          .call<Map<String, dynamic>>();
+      await ApiClient.instance.dio.delete<Map<String, dynamic>>('/users/me');
       await flow.signOut();
-    } on FirebaseFunctionsException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not delete: ${e.message}')),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

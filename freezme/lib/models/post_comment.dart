@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 /// Represents a comment on a feed post
 class PostComment {
   const PostComment({
@@ -20,7 +18,7 @@ class PostComment {
   final String text;
   final DateTime createdAt;
 
-  /// Create from Firestore document
+  /// Create from JSON
   factory PostComment.fromJson(
     Map<String, dynamic> json, {
     required String documentId,
@@ -33,18 +31,24 @@ class PostComment {
       authorName: json['authorName'] as String? ?? 'Unknown',
       authorPhotoUrl: json['authorPhotoUrl'] as String?,
       text: json['text'] as String? ?? '',
-      createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: _parseDateTime(json['createdAt']),
     );
   }
 
-  /// Convert to Firestore document
+  /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
       'authorUid': authorUid,
       'authorName': authorName,
       'authorPhotoUrl': authorPhotoUrl,
       'text': text,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': createdAt.toIso8601String(),
     };
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.now();
   }
 }

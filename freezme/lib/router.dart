@@ -15,7 +15,7 @@ import 'ui/recap/daily_recap_page.dart';
 import 'ui/profile/profile_settings_page.dart';
 import 'ui/settings/freezme_plus_page.dart';
 import 'ui/splash/splash_screen.dart';
-import 'ui/auth/auth_gate.dart';
+import 'ui/screens/auth_gate.dart';
 
 /// Production-ready router configuration using go_router
 /// This replaces the custom FlowNavigator to fix widget tree lifecycle issues

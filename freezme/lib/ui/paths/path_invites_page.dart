@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/auth_service.dart';
+import '../../services/api_client.dart';
 import '../theme.dart';
 
 class PathInvitesPage extends StatelessWidget {
@@ -8,7 +8,7 @@ class PathInvitesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser = AuthService.instance.currentUser;
     if (currentUser == null) {
       return const Scaffold(
         body: Center(child: Text('Please sign in')),
@@ -25,18 +25,14 @@ class PathInvitesPage extends StatelessWidget {
         decoration: const BoxDecoration(
           gradient: FreezmeGradients.backgroundSoft,
         ),
-        child: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('path_invites')
-              .where('receiver_uid', isEqualTo: currentUser.uid)
-              .where('status', isEqualTo: 'pending')
-              .snapshots(),
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _fetchPendingInvites(currentUser.uid),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final invites = snapshot.data?.docs ?? [];
+            final invites = snapshot.data ?? [];
 
             if (invites.isEmpty) {
               return const Center(
@@ -54,17 +50,17 @@ class PathInvitesPage extends StatelessWidget {
             return ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: invites.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final invite = invites[index].data() as Map<String, dynamic>;
-                final inviteId = invites[index].id;
+                final invite = invites[index];
+                final inviteId = invite['id'] as String? ?? '';
 
                 return _PathInviteCard(
                   inviteId: inviteId,
-                  pathName: invite['path_name'] ?? 'Unknown Path',
-                  senderName: invite['sender_name'] ?? 'Someone',
-                  activity: invite['activity'] ?? 'Activity',
-                  time: invite['time'] ?? 'Tonight',
+                  pathName: invite['path_name'] as String? ?? 'Unknown Path',
+                  senderName: invite['sender_name'] as String? ?? 'Someone',
+                  activity: invite['activity'] as String? ?? 'Activity',
+                  time: invite['time'] as String? ?? 'Tonight',
                   onAccept: () => _acceptInvite(context, inviteId),
                   onDecline: () => _declineInvite(context, inviteId),
                 );
@@ -76,28 +72,26 @@ class PathInvitesPage extends StatelessWidget {
     );
   }
 
+  Future<List<Map<String, dynamic>>> _fetchPendingInvites(String uid) async {
+    try {
+      final response = await ApiClient.instance.dio
+          .get<List<dynamic>>('/paths/invites', queryParameters: {'status': 'pending'});
+      return (response.data ?? []).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<void> _acceptInvite(BuildContext context, String inviteId) async {
     try {
-      final inviteRef = FirebaseFirestore.instance.collection('path_invites').doc(inviteId);
-      final inviteDoc = await inviteRef.get();
-      final inviteData = inviteDoc.data()!;
-
-      // Update invite status
-      await inviteRef.update({
-        'status': 'accepted',
-        'acceptedAt': FieldValue.serverTimestamp(),
-      });
-
-      // Add user to path participants
-      final pathId = inviteData['path_id'];
-      final currentUid = FirebaseAuth.instance.currentUser!.uid;
-      await FirebaseFirestore.instance.collection('paths').doc(pathId).update({
-        'participants': FieldValue.arrayUnion([currentUid]),
-      });
+      await ApiClient.instance.dio.post<void>(
+        '/paths/invite/$inviteId/respond',
+        data: {'status': 'accepted'},
+      );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invite accepted! You\'re in.')),
+          const SnackBar(content: Text("Invite accepted! You're in.")),
         );
       }
     } catch (e) {
@@ -111,10 +105,10 @@ class PathInvitesPage extends StatelessWidget {
 
   Future<void> _declineInvite(BuildContext context, String inviteId) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('path_invites')
-          .doc(inviteId)
-          .update({'status': 'declined'});
+      await ApiClient.instance.dio.post<void>(
+        '/paths/invite/$inviteId/respond',
+        data: {'status': 'declined'},
+      );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

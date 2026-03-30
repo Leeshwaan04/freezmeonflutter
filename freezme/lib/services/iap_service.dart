@@ -1,25 +1,33 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import '../data/freezme_repository.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
-/// IAP Service - centralized payment stack handler
+import '../data/freezme_repository.dart';
+import 'api_client.dart';
+
+/// IAP Service — centralized payment stack handler.
+/// Receipt verification now calls the EC2 REST API instead of Cloud Functions.
 class IAPService extends ChangeNotifier {
-  static const Set<String> _kProductIds = {'freezme_plus_weekly', 'freezme_plus_monthly'};
-  
+  static const Set<String> _kProductIds = {
+    'freezme_plus_weekly',
+    'freezme_plus_monthly',
+  };
+
   final InAppPurchase _iap = InAppPurchase.instance;
   final FreezmeRepository _repository;
   final VoidCallback? _onSuccess;
-  
+  final _client = ApiClient.instance;
+
   late StreamSubscription<List<PurchaseDetails>> _subscription;
   List<ProductDetails> _products = [];
   bool _isAvailable = false;
   bool _purchasePending = false;
   String? _error;
 
-  IAPService(this._repository, {VoidCallback? onSuccess}) : _onSuccess = onSuccess {
+  IAPService(this._repository, {VoidCallback? onSuccess})
+      : _onSuccess = onSuccess {
     _init();
   }
 
@@ -32,7 +40,6 @@ class IAPService extends ChangeNotifier {
     for (final p in _products) {
       if (p.id == 'freezme_plus_weekly') return p;
     }
-    // Fallback to mock for UI preview if store hasn't returned it yet
     return _mockProduct('freezme_plus_weekly', 'Weekly', '₹149');
   }
 
@@ -43,7 +50,6 @@ class IAPService extends ChangeNotifier {
     return _mockProduct('freezme_plus_monthly', 'Monthly', '₹499');
   }
 
-  // Fallback product if store is unreachable (for UI preview)
   ProductDetails _mockProduct(String id, String title, String price) {
     return ProductDetails(
       id: id,
@@ -56,8 +62,7 @@ class IAPService extends ChangeNotifier {
   }
 
   void _init() {
-    final purchaseUpdated = _iap.purchaseStream;
-    _subscription = purchaseUpdated.listen(
+    _subscription = _iap.purchaseStream.listen(
       _onPurchaseUpdate,
       onDone: () => _subscription.cancel(),
       onError: (error) {
@@ -74,11 +79,10 @@ class IAPService extends ChangeNotifier {
     notifyListeners();
 
     if (available) {
-      const ids = _kProductIds;
-      final response = await _iap.queryProductDetails(ids);
+      final response = await _iap.queryProductDetails(_kProductIds);
       _products = List<ProductDetails>.from(response.productDetails);
-      if (response.notFoundIDs.isNotEmpty) {
-         if (kDebugMode) print('IAP: Products not found: ${response.notFoundIDs}');
+      if (response.notFoundIDs.isNotEmpty && kDebugMode) {
+        debugPrint('[IAP] products not found: ${response.notFoundIDs}');
       }
       notifyListeners();
     }
@@ -89,27 +93,18 @@ class IAPService extends ChangeNotifier {
     _purchasePending = true;
     notifyListeners();
 
-    final purchaseParam = PurchaseParam(productDetails: product);
-    
-    // For subscriptions, we usually use buyNonConsumable (auto-renewable)
-    // or buyConsumable (if it's simple consumable).
-    // Auto-renewable subs are treated as non-consumables in logic (restore supported).
-    // Simulator/Debug Bypass: If we're on a simulator/debug and the product wasn't found in the store query,
-    // allow a simulated success so the user can test Premium features.
-    final bool productNotFound = !_products.any((p) => p.id == product.id);
+    final productNotFound = !_products.any((p) => p.id == product.id);
     if (kDebugMode && productNotFound) {
       await Future<void>.delayed(const Duration(seconds: 1));
-      await _handleSuccess(null as dynamic); 
+      await _handleSuccess(null);
       notifyListeners();
       return;
     }
 
     try {
-      if (_iapVerificationRequired()) {
-        // iOS specific handling could go here
-      }
-      
-      final bool success = await _iap.buyNonConsumable(purchaseParam: purchaseParam);
+      final purchaseParam = PurchaseParam(productDetails: product);
+      final success =
+          await _iap.buyNonConsumable(purchaseParam: purchaseParam);
       if (!success) {
         _purchasePending = false;
         notifyListeners();
@@ -121,49 +116,70 @@ class IAPService extends ChangeNotifier {
     }
   }
 
-  bool _iapVerificationRequired() {
-    return Platform.isIOS; 
-  }
-
-  Future<void> _onPurchaseUpdate(List<PurchaseDetails> purchaseDetailsList) async {
-    for (var purchaseDetails in purchaseDetailsList) {
-      if (purchaseDetails.status == PurchaseStatus.pending) {
+  Future<void> _onPurchaseUpdate(
+      List<PurchaseDetails> purchaseDetailsList) async {
+    for (final purchase in purchaseDetailsList) {
+      if (purchase.status == PurchaseStatus.pending) {
         _purchasePending = true;
         notifyListeners();
       } else {
-        if (purchaseDetails.status == PurchaseStatus.error) {
-          _error = purchaseDetails.error?.message ?? 'Purchase failed';
+        if (purchase.status == PurchaseStatus.error) {
+          _error = purchase.error?.message ?? 'Purchase failed';
           _purchasePending = false;
-        } else if (purchaseDetails.status == PurchaseStatus.purchased ||
-                   purchaseDetails.status == PurchaseStatus.restored) {
-          
-          await _handleSuccess(purchaseDetails);
+        } else if (purchase.status == PurchaseStatus.purchased ||
+            purchase.status == PurchaseStatus.restored) {
+          await _handleSuccess(purchase);
         }
-        
-        if (purchaseDetails.pendingCompletePurchase) {
-          await _iap.completePurchase(purchaseDetails);
+        if (purchase.pendingCompletePurchase) {
+          await _iap.completePurchase(purchase);
         }
         notifyListeners();
       }
     }
   }
 
-  Future<void> _handleSuccess(PurchaseDetails purchase) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      // In a real app, verify 'purchase.verificationData.serverVerificationData' with Backend
-      // via Cloud Function.
-      // For now, we trust the client and update Firestore directly.
-      await _repository.updateProfile(uid: uid, isPremium: true);
-      _onSuccess?.call();
+  Future<void> _handleSuccess(PurchaseDetails? purchase) async {
+    try {
+      final endpoint = Platform.isIOS
+          ? '/iap/verify-apple'
+          : '/iap/verify-android';
+
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        endpoint,
+        data: {
+          if (purchase != null) ...{
+            'receiptData': purchase.verificationData.serverVerificationData,
+            'productId': purchase.productID,
+            if (!Platform.isIOS)
+              'purchaseToken': purchase.verificationData.serverVerificationData,
+          },
+        },
+      );
+
+      if (response.data?['active'] == true) {
+        _onSuccess?.call();
+      } else {
+        _error = 'Verification failed: receipt is invalid or expired.';
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[IAP] verification error: $e');
+        // In debug, fall back to local flag
+        final uid = await _client.getAccessToken();
+        if (uid != null) {
+          await _repository.updateProfile(uid: uid, isPremium: true);
+        }
+        _onSuccess?.call();
+      } else {
+        _error = 'Failed to verify purchase. Please contact support.';
+      }
+    } finally {
       _purchasePending = false;
+      notifyListeners();
     }
   }
-  
-  /// Restore purchases logic
-  Future<void> restorePurchases() async {
-    await _iap.restorePurchases();
-  }
+
+  Future<void> restorePurchases() => _iap.restorePurchases();
 
   @override
   void dispose() {

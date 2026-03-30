@@ -84,25 +84,30 @@ class _BottomNavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = active ? FreezmeColors.primary : FreezmeColors.muted;
     return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 26),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 11,
+      child: Semantics(
+        label: label,
+        button: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: color, size: 26),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  key: ValueKey('nav_tab_$label'),
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 11,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

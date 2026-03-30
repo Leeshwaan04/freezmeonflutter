@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../main.dart';
+import '../../services/auth_service.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';
 
@@ -70,7 +70,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     try {
       final flow = AppFlowScope.of(context, listen: false);
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = AuthService.instance.currentUser?.uid;
       
       if (uid == null) throw Exception('User not logged in');
 

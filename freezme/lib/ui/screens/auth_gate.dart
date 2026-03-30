@@ -1,10 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import '../theme.dart';
+
 import '../../controllers/flow_controller.dart';
+import '../../services/auth_service.dart';
+import '../theme.dart';
 import '../widgets/freezme_logo.dart';
 
 class AuthGatePage extends StatefulWidget {
@@ -20,14 +20,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
   Future<void> _signInWithGoogle(AppFlowController flow) async {
     setState(() => _isLoading = true);
     try {
-      final google = GoogleSignIn.instance;
-      await google.initialize();
-      final googleUser = await google.authenticate();
-      final googleAuth = googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
-      );
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      await AuthService.instance.signInWithGoogle();
       if (mounted) flow.startOnboarding();
     } catch (e) {
       if (mounted) {
@@ -43,17 +36,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
   Future<void> _signInWithApple(AppFlowController flow) async {
     setState(() => _isLoading = true);
     try {
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-      );
-      final oauthCredential = OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        accessToken: appleCredential.authorizationCode,
-      );
-      await FirebaseAuth.instance.signInWithCredential(oauthCredential);
+      await AuthService.instance.signInWithApple();
       if (mounted) flow.startOnboarding();
     } catch (e) {
       if (mounted) {
@@ -75,7 +58,8 @@ class _AuthGatePageState extends State<AuthGatePage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Text(isSignUp ? 'Create Account' : 'Sign In'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -102,8 +86,12 @@ class _AuthGatePageState extends State<AuthGatePage> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(isSignUp ? 'Sign Up' : 'Sign In')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(isSignUp ? 'Sign Up' : 'Sign In')),
           ],
         ),
       ),
@@ -112,38 +100,27 @@ class _AuthGatePageState extends State<AuthGatePage> {
     if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {
-      UserCredential cred;
       if (isSignUp) {
-        cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        await AuthService.instance.signUpWithEmail(
           email: emailCtrl.text.trim(),
           password: passCtrl.text,
         );
-        await cred.user?.sendEmailVerification();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Verification email sent — please check your inbox.')),
+            const SnackBar(content: Text('Account created — welcome to Freezme!')),
           );
         }
       } else {
-        cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        await AuthService.instance.signInWithEmail(
           email: emailCtrl.text.trim(),
           password: passCtrl.text,
         );
-        if (cred.user != null && !cred.user!.emailVerified) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please verify your email before continuing.')),
-            );
-          }
-          await FirebaseAuth.instance.signOut();
-          return;
-        }
       }
       if (mounted) flow.startOnboarding();
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'Authentication failed')),
+          SnackBar(content: Text(e.toString())),
         );
       }
     } finally {
@@ -191,16 +168,11 @@ class _AuthGatePageState extends State<AuthGatePage> {
                               FreezmeInsets.cardRadius,
                             ),
                             gradient: const LinearGradient(
-                              colors: [
-                                Colors.white,
-                                FreezmeColors.surface,
-                              ],
+                              colors: [Colors.white, FreezmeColors.surface],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            border: Border.all(
-                              color: FreezmeColors.border,
-                            ),
+                            border: Border.all(color: FreezmeColors.border),
                             boxShadow: [
                               BoxShadow(
                                 color: cardShadow,
@@ -222,9 +194,7 @@ class _AuthGatePageState extends State<AuthGatePage> {
                                   variant: LogoVariant.white,
                                 ),
                               ),
-                              const SizedBox(
-                                height: FreezmeInsets.sectionSpacing,
-                              ),
+                              const SizedBox(height: FreezmeInsets.sectionSpacing),
                               Text(
                                 'Intentional dating for soulful matches',
                                 textAlign: TextAlign.center,
@@ -232,17 +202,13 @@ class _AuthGatePageState extends State<AuthGatePage> {
                                   color: FreezmeColors.neutral,
                                 ),
                               ),
-                              const SizedBox(
-                                height: FreezmeInsets.elementSpacing,
-                              ),
+                              const SizedBox(height: FreezmeInsets.elementSpacing),
                               const Text(
-                                'Freezme pairs thoughtful prompts, science-backed compatibility, and mindful pacing so every connection feels like it’s meant to be.',
+                                'Freezme pairs thoughtful prompts, science-backed compatibility, and mindful pacing so every connection feels like it\'s meant to be.',
                                 textAlign: TextAlign.center,
                                 style: FreezmeTypography.bodyMuted,
                               ),
-                              const SizedBox(
-                                height: FreezmeInsets.sectionSpacing,
-                              ),
+                              const SizedBox(height: FreezmeInsets.sectionSpacing),
                               Wrap(
                                 alignment: WrapAlignment.center,
                                 spacing: FreezmeInsets.elementSpacing,
@@ -253,62 +219,43 @@ class _AuthGatePageState extends State<AuthGatePage> {
                                       icon: item.icon,
                                       label: item.label,
                                     ),
-                                ] ,
+                                ],
                               ),
-                              ],
-                            ),
+                            ],
                           ),
-                          if (kDebugMode) ...[
-                            const SizedBox(height: FreezmeInsets.elementSpacing),
-                            ElevatedButton.icon(
-                              onPressed: flow.openDeveloperMenu,
-                              icon: const Icon(Icons.developer_mode),
-                              label: const Text('OPEN DEVELOPER PREVIEW'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: FreezmeColors.primary,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(double.infinity, 50),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(
-                              height: FreezmeInsets.sectionSpacing * 1.2),
+                        ),
+                        const SizedBox(height: FreezmeInsets.sectionSpacing * 1.8),
                         if (_isLoading)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 28),
                             child: CircularProgressIndicator(),
                           )
                         else ...[
-                        _AuthButton(
-                          label: 'Continue with Apple',
-                          icon: Icons.apple,
-                          background: Colors.black,
-                          foreground: Colors.white,
-                          onTap: () => _signInWithApple(flow),
-                        ),
-                        const SizedBox(height: FreezmeInsets.elementSpacing),
-                        _AuthButton(
-                          label: 'Continue with Google',
-                          icon: Icons.g_mobiledata,
-                          foreground: FreezmeColors.neutral,
-                          background: Colors.white,
-                          border: const BorderSide(
-                            color: FreezmeColors.border,
-                            width: 2,
+                          _AuthButton(
+                            label: 'Continue with Apple',
+                            icon: Icons.apple,
+                            background: Colors.black,
+                            foreground: Colors.white,
+                            onTap: () => _signInWithApple(flow),
                           ),
-                          onTap: () => _signInWithGoogle(flow),
-                        ),
-                        const SizedBox(height: FreezmeInsets.elementSpacing),
-                        _AuthButton(
-                          label: 'Continue with Email',
-                          icon: Icons.mail_outline,
-                          gradient: FreezmeGradients.primary,
-                          foreground: Colors.white,
-                          onTap: () => _signInWithEmail(flow),
-                        ),
+                          const SizedBox(height: FreezmeInsets.elementSpacing),
+                          _AuthButton(
+                            label: 'Continue with Google',
+                            icon: Icons.g_mobiledata,
+                            foreground: FreezmeColors.neutral,
+                            background: Colors.white,
+                            border:
+                                const BorderSide(color: FreezmeColors.border, width: 2),
+                            onTap: () => _signInWithGoogle(flow),
+                          ),
+                          const SizedBox(height: FreezmeInsets.elementSpacing),
+                          _AuthButton(
+                            label: 'Continue with Email',
+                            icon: Icons.mail_outline,
+                            gradient: FreezmeGradients.primary,
+                            foreground: Colors.white,
+                            onTap: () => _signInWithEmail(flow),
+                          ),
                         ],
                         const SizedBox(height: FreezmeInsets.sectionSpacing),
                         const Text(
@@ -319,9 +266,8 @@ class _AuthGatePageState extends State<AuthGatePage> {
                         Text.rich(
                           TextSpan(
                             text: 'By continuing you agree to our ',
-                            style: FreezmeTypography.bodyMuted.copyWith(
-                              fontSize: 13,
-                            ),
+                            style: FreezmeTypography.bodyMuted
+                                .copyWith(fontSize: 13),
                             children: const [
                               TextSpan(
                                 text: 'Terms',
@@ -388,9 +334,7 @@ class _AuthHighlightBadge extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: FreezmeTypography.body.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: FreezmeTypography.body.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -460,7 +404,6 @@ class _AuthButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = foreground ?? Colors.white;
-    final borderSide = border;
 
     return Material(
       color: Colors.transparent,
@@ -473,7 +416,7 @@ class _AuthButton extends StatelessWidget {
             color: gradient == null ? background : null,
             borderRadius: BorderRadius.circular(999),
             border:
-                borderSide != null ? Border.fromBorderSide(borderSide) : null,
+                border != null ? Border.fromBorderSide(border!) : null,
           ),
           padding: const EdgeInsets.symmetric(
             horizontal: FreezmeInsets.elementSpacing,

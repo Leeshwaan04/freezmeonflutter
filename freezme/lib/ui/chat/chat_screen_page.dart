@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../main.dart';
 import '../../models/chat_message.dart';
+import '../../services/auth_service.dart';
 import '../../models/conversation_energy.dart';
 import '../design_system.dart';
 import 'freeze_modal.dart' as modal;
@@ -75,8 +75,9 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
 
   Future<void> _handleSend() async {
     final text = _controller.text.trim();
-    final chatId = AppFlowScope.of(context, listen: false).activeChatId;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final flow = AppFlowScope.of(context, listen: false);
+    final chatId = flow.activeChatId;
+    final uid = flow.currentUserId;
     if (text.isEmpty || chatId == null || uid == null || _sending) return;
     _sending = true;
     final now = TimeOfDay.now();
@@ -92,7 +93,6 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
     });
     _controller.clear();
     try {
-      final flow = AppFlowScope.of(context, listen: false);
       await flow.repository.sendMessage(
         ChatMessage(
           chatId: chatId,
@@ -305,7 +305,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                           }
                           final msgs = snapshot.data ?? const [];
                           final uid =
-                              FirebaseAuth.instance.currentUser?.uid ?? '';
+                              AuthService.instance.currentUser?.uid ?? '';
                           final mapped = msgs
                               .map(
                                 (m) => ChatMessageItem(
@@ -582,7 +582,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   String _getRevealStatusText(AppFlowController flow) {
     final session = flow.activeBlindSession;
     if (session == null) return '';
-    final isA = session.userA == FirebaseAuth.instance.currentUser?.uid;
+    final isA = session.userA == AuthService.instance.currentUser?.uid;
     final otherVoted = isA ? session.revealB : session.revealA;
     
     if (otherVoted) return 'They want to reveal! 💜';
@@ -592,7 +592,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   bool _hasIVotedReveal(AppFlowController flow) {
     final session = flow.activeBlindSession;
     if (session == null) return false;
-    final isA = session.userA == FirebaseAuth.instance.currentUser?.uid;
+    final isA = session.userA == AuthService.instance.currentUser?.uid;
     return isA ? session.revealA : session.revealB;
   }
 }

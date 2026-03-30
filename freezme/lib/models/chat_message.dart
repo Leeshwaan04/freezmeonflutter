@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class ChatMessage {
   ChatMessage({
     required this.chatId,
@@ -22,7 +20,7 @@ class ChatMessage {
       'chatId': chatId,
       'senderId': senderId,
       'text': text,
-      'sentAt': Timestamp.fromDate(sentAt),
+      'sentAt': sentAt.toIso8601String(),
       if (status != null) 'status': status,
     };
   }
@@ -32,9 +30,15 @@ class ChatMessage {
       chatId: json['chatId'] as String,
       senderId: json['senderId'] as String,
       text: json['text'] as String,
-      sentAt: (json['sentAt'] as Timestamp).toDate(),
+      sentAt: _parseDateTime(json['sentAt']),
       documentId: documentId,
       status: json['status'] as String?,
     );
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value is String) return DateTime.parse(value);
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 }

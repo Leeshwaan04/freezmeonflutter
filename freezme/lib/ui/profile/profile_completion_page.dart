@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
+import '../../services/auth_service.dart';
 import '../../services/photo_upload_service.dart';
 import '../../services/location_service.dart';
 import '../../services/geo_service.dart';
@@ -81,7 +81,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
   }
 
   Future<void> _pickPhoto() async {
-    final uploadService = FirebasePhotoUploadService();
+    final uploadService = S3PhotoUploadService();
     try {
       final result = await uploadService.pickAndUpload(slotIndex: 0);
       setState(() => _photoUrl = result.url);
@@ -100,7 +100,7 @@ class _ProfileCompletionPageState extends State<ProfileCompletionPage> {
       return;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = AuthService.instance.currentUser;
     if (user == null) {
       PremiumSnackBar.show(context, 'Please sign in to continue', type: SnackBarType.error);
       return;

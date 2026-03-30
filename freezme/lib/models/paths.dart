@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class PathsPresence {
   PathsPresence({
     required this.uid,
@@ -34,11 +32,11 @@ class PathsPresence {
       'userId': uid,
       'intents': intents,
       'radius_km': radiusKm,
-      'visible_until': Timestamp.fromDate(visibleUntil),
+      'visible_until': visibleUntil.toIso8601String(),
       if (lat != null) 'lat': lat,
       if (lng != null) 'lng': lng,
       if (geohash != null) 'geohash': geohash,
-      if (lastActiveAt != null) 'last_active_at': Timestamp.fromDate(lastActiveAt!),
+      if (lastActiveAt != null) 'last_active_at': lastActiveAt!.toIso8601String(),
       if (availability != null) 'availability': availability,
       if (interestsSummary != null) 'interests': interestsSummary,
       if (displayName != null) 'display_name': displayName,
@@ -48,19 +46,34 @@ class PathsPresence {
 
   static PathsPresence fromJson(Map<String, dynamic> json, {String? documentId}) {
     return PathsPresence(
-      uid: json['userId'] ?? documentId ?? '',
+      uid: json['userId'] as String? ?? documentId ?? '',
       intents: (json['intents'] as List<dynamic>? ?? []).cast<String>(),
       radiusKm: (json['radius_km'] as num?)?.toDouble() ?? 0,
-      visibleUntil: (json['visible_until'] as Timestamp).toDate(),
+      visibleUntil: _parseDateTime(json['visible_until']),
       lat: (json['lat'] as num?)?.toDouble(),
       lng: (json['lng'] as num?)?.toDouble(),
       geohash: json['geohash'] as String?,
-      lastActiveAt: (json['last_active_at'] as Timestamp?)?.toDate(),
+      lastActiveAt: json['last_active_at'] != null
+          ? _parseDateTimeNullable(json['last_active_at'])
+          : null,
       availability: json['availability'] as String?,
       interestsSummary: json['interests'] as String?,
       displayName: json['display_name'] as String?,
       imageUrl: json['image_url'] as String?,
     );
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  static DateTime? _parseDateTimeNullable(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return DateTime.tryParse(value);
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return null;
   }
 }
 
@@ -89,20 +102,35 @@ class PathsInvite {
       'receiver_uid': receiverUid,
       'intent': intent,
       'status': status,
-      'created_at': Timestamp.fromDate(createdAt),
-      if (respondedAt != null) 'responded_at': Timestamp.fromDate(respondedAt!),
+      'created_at': createdAt.toIso8601String(),
+      if (respondedAt != null) 'responded_at': respondedAt!.toIso8601String(),
     };
   }
 
   static PathsInvite fromJson(Map<String, dynamic> json, {String? documentId}) {
     return PathsInvite(
-      id: documentId ?? '',
+      id: documentId ?? json['id'] as String? ?? '',
       senderUid: json['sender_uid'] as String,
       receiverUid: json['receiver_uid'] as String,
       intent: json['intent'] as String,
       status: json['status'] as String,
-      createdAt: (json['created_at'] as Timestamp).toDate(),
-      respondedAt: (json['responded_at'] as Timestamp?)?.toDate(),
+      createdAt: _parseDateTime(json['created_at']),
+      respondedAt: json['responded_at'] != null
+          ? _parseDateTimeNullable(json['responded_at'])
+          : null,
     );
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  static DateTime? _parseDateTimeNullable(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return DateTime.tryParse(value);
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return null;
   }
 }

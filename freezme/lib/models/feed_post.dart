@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 /// Represents a social feed post
 class FeedPost {
   const FeedPost({
@@ -28,7 +26,7 @@ class FeedPost {
   final bool isLikedByMe;
   final String visibility; // 'public' | 'connections'
 
-  /// Create from Firestore document
+  /// Create from JSON
   factory FeedPost.fromJson(
     Map<String, dynamic> json, {
     required String documentId,
@@ -44,7 +42,7 @@ class FeedPost {
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: _parseDateTime(json['createdAt']),
       likeCount: json['likeCount'] as int? ?? 0,
       commentCount: json['commentCount'] as int? ?? 0,
       isLikedByMe: isLikedByMe,
@@ -52,7 +50,7 @@ class FeedPost {
     );
   }
 
-  /// Convert to Firestore document
+  /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
       'authorUid': authorUid,
@@ -63,8 +61,8 @@ class FeedPost {
       'likeCount': likeCount,
       'commentCount': commentCount,
       'visibility': visibility,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
     };
   }
 
@@ -95,5 +93,11 @@ class FeedPost {
       isLikedByMe: isLikedByMe ?? this.isLikedByMe,
       visibility: visibility ?? this.visibility,
     );
+  }
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.now();
   }
 }

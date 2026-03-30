@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'websocket_service.dart';
 
 class ChatMessage {
   const ChatMessage({
@@ -28,17 +28,14 @@ class ChatMessage {
     createdAt: createdAt,
   );
 
-  static ChatMessage fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data() ?? <String, dynamic>{};
+  static ChatMessage fromJson(Map<String, dynamic> data, {String? id, String? sessionId}) {
     return ChatMessage(
-      id: doc.id,
-      sessionId: doc.reference.parent.parent?.id ?? 'unknown',
+      id: id ?? data['id'] as String? ?? '',
+      sessionId: sessionId ?? data['sessionId'] as String? ?? 'unknown',
       senderUid: data['senderUid'] as String? ?? '',
       text: data['text'] as String? ?? '',
       status: data['status'] as String? ?? 'sent',
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ??
-          DateTime.fromMillisecondsSinceEpoch(0),
+      createdAt: _parseDateTime(data['createdAt']),
     );
   }
 
@@ -46,49 +43,52 @@ class ChatMessage {
     'senderUid': senderUid,
     'text': text,
     'status': status,
-    'createdAt': createdAt,
+    'createdAt': createdAt.toIso8601String(),
   };
+
+  static DateTime _parseDateTime(dynamic value) {
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
 }
 
 class ChatMessageService {
-  ChatMessageService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  ChatMessageService();
 
-  final FirebaseFirestore _firestore;
+  /// Returns a stream of messages for [sessionId] bridged from WebSocket events.
+  Stream<List<ChatMessage>> watchMessages(String sessionId) {
+    final controller = StreamController<List<ChatMessage>>();
+    final List<ChatMessage> buffer = [];
 
-  CollectionReference<Map<String, dynamic>> _messages(String sessionId) =>
-      _firestore.collection('chats').doc(sessionId).collection('messages');
+    final sub = WebSocketService.instance.chatMessages(sessionId).listen((event) {
+      final msgData = event['message'] as Map<String, dynamic>?;
+      if (msgData != null) {
+        final msg = ChatMessage.fromJson(msgData, sessionId: sessionId);
+        buffer.add(msg);
+        if (!controller.isClosed) controller.add(List.from(buffer));
+      }
+    });
 
+    controller.onCancel = sub.cancel;
+    return controller.stream;
+  }
+
+  /// Send a message via WebSocket.
   Future<void> sendMessage({
     required String sessionId,
     required String senderUid,
     required String text,
-  }) {
-    return _messages(sessionId).add(<String, dynamic>{
-      'senderUid': senderUid,
-      'text': text,
-      'status': 'sent',
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+  }) async {
+    WebSocketService.instance.sendChatMessage(chatId: sessionId, text: text);
   }
 
-  Stream<List<ChatMessage>> watchMessages(String sessionId) {
-    return _messages(sessionId)
-        .orderBy('createdAt')
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map(ChatMessage.fromDoc).toList(growable: false),
-        );
-  }
-
+  /// Update message status — no-op stub (WebSocket handles read receipts).
   Future<void> updateStatus({
     required String sessionId,
     required String messageId,
     required String status,
-  }) {
-    return _messages(
-      sessionId,
-    ).doc(messageId).update(<String, dynamic>{'status': status});
+  }) async {
+    // Handled server-side via WebSocket read receipts
   }
 }

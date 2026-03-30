@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
+
+import 'api_client.dart';
 
 class UploadedPhoto {
   const UploadedPhoto({required this.url, this.localPath});
@@ -16,9 +17,8 @@ class UploadedPhoto {
 
 abstract class PhotoUploadService {
   Future<UploadedPhoto> pickAndUpload({required int slotIndex});
-  
-  // New method for uploading a specific file
-  Future<String> uploadPhoto(File file, {required String userId, required int photoIndex});
+  Future<String> uploadPhoto(File file,
+      {required String userId, required int photoIndex});
 }
 
 class PhotoUploadException implements Exception {
@@ -30,69 +30,78 @@ class PhotoUploadException implements Exception {
   String toString() => 'PhotoUploadException: $message';
 }
 
-class FirebasePhotoUploadService implements PhotoUploadService {
-  FirebasePhotoUploadService({
-    ImagePicker? picker,
-    FirebaseStorage? storage,
-    Uuid? uuid,
-  }) : _picker = picker ?? ImagePicker(),
-       _storage = storage ?? FirebaseStorage.instance,
-       _uuid = uuid ?? const Uuid();
+/// S3-backed implementation — replaces FirebasePhotoUploadService.
+/// Flow:
+///   1. GET /storage/upload-url  → { uploadUrl, publicUrl }
+///   2. PUT uploadUrl with image bytes directly to S3 (no auth header)
+///   3. Return publicUrl for saving in profile
+class S3PhotoUploadService implements PhotoUploadService {
+  S3PhotoUploadService({ImagePicker? picker, Uuid? uuid})
+      : _picker = picker ?? ImagePicker(),
+        _uuid = uuid ?? const Uuid();
 
   final ImagePicker _picker;
-  final FirebaseStorage _storage;
   final Uuid _uuid;
+  final _apiClient = ApiClient.instance;
+  // Separate Dio instance for S3 — no JWT interceptor
+  final _s3Dio = Dio();
 
   @override
   Future<UploadedPhoto> pickAndUpload({required int slotIndex}) async {
-    try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
-      if (picked == null) {
-        throw const PhotoUploadException('picker_cancelled');
-      }
-      final file = File(picked.path);
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw const PhotoUploadException('not_authenticated');
-      
-      final fileName = 'uploads/${user.uid}/photos/${_uuid.v4()}.jpg';
-      final ref = _storage.ref(fileName);
-      await ref.putFile(file);
-      final downloadUrl = await ref.getDownloadURL();
-      return UploadedPhoto(url: downloadUrl, localPath: picked.path);
-    } on FirebaseException catch (error, stackTrace) {
-      if (kDebugMode) {
-        debugPrint(
-          'Firebase upload failed: ${error.code} ${error.message}\n$stackTrace',
-        );
-      }
-      throw PhotoUploadException('storage_${error.code}');
-    } catch (error, stackTrace) {
-      if (kDebugMode) {
-        debugPrint('Photo upload failed: $error\n$stackTrace');
-      }
-      throw const PhotoUploadException('upload_failed');
-    }
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked == null) throw const PhotoUploadException('picker_cancelled');
+
+    final file = File(picked.path);
+    final publicUrl = await _uploadFile(file);
+    return UploadedPhoto(url: publicUrl, localPath: picked.path);
   }
 
   @override
-  Future<String> uploadPhoto(File file, {required String userId, required int photoIndex}) async {
+  Future<String> uploadPhoto(File file,
+      {required String userId, required int photoIndex}) async {
+    return _uploadFile(file);
+  }
+
+  Future<String> _uploadFile(File file) async {
     try {
-      final fileName = 'uploads/$userId/posts/${_uuid.v4()}.jpg';
-      final ref = _storage.ref(fileName);
-      await ref.putFile(file);
-      return await ref.getDownloadURL();
-    } on FirebaseException catch (error, stackTrace) {
-      if (kDebugMode) {
-        debugPrint('Firebase upload failed: ${error.code} ${error.message}\n$stackTrace');
-      }
-      throw PhotoUploadException('storage_${error.code}');
-    } catch (error, stackTrace) {
-      if (kDebugMode) {
-        debugPrint('Photo upload failed: $error\n$stackTrace');
-      }
+      final filename = '${_uuid.v4()}.jpg';
+
+      // Step 1: get presigned URL from EC2
+      final urlResp = await _apiClient.dio.get<Map<String, dynamic>>(
+        '/storage/upload-url',
+        queryParameters: {
+          'filename': filename,
+          'contentType': 'image/jpeg',
+        },
+      );
+
+      final uploadUrl = urlResp.data!['uploadUrl'] as String;
+      final publicUrl = urlResp.data!['publicUrl'] as String;
+
+      // Step 2: PUT directly to S3 presigned URL
+      final bytes = await file.readAsBytes();
+      await _s3Dio.put<void>(
+        uploadUrl,
+        data: Stream.fromIterable([bytes]),
+        options: Options(
+          headers: {
+            'Content-Type': 'image/jpeg',
+            'Content-Length': bytes.length.toString(),
+          },
+          receiveTimeout: const Duration(seconds: 60),
+          sendTimeout: const Duration(seconds: 60),
+        ),
+      );
+
+      return publicUrl;
+    } on DioException catch (e) {
+      if (kDebugMode) debugPrint('[S3Upload] failed: ${e.message}');
+      throw PhotoUploadException('upload_failed: ${e.message}');
+    } catch (e) {
+      if (kDebugMode) debugPrint('[S3Upload] error: $e');
       throw const PhotoUploadException('upload_failed');
     }
   }
@@ -117,30 +126,22 @@ class MockPhotoUploadService implements PhotoUploadService {
 
   @override
   Future<UploadedPhoto> pickAndUpload({required int slotIndex}) async {
-    // delay to simulate network
     await Future<void>.delayed(delay);
-    
-    // Try to pick a real image so the UI feels real
     try {
-       final XFile? picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
-       if (picked != null) {
-         // Return local path as URL so UserAvatar handles it as a file
-         return UploadedPhoto(
-           url: picked.path, 
-           localPath: picked.path
-         );
-       }
-    } catch (_) {
-      // If picker fails (e.g. on some simulators without gallery), fall back to random url
-    }
-
+      final XFile? picked = await ImagePicker()
+          .pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (picked != null) {
+        return UploadedPhoto(url: picked.path, localPath: picked.path);
+      }
+    } catch (_) {}
     final url = _demoUrls[_index % _demoUrls.length];
     _index++;
     return UploadedPhoto(url: url);
   }
 
   @override
-  Future<String> uploadPhoto(File file, {required String userId, required int photoIndex}) async {
+  Future<String> uploadPhoto(File file,
+      {required String userId, required int photoIndex}) async {
     await Future<void>.delayed(delay);
     final url = _demoUrls[_index % _demoUrls.length];
     _index++;

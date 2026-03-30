@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(uuid())
+  email        String?     @unique
+  passwordHash String?
+  fcmToken     String?
+  status       String      @default("active")
+  lastActiveAt DateTime?
+  createdAt    DateTime    @default(now())
+  profile      Profile?
+  membership   Membership?
+}
+
+model Profile {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  name      String
+  age       Int
+  bio       String?
+  imageUrl  String?
+  isPremium Boolean  @default(false)
+  interests String[]
+  lat       Float?
+  lng       Float?
+  geohash   String?
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([geohash])
+  @@index([isPremium])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  senderUid String
+  targetUid String
+  likedAt   DateTime @default(now())
+
+  @@unique([senderUid, targetUid])
+  @@index([senderUid])
+  @@index([targetUid])
+}
+
+model Skip {
+  id        String   @id @default(cuid())
+  senderUid String
+  targetUid String
+  skippedAt DateTime @default(now())
+
+  @@unique([senderUid, targetUid])
+  @@index([senderUid])
+}
+
+model Match {
+  id        String   @id @default(cuid())
+  members   String[]
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  chats     Chat[]
+
+  @@index([members])
+}
+
+model Chat {
+  id        String    @id @default(cuid())
+  members   String[]
+  matchId   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+  match     Match?    @relation(fields: [matchId], references: [id])
+
+  @@index([members])
+}
+
+model Message {
+  id            String    @id @default(cuid())
+  chatId        String
+  senderUid     String
+  text          String
+  // ACK lifecycle: sending → sent → delivered → read
+  status        String    @default("sent")
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  createdAt     DateTime  @default(now())
+  chat          Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, createdAt])
+}
+
+model MeltSession {
+  id        String   @id @default(cuid())
+  hostUid   String
+  targetUid String
+  slotLabel String?
+  status    String   @default("pending")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([hostUid])
+  @@index([targetUid])
+}
+
+model PathsPresence {
+  uid          String   @id
+  lat          Float
+  lng          Float
+  geohash      String
+  intents      String[]
+  radiusKm     Float
+  visibleUntil DateTime
+  lastActiveAt DateTime @updatedAt
+
+  @@index([geohash])
+}
+
+model PathInvite {
+  id          String    @id @default(cuid())
+  senderUid   String
+  receiverUid String
+  intent      String
+  status      String    @default("pending")
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  @@index([receiverUid, status])
+  @@index([senderUid])
+}
+
+model BlindsQueue {
+  uid            String   @id
+  intent         String
+  distanceBucket String
+  interests      String[]
+  availableUntil DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([intent, distanceBucket])
+}
+
+model BlindsSession {
+  id           String   @id @default(cuid())
+  userA        String
+  userB        String
+  phase        String   @default("active")
+  expiresAt    DateTime
+  revealA      Boolean  @default(false)
+  revealB      Boolean  @default(false)
+  reported     Boolean  @default(false)
+  reportReason String?
+
+  @@index([userA])
+  @@index([userB])
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  platform    String
+  productId   String
+  active      Boolean   @default(true)
+  expiry      DateTime?
+  environment String
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FeedPost {
+  id         String        @id @default(cuid())
+  authorUid  String
+  content    String
+  photoUrls  String[]
+  visibility String        @default("public")
+  createdAt  DateTime      @default(now())
+  likes      PostLike[]
+  comments   PostComment[]
+
+  @@index([authorUid])
+  @@index([visibility, createdAt])
+}
+
+model PostLike {
+  id      String   @id @default(cuid())
+  postId  String
+  uid     String
+  likedAt DateTime @default(now())
+  post    FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, uid])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorUid String
+  text      String
+  createdAt DateTime @default(now())
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model JobLog {
+  id        String   @id @default(cuid())
+  jobName   String
+  payload   Json
+  status    String   @default("pending")
+  attempts  Int      @default(0)
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([jobName, status])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

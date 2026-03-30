@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cloud_functions/cloud_functions.dart';
+import 'api_client.dart';
 
 abstract class MeltChatService {
   Future<void> sendInvite({
@@ -22,30 +22,38 @@ class MeltChatException implements Exception {
   String toString() => 'MeltChatException: $message';
 }
 
-class FirebaseMeltChatService implements MeltChatService {
-  FirebaseMeltChatService({FirebaseFunctions? functions})
-    : _functions = functions ?? FirebaseFunctions.instance;
-
-  final FirebaseFunctions _functions;
+/// EC2-backed implementation — replaces FirebaseMeltChatService.
+class ApiMeltChatService implements MeltChatService {
+  final _client = ApiClient.instance;
 
   @override
   Future<void> sendInvite({
     required String targetUid,
     required String slotLabel,
-  }) {
-    return _functions.httpsCallable('sendMeltChatInvite').call(
-      <String, dynamic>{'targetUid': targetUid, 'slot': slotLabel},
-    );
+  }) async {
+    try {
+      await _client.dio.post<void>(
+        '/melt/invite',
+        data: {'targetUid': targetUid, 'slotLabel': slotLabel},
+      );
+    } catch (e) {
+      throw MeltChatException('sendInvite failed: $e');
+    }
   }
 
   @override
   Future<void> respondInvite({
     required String inviteId,
     required String action,
-  }) {
-    return _functions.httpsCallable('respondMeltChatInvite').call(
-      <String, dynamic>{'inviteId': inviteId, 'action': action},
-    );
+  }) async {
+    try {
+      await _client.dio.patch<void>(
+        '/melt/invite/$inviteId',
+        data: {'status': action},
+      );
+    } catch (e) {
+      throw MeltChatException('respondInvite failed: $e');
+    }
   }
 }
 
@@ -66,13 +74,8 @@ class MockMeltChatService implements MeltChatService {
     required String slotLabel,
   }) async {
     await Future<void>.delayed(delay);
-    if (shouldFail) {
-      throw const MeltChatException('mock_failure');
-    }
-    sentInvites.add(<String, String>{
-      'targetUid': targetUid,
-      'slot': slotLabel,
-    });
+    if (shouldFail) throw const MeltChatException('mock_failure');
+    sentInvites.add({'targetUid': targetUid, 'slot': slotLabel});
   }
 
   @override

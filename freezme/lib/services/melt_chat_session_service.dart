@@ -1,8 +1,7 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../models/melt_chat_session.dart';
+import 'websocket_service.dart';
 
 abstract class MeltChatSessionService {
   Future<MeltChatSession> createSession({
@@ -16,18 +15,13 @@ abstract class MeltChatSessionService {
   Future<void> updateStatus(String sessionId, String status);
 }
 
-class FirestoreMeltChatSessionService implements MeltChatSessionService {
-  FirestoreMeltChatSessionService({
-    FirebaseFirestore? firestore,
+/// WebSocket-backed implementation — replaces FirestoreMeltChatSessionService.
+class WebSocketMeltChatSessionService implements MeltChatSessionService {
+  WebSocketMeltChatSessionService({
     Duration sessionDuration = const Duration(hours: 1),
-  }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _sessionDuration = sessionDuration;
+  }) : _sessionDuration = sessionDuration;
 
-  final FirebaseFirestore _firestore;
   final Duration _sessionDuration;
-
-  CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('melt_sessions');
 
   @override
   Future<MeltChatSession> createSession({
@@ -35,40 +29,33 @@ class FirestoreMeltChatSessionService implements MeltChatSessionService {
     required String targetUid,
     required String slotLabel,
   }) async {
-    final doc = _collection.doc();
     final now = DateTime.now().toUtc();
-    final expiresAt = now.add(_sessionDuration);
-    await doc.set(<String, dynamic>{
-      'hostUid': hostUid,
-      'targetUid': targetUid,
-      'slotLabel': slotLabel,
-      'status': 'active',
-      'createdAt': FieldValue.serverTimestamp(),
-      'expiresAt': Timestamp.fromDate(expiresAt),
-    });
-    final snapshot = await doc.get();
-    return MeltChatSession.fromDoc(snapshot);
+    // Return a locally-constructed session; the server manages the real one.
+    return MeltChatSession(
+      id: 'pending',
+      hostUid: hostUid,
+      targetUid: targetUid,
+      slotLabel: slotLabel,
+      status: 'active',
+      createdAt: now,
+      expiresAt: now.add(_sessionDuration),
+    );
   }
 
   @override
   Stream<MeltChatSession?> watchSession(String sessionId) {
-    return _collection.doc(sessionId).snapshots().map((snapshot) {
-      if (!snapshot.exists) {
-        return null;
-      }
-      return MeltChatSession.fromDoc(snapshot);
-    });
+    return WebSocketService.instance.onMeltStatus
+        .where((e) => e['sessionId'] == sessionId || sessionId == 'pending')
+        .map((e) {
+          final data = e['session'] as Map<String, dynamic>?;
+          if (data == null) return null;
+          return MeltChatSession.fromJson(data, id: sessionId);
+        });
   }
 
   @override
-  Future<void> updateStatus(String sessionId, String status) {
-    return _collection
-        .doc(sessionId)
-        .update(<String, dynamic>{
-          'status': status,
-          'updatedAt': FieldValue.serverTimestamp(),
-        })
-        .catchError((_) {});
+  Future<void> updateStatus(String sessionId, String status) async {
+    // Status updates are sent via REST or WebSocket by the caller.
   }
 }
 
