@@ -19,13 +19,6 @@ class DeveloperPreviewScreen extends StatelessWidget {
         action: () => flow.replaceStack(<AppStage>[AppStage.onboarding]),
       ),
       (
-        label: 'Compatibility Quiz',
-        action: () => flow.replaceStack(<AppStage>[
-              AppStage.onboarding,
-              AppStage.compatibilityQuiz,
-            ]),
-      ),
-      (
         label: 'Daily Vibe Pool',
         action: () => flow.replaceStack(<AppStage>[AppStage.dailyPool]),
       ),
