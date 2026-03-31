@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-
 import '../../controllers/flow_controller.dart';
 import '../../services/auth_service.dart';
 import '../theme.dart';
 import '../widgets/freezme_logo.dart';
+import '../widgets/floating_orbs.dart';
 
 class AuthGatePage extends StatefulWidget {
   const AuthGatePage({super.key});
@@ -14,8 +12,25 @@ class AuthGatePage extends StatefulWidget {
   State<AuthGatePage> createState() => _AuthGatePageState();
 }
 
-class _AuthGatePageState extends State<AuthGatePage> {
+class _AuthGatePageState extends State<AuthGatePage>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = false;
+  late final AnimationController _bgController;
+
+  @override
+  void initState() {
+    super.initState();
+    _bgController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _bgController.dispose();
+    super.dispose();
+  }
 
   Future<void> _signInWithGoogle(AppFlowController flow) async {
     setState(() => _isLoading = true);
@@ -137,182 +152,189 @@ class _AuthGatePageState extends State<AuthGatePage> {
   @override
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
-    final cardShadow = FreezmeColors.primary.withValues(alpha: 0.08);
+
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: FreezmeGradients.backgroundSoft,
-        ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              const _AuthBackgroundDecor(),
-              Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: FreezmeInsets.pageGutter,
-                    vertical: FreezmeInsets.sectionSpacing,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: FreezmeInsets.elementSpacing * 1.5,
-                            vertical: FreezmeInsets.sectionSpacing * 1.4,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(
-                              FreezmeInsets.cardRadius,
+      body: AnimatedBuilder(
+        animation: _bgController,
+        builder: (context, _) {
+          final t = _bgController.value;
+          final gradStart = Color.lerp(
+            FreezmeColors.surface,
+            FreezmeColors.surfaceAlt,
+            t,
+          )!;
+          final gradEnd = Color.lerp(
+            FreezmeColors.surfaceAlt,
+            FreezmeColors.surface,
+            t,
+          )!;
+
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [gradStart, gradEnd],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Stack(
+              children: [
+                // Same floating orbs as splash
+                FloatingOrbs(progress: t),
+                SafeArea(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: MediaQuery.of(context).size.height -
+                            MediaQuery.of(context).padding.top -
+                            MediaQuery.of(context).padding.bottom,
+                      ),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 56),
+
+                            // Logo — same as splash
+                            const FreezmeLogo(size: LogoSize.lg),
+
+                            const SizedBox(height: 20),
+
+                            // FREEZME wordmark
+                            Text(
+                              'FREEZME',
+                              style: FreezmeTypography.title.copyWith(
+                                letterSpacing: 1.2,
+                                color: FreezmeColors.primary,
+                                fontSize: 28,
+                              ),
                             ),
-                            gradient: const LinearGradient(
-                              colors: [Colors.white, FreezmeColors.surface],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+
+                            const SizedBox(height: 8),
+
+                            // Tagline
+                            Text(
+                              'Where Compatibility Meets Real Connection',
+                              textAlign: TextAlign.center,
+                              style: FreezmeTypography.subtitle.copyWith(
+                                fontSize: 14,
+                              ),
                             ),
-                            border: Border.all(color: FreezmeColors.border),
-                            boxShadow: [
-                              BoxShadow(
-                                color: cardShadow,
-                                blurRadius: 36,
-                                offset: const Offset(0, 18),
+
+                            const SizedBox(height: 36),
+
+                            // Feature highlights — pill chips in a row
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final item in _highlights)
+                                  _HighlightChip(
+                                    icon: item.icon,
+                                    label: item.label,
+                                  ),
+                              ],
+                            ),
+
+                            const Spacer(),
+
+                            const SizedBox(height: 40),
+
+                            // Sign-in buttons
+                            if (_isLoading)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 32),
+                                child: CircularProgressIndicator(
+                                  color: FreezmeColors.primary,
+                                ),
+                              )
+                            else ...[
+                              _AuthButton(
+                                label: 'Continue with Apple',
+                                icon: Icons.apple,
+                                background: Colors.black,
+                                foreground: Colors.white,
+                                onTap: () => _signInWithApple(flow),
+                              ),
+                              const SizedBox(height: 12),
+                              _AuthButton(
+                                label: 'Continue with Google',
+                                icon: Icons.g_mobiledata,
+                                foreground: FreezmeColors.neutral,
+                                background: Colors.white,
+                                border: const BorderSide(
+                                    color: FreezmeColors.border, width: 1.5),
+                                onTap: () => _signInWithGoogle(flow),
+                              ),
+                              const SizedBox(height: 12),
+                              _AuthButton(
+                                label: 'Continue with Email',
+                                icon: Icons.mail_outline,
+                                gradient: FreezmeGradients.primary,
+                                foreground: Colors.white,
+                                onTap: () => _signInWithEmail(flow),
+                              ),
+                              const SizedBox(height: 12),
+                              _AuthButton(
+                                label: 'Open Developer Preview',
+                                icon: Icons.developer_mode,
+                                foreground: FreezmeColors.primary,
+                                background: Colors.transparent,
+                                border: const BorderSide(
+                                    color: FreezmeColors.primary, width: 1.5),
+                                onTap: () => flow.openDeveloperMenu(),
                               ),
                             ],
-                          ),
-                          child: Column(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(18),
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: FreezmeGradients.primary,
-                                ),
-                                child: const FreezmeLogo(
-                                  size: LogoSize.md,
-                                  variant: LogoVariant.white,
-                                ),
-                              ),
-                              const SizedBox(height: FreezmeInsets.sectionSpacing),
-                              Text(
-                                'Intentional dating for soulful matches',
-                                textAlign: TextAlign.center,
-                                style: FreezmeTypography.title.copyWith(
-                                  color: FreezmeColors.neutral,
-                                ),
-                              ),
-                              const SizedBox(height: FreezmeInsets.elementSpacing),
-                              const Text(
-                                'Freezme pairs thoughtful prompts, science-backed compatibility, and mindful pacing so every connection feels like it\'s meant to be.',
-                                textAlign: TextAlign.center,
-                                style: FreezmeTypography.bodyMuted,
-                              ),
-                              const SizedBox(height: FreezmeInsets.sectionSpacing),
-                              Wrap(
-                                alignment: WrapAlignment.center,
-                                spacing: FreezmeInsets.elementSpacing,
-                                runSpacing: FreezmeInsets.elementSpacing,
-                                children: [
-                                  for (final item in _highlights)
-                                    _AuthHighlightBadge(
-                                      icon: item.icon,
-                                      label: item.label,
+
+                            const SizedBox(height: 24),
+
+                            // Legal
+                            Text.rich(
+                              TextSpan(
+                                text: 'By continuing you agree to our ',
+                                style: FreezmeTypography.bodyMuted
+                                    .copyWith(fontSize: 12),
+                                children: const [
+                                  TextSpan(
+                                    text: 'Terms',
+                                    style: TextStyle(
+                                      color: FreezmeColors.primary,
+                                      fontWeight: FontWeight.w600,
                                     ),
+                                  ),
+                                  TextSpan(text: ' and '),
+                                  TextSpan(
+                                    text: 'Privacy Policy',
+                                    style: TextStyle(
+                                      color: FreezmeColors.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextSpan(text: '.'),
                                 ],
                               ),
-                            ],
-                          ),
+                              textAlign: TextAlign.center,
+                            ),
+
+                            const SizedBox(height: 24),
+                          ],
                         ),
-                        const SizedBox(height: FreezmeInsets.sectionSpacing * 1.8),
-                        if (_isLoading)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 28),
-                            child: CircularProgressIndicator(),
-                          )
-                        else ...[
-                          _AuthButton(
-                            label: 'Continue with Apple',
-                            icon: Icons.apple,
-                            background: Colors.black,
-                            foreground: Colors.white,
-                            onTap: () => _signInWithApple(flow),
-                          ),
-                          const SizedBox(height: FreezmeInsets.elementSpacing),
-                          _AuthButton(
-                            label: 'Continue with Google',
-                            icon: Icons.g_mobiledata,
-                            foreground: FreezmeColors.neutral,
-                            background: Colors.white,
-                            border:
-                                const BorderSide(color: FreezmeColors.border, width: 2),
-                            onTap: () => _signInWithGoogle(flow),
-                          ),
-                          const SizedBox(height: FreezmeInsets.elementSpacing),
-                          _AuthButton(
-                            label: 'Continue with Email',
-                            icon: Icons.mail_outline,
-                            gradient: FreezmeGradients.primary,
-                            foreground: Colors.white,
-                            onTap: () => _signInWithEmail(flow),
-                          ),
-                          const SizedBox(height: FreezmeInsets.elementSpacing),
-                          _AuthButton(
-                            label: 'Open Developer Preview',
-                            icon: Icons.developer_mode,
-                            foreground: FreezmeColors.primary,
-                            background: Colors.transparent,
-                            border: const BorderSide(color: FreezmeColors.primary, width: 1.5),
-                            onTap: () => flow.openDeveloperMenu(),
-                          ),
-                        ],
-                        const SizedBox(height: FreezmeInsets.sectionSpacing),
-                        const Text(
-                          'Your vibe begins with one tap 💫',
-                          style: FreezmeTypography.bodyMuted,
-                        ),
-                        const SizedBox(height: FreezmeInsets.elementSpacing),
-                        Text.rich(
-                          TextSpan(
-                            text: 'By continuing you agree to our ',
-                            style: FreezmeTypography.bodyMuted
-                                .copyWith(fontSize: 13),
-                            children: const [
-                              TextSpan(
-                                text: 'Terms',
-                                style: TextStyle(
-                                  color: FreezmeColors.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextSpan(text: ' and '),
-                              TextSpan(
-                                text: 'Privacy Policy',
-                                style: TextStyle(
-                                  color: FreezmeColors.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextSpan(text: '.'),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class _AuthHighlightBadge extends StatelessWidget {
-  const _AuthHighlightBadge({required this.icon, required this.label});
+class _HighlightChip extends StatelessWidget {
+  const _HighlightChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -320,72 +342,30 @@ class _AuthHighlightBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: FreezmeInsets.elementSpacing,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.7),
         border: Border.all(color: FreezmeColors.border),
         boxShadow: [
           BoxShadow(
-            color: FreezmeColors.primary.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
+            color: FreezmeColors.primary.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: FreezmeColors.primary),
-          const SizedBox(width: 8),
+          Icon(icon, size: 16, color: FreezmeColors.primary),
+          const SizedBox(width: 6),
           Text(
             label,
-            style: FreezmeTypography.body.copyWith(fontWeight: FontWeight.w600),
+            style: FreezmeTypography.body
+                .copyWith(fontWeight: FontWeight.w600, fontSize: 13),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AuthBackgroundDecor extends StatelessWidget {
-  const _AuthBackgroundDecor();
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Stack(
-          children: [
-            Positioned(
-              top: -120,
-              left: -80,
-              child: Container(
-                width: 240,
-                height: 240,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: FreezmeGradients.primary,
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -140,
-              right: -60,
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: FreezmeGradients.accent,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -424,13 +404,9 @@ class _AuthButton extends StatelessWidget {
             gradient: gradient,
             color: gradient == null ? background : null,
             borderRadius: BorderRadius.circular(999),
-            border:
-                border != null ? Border.fromBorderSide(border!) : null,
+            border: border != null ? Border.fromBorderSide(border!) : null,
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: FreezmeInsets.elementSpacing,
-            vertical: 18,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
