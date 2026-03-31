@@ -13,20 +13,28 @@ class ProfilePreviewPage extends StatelessWidget {
         'https://images.unsplash.com/photo-1546961329-78bef0414d7c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzYwOTQ2MDQ5fDA&ixlib=rb-4.1.0&q=80&w=1080';
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.chevron_left),
-          onPressed: flow.pop,
-        ),
-      ),
+      backgroundColor: Colors.transparent,
       body: Container(
         decoration: const BoxDecoration(
           gradient: FreezmeGradients.backgroundSoft,
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+        child: SafeArea(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Back button row
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 4),
+                child: IconButton(
+                  icon: const Icon(Icons.chevron_left, size: 28),
+                  color: FreezmeColors.neutral,
+                  onPressed: flow.pop,
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
@@ -107,6 +115,10 @@ class ProfilePreviewPage extends StatelessWidget {
                   _PreviewChip(label: 'Hiking'),
                 ],
               ),
+                  ],
+                ),
+              ),
+            ),
             ],
           ),
         ),
