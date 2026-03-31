@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../controllers/flow_controller.dart';
 import '../../services/auth_service.dart';
@@ -223,19 +224,8 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 36),
 
-                            // Feature highlights — pill chips in a row
-                            Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (final item in _highlights)
-                                  _HighlightChip(
-                                    icon: item.icon,
-                                    label: item.label,
-                                  ),
-                              ],
-                            ),
+                            // Animated feature highlights
+                            const _AnimatedHighlights(highlights: _highlights),
 
                             const Spacer(),
 
@@ -333,37 +323,209 @@ class _AuthGatePageState extends State<AuthGatePage>
   }
 }
 
-class _HighlightChip extends StatelessWidget {
-  const _HighlightChip({required this.icon, required this.label});
+// ── Animated highlights ──────────────────────────────────────────────────────
 
-  final IconData icon;
-  final String label;
+class _AnimatedHighlights extends StatefulWidget {
+  const _AnimatedHighlights({required this.highlights});
+  final List<({IconData icon, String label})> highlights;
+
+  @override
+  State<_AnimatedHighlights> createState() => _AnimatedHighlightsState();
+}
+
+class _AnimatedHighlightsState extends State<_AnimatedHighlights>
+    with TickerProviderStateMixin {
+  // Cascade entrance
+  late final List<AnimationController> _entranceControllers;
+  late final List<Animation<double>> _entranceFades;
+  late final List<Animation<Offset>> _entranceSlides;
+
+  // Continuous levitation
+  late final AnimationController _levitateController;
+
+  // Shimmer sweep on the border
+  late final AnimationController _shimmerController;
+
+  @override
+  void initState() {
+    super.initState();
+    final count = widget.highlights.length;
+
+    // Staggered entrance — each chip 180ms after the previous
+    _entranceControllers = List.generate(
+      count,
+      (i) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 550),
+      ),
+    );
+    _entranceFades = _entranceControllers.map((c) {
+      return CurvedAnimation(parent: c, curve: Curves.easeOut);
+    }).toList();
+    _entranceSlides = _entranceControllers.map((c) {
+      return Tween<Offset>(
+        begin: const Offset(0, 0.35),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: c, curve: Curves.easeOutCubic));
+    }).toList();
+
+    for (var i = 0; i < count; i++) {
+      Future.delayed(Duration(milliseconds: 120 + i * 180), () {
+        if (mounted) _entranceControllers[i].forward();
+      });
+    }
+
+    // Slow levitation loop (different phase per chip handled at render time)
+    _levitateController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    )..repeat(reverse: true);
+
+    // Shimmer sweep
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    for (final c in _entranceControllers) {
+      c.dispose();
+    }
+    _levitateController.dispose();
+    _shimmerController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_levitateController, _shimmerController]),
+      builder: (context, _) {
+        return Column(
+          children: List.generate(widget.highlights.length, (i) {
+            // Each chip bobs at a different phase offset
+            final phase = i * (math.pi * 2 / widget.highlights.length);
+            final levitate =
+                math.sin(_levitateController.value * math.pi + phase) * 5.0;
+
+            return FadeTransition(
+              opacity: _entranceFades[i],
+              child: SlideTransition(
+                position: _entranceSlides[i],
+                child: Transform.translate(
+                  offset: Offset(0, levitate),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: _ShimmerChip(
+                      icon: widget.highlights[i].icon,
+                      label: widget.highlights[i].label,
+                      shimmerProgress: (_shimmerController.value + i * 0.33) % 1.0,
+                      iconIndex: i,
+                      levitate: levitate,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+class _ShimmerChip extends StatelessWidget {
+  const _ShimmerChip({
+    required this.icon,
+    required this.label,
+    required this.shimmerProgress,
+    required this.iconIndex,
+    required this.levitate,
+  });
+
+  final IconData icon;
+  final String label;
+  final double shimmerProgress; // 0..1 cyclic
+  final int iconIndex;
+  final double levitate;
+
+  @override
+  Widget build(BuildContext context) {
+    // Shimmer angle sweeps around the pill border
+    final shimmerAngle = shimmerProgress * math.pi * 2;
+    final shimmerX = math.cos(shimmerAngle);
+    final shimmerY = math.sin(shimmerAngle);
+
+    // Glow intensity pulses with shimmer
+    final glowAlpha = 0.06 + shimmerProgress * 0.14;
+
+    // Icon micro-animation values derived from shimmerProgress
+    final double iconScale;
+    final double iconRotation;
+    switch (iconIndex) {
+      case 0: // Heart — subtle pulse beat
+        iconScale = 1.0 + math.sin(shimmerProgress * math.pi * 2) * 0.18;
+        iconRotation = 0;
+      case 1: // Camera — blink/zoom
+        iconScale = 1.0 + math.sin(shimmerProgress * math.pi * 4) * 0.1;
+        iconRotation = 0;
+      case 2: // Leaf — gentle sway
+        iconScale = 1.0;
+        iconRotation = math.sin(shimmerProgress * math.pi * 2) * 0.18;
+      default:
+        iconScale = 1.0;
+        iconRotation = 0;
+    }
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: Colors.white.withValues(alpha: 0.7),
-        border: Border.all(color: FreezmeColors.border),
+        color: Colors.white.withValues(alpha: 0.75),
+        gradient: LinearGradient(
+          begin: Alignment(shimmerX * 0.6, shimmerY * 0.6),
+          end: Alignment(-shimmerX * 0.6, -shimmerY * 0.6),
+          colors: [
+            Colors.white.withValues(alpha: 0.95),
+            FreezmeColors.surfaceAlt.withValues(alpha: 0.85),
+            Colors.white.withValues(alpha: 0.95),
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ),
+        border: Border.all(
+          color: FreezmeColors.primary.withValues(
+            alpha: 0.15 + shimmerProgress * 0.25,
+          ),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: FreezmeColors.primary.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: FreezmeColors.primary.withValues(alpha: glowAlpha),
+            blurRadius: 16 + shimmerProgress * 8,
+            offset: Offset(shimmerX * 2, shimmerY * 2 + levitate * 0.3),
           ),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: FreezmeColors.primary),
-          const SizedBox(width: 6),
+          Transform.rotate(
+            angle: iconRotation,
+            child: Transform.scale(
+              scale: iconScale,
+              child: Icon(icon, size: 17, color: FreezmeColors.primary),
+            ),
+          ),
+          const SizedBox(width: 8),
           Text(
             label,
-            style: FreezmeTypography.body
-                .copyWith(fontWeight: FontWeight.w600, fontSize: 13),
+            style: FreezmeTypography.body.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 13.5,
+              color: FreezmeColors.neutral,
+            ),
           ),
         ],
       ),
