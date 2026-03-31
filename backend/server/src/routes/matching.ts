@@ -56,6 +56,11 @@ router.post('/like', async (req: Request, res: Response) => {
             { type: 'match', matchId: match.id }
           );
         }
+
+        // Real-time: notify both users of the new match
+        const io = req.app.get('io');
+        io.to(`user:${req.uid}`).emit('match:new', match);
+        io.to(`user:${targetUid}`).emit('match:new', match);
       }
     }
 

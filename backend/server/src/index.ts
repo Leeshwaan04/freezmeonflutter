@@ -41,6 +41,9 @@ const io = new SocketIOServer(httpServer, {
 // Apply Redis adapter for multi-node socket.io
 applyRedisAdapter(io);
 
+// Make io accessible inside route handlers via req.app.get('io')
+app.set('io', io);
+
 // ── Middleware ──────────────────────────────────────────────────────────────
 
 app.set('trust proxy', 1); // behind nginx

@@ -6,19 +6,81 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'api_client.dart';
 
-/// Holds the signed-in user's basic info derived from the JWT.
+/// Holds the signed-in user's basic info derived from the JWT and /profiles/me.
 class AuthUser {
-  const AuthUser({required this.uid, this.email, this.displayName});
+  const AuthUser({
+    required this.uid,
+    this.email,
+    this.displayName,
+    this.photoUrl,
+    this.photoUrls = const [],
+    this.age,
+    this.bio,
+    this.interests = const [],
+  });
 
   final String uid;
   final String? email;
   final String? displayName;
+  /// Primary profile photo URL (first uploaded photo or imageUrl from server).
+  final String? photoUrl;
+  /// All uploaded photo URLs for populating photo slots.
+  final List<String> photoUrls;
+  final int? age;
+  final String? bio;
+  final List<String> interests;
 
-  factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
-        uid: json['id'] as String,
-        email: json['email'] as String?,
-        displayName: json['displayName'] as String?,
-      );
+  factory AuthUser.fromJson(Map<String, dynamic> json) {
+    // The server may return photoUrls as an array or imageUrl as a single string.
+    final rawPhotoUrls = json['photoUrls'];
+    final List<String> photoUrls = rawPhotoUrls is List
+        ? rawPhotoUrls.whereType<String>().toList()
+        : const [];
+    final String? imageUrl = json['imageUrl'] as String?;
+    final String? primaryPhoto =
+        photoUrls.isNotEmpty ? photoUrls.first : imageUrl;
+
+    // /profiles/me uses 'userId', auth response uses 'id'
+    final uid = (json['userId'] as String?) ?? (json['id'] as String);
+
+    final rawInterests = json['interests'];
+    final List<String> interests = rawInterests is List
+        ? rawInterests.whereType<String>().toList()
+        : const [];
+
+    return AuthUser(
+      uid: uid,
+      email: json['email'] as String?,
+      displayName: (json['displayName'] as String?) ?? (json['name'] as String?),
+      photoUrl: primaryPhoto,
+      photoUrls: photoUrls,
+      age: (json['age'] as num?)?.toInt(),
+      bio: json['bio'] as String?,
+      interests: interests,
+    );
+  }
+
+  AuthUser copyWith({
+    String? uid,
+    String? email,
+    String? displayName,
+    String? photoUrl,
+    List<String>? photoUrls,
+    int? age,
+    String? bio,
+    List<String>? interests,
+  }) {
+    return AuthUser(
+      uid: uid ?? this.uid,
+      email: email ?? this.email,
+      displayName: displayName ?? this.displayName,
+      photoUrl: photoUrl ?? this.photoUrl,
+      photoUrls: photoUrls ?? this.photoUrls,
+      age: age ?? this.age,
+      bio: bio ?? this.bio,
+      interests: interests ?? this.interests,
+    );
+  }
 }
 
 /// Replacement for FirebaseAuth — issues and stores JWTs via the EC2 API.
@@ -108,6 +170,19 @@ class AuthService {
       data: {'email': email, 'password': password, 'action': 'signup'},
     );
     return _handleAuthResponse(response.data as Map<String, dynamic>);
+  }
+
+  // ── Refresh profile data from server ───────────────────────────────────────
+
+  Future<void> refreshProfile() async {
+    if (_currentUser == null) return;
+    try {
+      final response = await _client.dio.get('/profiles/me');
+      final updated = AuthUser.fromJson(response.data as Map<String, dynamic>);
+      _setUser(updated);
+    } catch (e) {
+      debugPrint('[AuthService] refreshProfile error: $e');
+    }
   }
 
   // ── Sign-Out ────────────────────────────────────────────────────────────────

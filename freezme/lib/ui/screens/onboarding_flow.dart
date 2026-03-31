@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
+import '../../services/archetype_service.dart';
 import '../widgets/freezme_logo.dart';
 import '../../core/app_stage.dart';
 import '../../models/blueprint.dart';
@@ -35,6 +38,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   // Step 6: Profile
   final TextEditingController _bioController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
+  final List<File?> _photos = [null, null];
 
   void _handleNext(AppFlowController flow) {
     if (_step == _totalSteps) {
@@ -156,68 +160,71 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   }
 
   Widget _buildIntentStep() {
-    return Column(
+    return SingleChildScrollView(
       key: const ValueKey(1),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 24),
-        const Text('What are you looking for?', style: FreezmeTypography.h1),
-        const SizedBox(height: 12),
-        const Text('Be honest. We use this to match you with like-minded people.', style: FreezmeTypography.body),
-        const SizedBox(height: 24),
-        if (_selectedIntent != null)
-           _InsightBanner(
-             text: _selectedIntent == DatingIntent.meaningful 
-               ? "Beautiful. Most Freezme users are here for intentional dating."
-               : "Great! Let's find some interesting people for you.",
-           ),
-        const SizedBox(height: 16),
-        ...DatingIntent.values.map((intent) {
-          final isSelected = _selectedIntent == intent;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: InkWell(
-              onTap: () => setState(() => _selectedIntent = intent),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isSelected ? FreezmeColors.primary : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isSelected ? FreezmeColors.primary : FreezmeColors.border),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      intent == DatingIntent.meaningful ? '💜' : (intent == DatingIntent.exploring ? '✨' : '🤝'),
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      intent.name.toUpperCase(),
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : FreezmeColors.neutral,
-                        fontWeight: FontWeight.bold,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          const Text('What are you looking for?', style: FreezmeTypography.h1),
+          const SizedBox(height: 12),
+          const Text('Be honest. We use this to match you with like-minded people.', style: FreezmeTypography.body),
+          const SizedBox(height: 24),
+          if (_selectedIntent != null)
+             _InsightBanner(
+               text: _selectedIntent == DatingIntent.meaningful
+                 ? "Beautiful. Most Freezme users are here for intentional dating."
+                 : "Great! Let's find some interesting people for you.",
+             ),
+          const SizedBox(height: 16),
+          ...DatingIntent.values.map((intent) {
+            final isSelected = _selectedIntent == intent;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: InkWell(
+                onTap: () => setState(() => _selectedIntent = intent),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isSelected ? FreezmeColors.primary : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isSelected ? FreezmeColors.primary : FreezmeColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        intent == DatingIntent.meaningful ? '💜' : (intent == DatingIntent.exploring ? '✨' : '🤝'),
+                        style: const TextStyle(fontSize: 24),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Text(
+                        intent.name.toUpperCase(),
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : FreezmeColors.neutral,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        }),
-        const Spacer(),
-        Row(
-          children: [
-            Checkbox(
-              value: _ageConfirmed,
-              onChanged: (v) => setState(() => _ageConfirmed = v ?? false),
-              activeColor: FreezmeColors.primary,
-            ),
-            const Expanded(child: Text('I confirm I am over 18 years old.')),
-          ],
-        ),
-      ],
+            );
+          }),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Checkbox(
+                value: _ageConfirmed,
+                onChanged: (v) => setState(() => _ageConfirmed = v ?? false),
+                activeColor: FreezmeColors.primary,
+              ),
+              const Expanded(child: Text('I confirm I am over 18 years old.')),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 
@@ -376,9 +383,9 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildPhotoSlot(),
+              _buildPhotoSlot(0),
               const SizedBox(width: 12),
-              _buildPhotoSlot(),
+              _buildPhotoSlot(1),
             ],
           ),
         ],
@@ -386,46 +393,160 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
     );
   }
 
-  Widget _buildPhotoSlot() {
-    return Container(
-      width: 100,
-      height: 130,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: FreezmeColors.border),
+  Widget _buildPhotoSlot(int index) {
+    final file = _photos[index];
+    return GestureDetector(
+      onTap: () async {
+        final picker = ImagePicker();
+        final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+        if (picked != null && mounted) {
+          setState(() => _photos[index] = File(picked.path));
+        }
+      },
+      child: Container(
+        width: 100,
+        height: 130,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: file != null ? FreezmeColors.primary : FreezmeColors.border,
+            width: file != null ? 2 : 1,
+          ),
+        ),
+        child: file != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(11),
+                child: Image.file(file, fit: BoxFit.cover),
+              )
+            : const Icon(Icons.add_a_photo, color: FreezmeColors.muted),
       ),
-      child: const Icon(Icons.add_a_photo, color: FreezmeColors.muted),
     );
   }
   Widget _buildArchetypeResult(AppFlowController flow) {
     final archetype = flow.userArchetype;
-    return Column(
+    final traits = flow.userBlueprint?.personalityTraits ?? [];
+    final lifestyle = flow.userBlueprint?.lifestyleFactors ?? [];
+
+    final archetypeEmoji = switch (archetype) {
+      PersonalityArchetype.explorer   => '🌍',
+      PersonalityArchetype.nurturer   => '💛',
+      PersonalityArchetype.visionary  => '🔮',
+      PersonalityArchetype.harmonizer => '☮️',
+      PersonalityArchetype.dynamo     => '⚡',
+      null                            => '✨',
+    };
+
+    final keywordBadges = <String>[
+      ...traits.map((t) => t.name[0].toUpperCase() + t.name.substring(1)),
+      ...lifestyle.map((l) => l.name[0].toUpperCase() + l.name.substring(1)),
+    ];
+
+    return SingleChildScrollView(
       key: const ValueKey('archetype'),
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text('YOUR DATING PERSONALITY', style: TextStyle(letterSpacing: 2, fontSize: 12, fontWeight: FontWeight.bold, color: FreezmeColors.primary)),
-        const SizedBox(height: 16),
-        Text(archetype?.label ?? "The Adventurer", style: FreezmeTypography.h1.copyWith(fontSize: 32)),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10)),
-            ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: 16),
+          // Top label
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: FreezmeColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: FreezmeColors.primary.withValues(alpha: 0.25)),
+            ),
+            child: const Text(
+              'YOUR DATING PERSONALITY',
+              style: TextStyle(letterSpacing: 2, fontSize: 11, fontWeight: FontWeight.bold, color: FreezmeColors.primary),
+            ),
           ),
-          child: Text(
-            archetype?.description ?? "You are a blend of curiosity and passion.",
+          const SizedBox(height: 28),
+          // Big emoji in gradient circle
+          Container(
+            width: 100,
+            height: 100,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: FreezmeGradients.primary,
+            ),
+            child: Center(
+              child: Text(archetypeEmoji, style: const TextStyle(fontSize: 44)),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Archetype name
+          Text(
+            archetype?.label ?? 'The Adventurer',
+            style: FreezmeTypography.h1.copyWith(fontSize: 34),
             textAlign: TextAlign.center,
-            style: FreezmeTypography.bodyLarge,
           ),
-        ),
-        const SizedBox(height: 48),
-        const Text('We\'ve updated your pool to match your vibe.', style: FreezmeTypography.bodyMuted),
-      ],
+          const SizedBox(height: 20),
+          // Description card
+          Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: FreezmeColors.border),
+              boxShadow: [
+                BoxShadow(color: FreezmeColors.primary.withValues(alpha: 0.07), blurRadius: 24, offset: const Offset(0, 10)),
+              ],
+            ),
+            child: Text(
+              archetype?.description ?? 'You are a blend of curiosity and passion.',
+              textAlign: TextAlign.center,
+              style: FreezmeTypography.bodyLarge,
+            ),
+          ),
+          if (keywordBadges.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('YOUR TRAITS', style: TextStyle(letterSpacing: 1.5, fontSize: 11, fontWeight: FontWeight.bold, color: FreezmeColors.muted)),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: keywordBadges.map((badge) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF7B2FF7), Color(0xFF4A90D9)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(badge, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+              )).toList(),
+            ),
+          ],
+          const SizedBox(height: 28),
+          // Bottom confirmation row
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: FreezmeColors.primary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: FreezmeColors.primary, size: 20),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Your daily pool is now curated to match your vibe.',
+                    style: TextStyle(color: FreezmeColors.primary, fontWeight: FontWeight.w500, fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }

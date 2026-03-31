@@ -210,18 +210,6 @@ class _ChatListPageState extends State<ChatListPage> {
 
     return Scaffold(
       backgroundColor: FreezmeDesignSystem.background,
-      bottomNavigationBar: FreezmeBottomNavBar(
-          currentIndex: flow.currentTabIndex,
-          onTap: (index) {
-            if (_tabLocked) return;
-            HapticFeedback.selectionClick();
-            setState(() => _tabLocked = true);
-            flow.openTab(index);
-            Future.delayed(FreezmeDesignSystem.durationNormal, () {
-              if (mounted) setState(() => _tabLocked = false);
-            });
-          },
-      ),
       body: Container(
         color: FreezmeDesignSystem.background,
         child: SafeArea(

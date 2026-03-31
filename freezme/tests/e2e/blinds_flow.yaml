@@ -1,0 +1,27 @@
+appId: com.freezme.app
+---
+- launchApp:
+    clearState: false
+
+- assertVisible: "Tonight"
+
+# 1. Navigate to Blinds tab
+- tapOn: "Blinds"
+- assertVisible: "Ground Rules"
+
+# 2. Handle Consent (Accept rules if not checked)
+- runScript: |
+    try {
+      maestro.tapOn("I agree to chat respectfully")
+    } catch (e) {
+      // Already checked or element changed
+    }
+
+# 3. Join the Blind Queue
+- tapOn:
+    id: "casino_rounded" # Assuming the icon has this id or we tap by text
+- tapOn: "Tap the dice to find a match!" # Backup tap by text
+
+# 4. Verify Queue State
+- assertVisible: "Finding someone special..."
+- stopApp

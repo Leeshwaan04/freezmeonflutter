@@ -395,13 +395,6 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: FreezmeBottomNavBar(
-          currentIndex: flow.currentTabIndex,
-          onTap: flow.openTab,
-        ),
-      ),
     );
   }
 }

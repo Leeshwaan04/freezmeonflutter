@@ -78,6 +78,9 @@ router.post('/invite', async (req: Request, res: Response) => {
       data: { senderUid: req.uid, receiverUid, intent },
     });
 
+    // Real-time: notify the receiver of the new paths invite
+    req.app.get('io').to(`user:${receiverUid}`).emit('paths:invite', invite);
+
     res.json(invite);
   } catch (err) {
     res.status(500).json({ error: 'Failed to send paths invite' });

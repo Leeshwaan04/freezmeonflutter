@@ -43,6 +43,9 @@ router.post('/invite', async (req: Request, res: Response) => {
       );
     }
 
+    // Real-time: notify the target user of the new melt invite
+    req.app.get('io').to(`user:${targetUid}`).emit('melt:invite', session);
+
     res.json(session);
   } catch (err) {
     console.error('[melt/invite]', err);
@@ -68,6 +71,11 @@ router.patch('/invite/:id', async (req: Request, res: Response) => {
       where: { id: req.params.id },
       data: { status },
     });
+
+    // Real-time: notify both host and target of the status change
+    const io = req.app.get('io');
+    io.to(`user:${session.hostUid}`).emit('melt:status', updated);
+    io.to(`user:${session.targetUid}`).emit('melt:status', updated);
 
     res.json(updated);
   } catch (err) {

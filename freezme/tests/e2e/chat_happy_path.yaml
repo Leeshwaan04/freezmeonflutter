@@ -1,0 +1,27 @@
+appId: com.freezme.app
+---
+- launchApp:
+    clearState: false
+
+- assertVisible: "Tonight"
+
+# 1. Navigate to Chats
+- tapOn: "Chats"
+- waitVisible: "Search chats..."
+
+# 2. Open first available chat
+# We use a point-based tap or generic text if specific match name is unknown
+- tapOn:
+    point: "50%, 40%" # Middle of the screen roughly where the first chat item is
+- waitVisible: "Type a message..."
+
+# 3. Send a "Happy Path" message
+- inputText: "Hello! Testing the vibe check. 👋"
+- tapOn:
+    id: "send_rounded" # From the icon id in chat_screen_page.dart
+- tapOn: 
+    point: "90%, 95%" # Fallback tap on the send button area
+
+# 4. Verify message delivery
+- assertVisible: "Hello! Testing the vibe check. 👋"
+- stopApp

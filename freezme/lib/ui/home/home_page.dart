@@ -276,53 +276,61 @@ class _HomePageState extends State<HomePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TONIGHT IN',
-                      style: FreezmeDesignSystem.caption.copyWith(
-                        letterSpacing: 1.2,
-                        fontWeight: FontWeight.w800,
-                        color: FreezmeDesignSystem.textSecondary,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'TONIGHT IN',
+                        style: FreezmeDesignSystem.caption.copyWith(
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w800,
+                          color: FreezmeDesignSystem.textSecondary,
+                        ),
                       ),
-                    ),
-                    Text(
-                      _locationName,
-                      style: FreezmeDesignSystem.display,
-                    ),
-                  ],
+                      Text(
+                        _locationName,
+                        style: FreezmeDesignSystem.display,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: FreezmeDesignSystem.surface,
                     borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
                     border: Border.all(color: FreezmeDesignSystem.primary.withValues(alpha: 0.2)),
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.timer_outlined, size: 16, color: FreezmeDesignSystem.primary),
+                      const Icon(Icons.timer_outlined, size: 14, color: FreezmeDesignSystem.primary),
                       const SizedBox(width: 4),
                       Text(
                         _countdown,
                         style: FreezmeDesignSystem.small.copyWith(
                           color: FreezmeDesignSystem.primary,
                           fontWeight: FontWeight.bold,
+                          fontSize: 12,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: FreezmeDesignSystem.spaceMd),
-                GestureDetector(
-                  onTap: () => AppFlowScope.of(context, listen: false).openTab(4), // Profile tab
-                  child: UserAvatar(
-                    imageUrl: AppFlowScope.of(context, listen: false).profilePhotoUrl,
-                    size: 40,
-                    isPremium: AppFlowScope.of(context, listen: false).isPremium,
-                  ),
-                ),
+                const SizedBox(width: 8),
+                Builder(builder: (ctx) {
+                  final f = AppFlowScope.of(ctx, listen: false);
+                  return GestureDetector(
+                    onTap: () => f.openTab(4),
+                    child: UserAvatar(
+                      imageUrl: f.profilePhotoUrl,
+                      size: 36,
+                      isPremium: f.isPremium,
+                    ),
+                  );
+                }),
               ],
             ),
           ],
@@ -336,7 +344,7 @@ class _HomePageState extends State<HomePage> {
     final paths = flow.nearbyPaths;
 
     if (paths.isEmpty && !flow.pathsLoading) {
-      return const SizedBox.shrink();
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
     return SliverToBoxAdapter(
@@ -497,20 +505,33 @@ class _HomePageState extends State<HomePage> {
               if (posts.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
-                  child: PremiumCard(
-                     variant: CardVariant.flat,
-                     child: Container(
-                       height: 120,
-                       alignment: Alignment.center,
-                       child: const Column(
-                         mainAxisAlignment: MainAxisAlignment.center,
-                         children: [
-                           Icon(Icons.auto_awesome, color: FreezmeDesignSystem.primary, size: 32),
-                           SizedBox(height: FreezmeDesignSystem.spaceSm),
-                           Text('Feed Integration Coming Soon', style: FreezmeDesignSystem.caption),
-                         ],
-                       ),
-                     ),
+                  child: Container(
+                    height: 110,
+                    decoration: BoxDecoration(
+                      color: FreezmeDesignSystem.surface,
+                      borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusLg),
+                      border: Border.all(color: FreezmeDesignSystem.border),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.auto_awesome, color: FreezmeDesignSystem.primary.withValues(alpha: 0.5), size: 28),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Vibes feed coming soon',
+                          style: FreezmeDesignSystem.body.copyWith(
+                            color: FreezmeDesignSystem.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Share moments with your matches',
+                          style: FreezmeDesignSystem.caption.copyWith(color: FreezmeDesignSystem.textTertiary),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }

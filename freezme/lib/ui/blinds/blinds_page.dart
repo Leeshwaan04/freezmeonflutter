@@ -332,13 +332,6 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
           },
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: FreezmeBottomNavBar(
-          currentIndex: 3,
-          onTap: flow.openTab,
-        ),
-      ),
     );
   }
 }

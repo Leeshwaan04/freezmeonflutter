@@ -43,6 +43,11 @@ router.post('/enqueue', async (req: Request, res: Response) => {
 
       await scheduleBlindExpiry(session.id, expiresAt);
 
+      // Real-time: notify both matched users of the new blind session
+      const io = req.app.get('io');
+      io.to(`user:${req.uid}`).emit('blind:session_created', session);
+      io.to(`user:${match.uid}`).emit('blind:session_created', session);
+
       res.json({ queued: false, session });
     } else {
       res.json({ queued: true, entry });

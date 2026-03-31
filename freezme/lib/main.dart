@@ -48,19 +48,30 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // FCM requires Firebase core — initialize only for push notification delivery
-  await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // Initialise auth state from stored JWT
-  await AuthService.instance.init();
+  // Wrap initialization in a fail-safe timeout to prevent white screen hangs
+  try {
+    await Future.wait([
+      AuthService.instance.init().timeout(const Duration(seconds: 3)),
+      Firebase.initializeApp().timeout(const Duration(seconds: 3)).then((_) {
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+        unawaited(PushNotificationService().initialize());
+      }),
+    ]).timeout(const Duration(seconds: 5), onTimeout: () {
+      debugPrint('[Init] Warning: Initialization timed out. Booting UI anyway.');
+      return [];
+    });
+  } catch (e) {
+    debugPrint('[Init] Error during bootstrap: $e');
+  }
 
   // Connect WebSocket if already logged in
-  final loggedIn = await ApiClient.instance.isLoggedIn;
-  if (loggedIn) {
-    unawaited(WebSocketService.instance.connect());
-    unawaited(PushNotificationService().initialize());
-  }
+  try {
+    final loggedIn = await ApiClient.instance.isLoggedIn.timeout(const Duration(seconds: 2));
+    if (loggedIn) {
+      unawaited(WebSocketService.instance.connect());
+      unawaited(PushNotificationService().initialize());
+    }
+  } catch (_) {}
 
   const sentryDsn = String.fromEnvironment('SENTRY_DSN');
 

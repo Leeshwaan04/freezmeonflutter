@@ -94,6 +94,12 @@ class AppFlowController extends ChangeNotifier {
   bool _disposed = false;
   StreamSubscription<AuthUser?>? _authSub;
 
+  // Local cache for profile fields — used when auth is unavailable (simulator)
+  String? _localName;
+  String? _localBio;
+  int? _localAge;
+  List<String> _localInterests = const [];
+
   @override
   void notifyListeners() {
     if (!_disposed) {
@@ -130,9 +136,14 @@ class AppFlowController extends ChangeNotifier {
   void openTab(int index) { _currentTabIndex = index; notifyListeners(); }
   double get completionPercent => isVerified ? 1.0 : (userBlueprint != null ? 0.6 : 0.3);
   bool get isProfileComplete => userBlueprint != null && isVerified;
-  String? get profilePhotoUrl => null;
-  String? get profileName => AuthService.instance.currentUser?.displayName;
+  String? get profilePhotoUrl => AuthService.instance.currentUser?.photoUrl;
+  String? get profileName => AuthService.instance.currentUser?.displayName ?? _localName;
   String? get profileEmail => AuthService.instance.currentUser?.email;
+  String? get profileBio => AuthService.instance.currentUser?.bio ?? _localBio;
+  int? get profileAge => AuthService.instance.currentUser?.age ?? _localAge;
+  List<String> get profileInterests => AuthService.instance.currentUser?.interests.isNotEmpty == true
+      ? AuthService.instance.currentUser!.interests
+      : _localInterests;
   int get uploadedPhotoCount => _photoSlots.where((s) => s.status == PhotoSlotStatus.uploaded).length;
   List<PhotoSlot> get photoSlots => List.unmodifiable(_photoSlots);
 
@@ -236,7 +247,10 @@ class AppFlowController extends ChangeNotifier {
 
   // Profile stubs
   VibeProfile? get fullProfile => activeProfile;
-  Future<void> refreshProfile() async {}
+  Future<void> refreshProfile() async {
+    await AuthService.instance.refreshProfile();
+    notifyListeners();
+  }
   Future<void> setBioFilled(bool value) async {}
   Future<void> setPreferencesSet(bool value) async {}
   Future<void> updateProfile({
@@ -300,9 +314,24 @@ class AppFlowController extends ChangeNotifier {
             replaceStack([AppStage.authGate]);
           }
         } else {
+          // Populate photo slots from existing profile photos
+          bool slotsChanged = false;
+          if (user.photoUrls.isNotEmpty) {
+            for (int i = 0; i < user.photoUrls.length && i < _photoSlots.length; i++) {
+              _photoSlots[i] = PhotoSlot(
+                status: PhotoSlotStatus.uploaded,
+                imageUrl: user.photoUrls[i],
+              );
+            }
+            slotsChanged = true;
+          }
           if (current == AppStage.authGate || current == AppStage.splash) {
             final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+            // replaceStack already calls notifyListeners
             replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
+          } else if (slotsChanged) {
+            // Slots updated but no navigation change — still notify listeners
+            notifyListeners();
           }
         }
       });
@@ -594,9 +623,16 @@ class AppFlowController extends ChangeNotifier {
       trustScore: userBlueprint?.trustScore ?? 100,
     );
 
+    // Store locally for simulator / offline mode
+    if (name != null) _localName = name;
+    if (bio != null) _localBio = bio;
+    if (age != null) _localAge = age;
+    if (interests != null) _localInterests = interests;
+
     if (uid == null) {
+      if (archetype != null) selectedArchetype = archetype;
       notifyListeners();
-      return; 
+      return;
     }
 
     await _repository.updateProfile(

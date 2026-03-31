@@ -67,9 +67,13 @@ class _AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final token = await _storage.read(key: _kAccessTokenKey);
-    if (token != null) {
-      options.headers['Authorization'] = 'Bearer $token';
+    try {
+      final token = await _storage.read(key: _kAccessTokenKey);
+      if (token != null) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
+    } catch (_) {
+      // Keychain unavailable (e.g. iOS Simulator entitlement error) — proceed without token
     }
     handler.next(options);
   }
@@ -82,9 +86,16 @@ class _AuthInterceptor extends Interceptor {
     if (err.response?.statusCode == 401 && !_refreshing) {
       _refreshing = true;
       try {
-        final refreshToken = await _storage.read(key: _kRefreshTokenKey);
+        String? refreshToken;
+        try {
+          refreshToken = await _storage.read(key: _kRefreshTokenKey);
+        } catch (_) {
+          handler.next(err);
+          _refreshing = false;
+          return;
+        }
         if (refreshToken == null) {
-          await _storage.deleteAll();
+          try { await _storage.deleteAll(); } catch (_) {}
           handler.next(err);
           return;
         }
@@ -105,7 +116,7 @@ class _AuthInterceptor extends Interceptor {
         final retried = await _dio.fetch(err.requestOptions);
         handler.resolve(retried);
       } catch (_) {
-        await _storage.deleteAll();
+        try { await _storage.deleteAll(); } catch (_) {}
         handler.next(err);
       } finally {
         _refreshing = false;

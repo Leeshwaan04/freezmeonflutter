@@ -38,13 +38,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
       if (!mounted) return;
       final flow = AppFlowScope.of(context, listen: false);
       setState(() {
-        _nameController.text = flow.fullProfile?.name ?? flow.profileName ?? '';
-        _bioController.text = flow.fullProfile?.bio ?? '';
-        if (flow.fullProfile?.age != null && flow.fullProfile!.age > 0) {
-            _ageController.text = flow.fullProfile!.age.toString();
+        _nameController.text = flow.profileName ?? '';
+        _bioController.text = flow.profileBio ?? '';
+        final age = flow.profileAge;
+        if (age != null && age > 0) {
+          _ageController.text = age.toString();
         }
-        _locationController.text = flow.fullProfile?.distance ?? '';
-        _selectedInterests = List.from(flow.fullProfile?.interests ?? []);
+        _selectedInterests = List.from(flow.profileInterests);
       });
     });
   }
@@ -71,22 +71,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
     try {
       final flow = AppFlowScope.of(context, listen: false);
       final uid = AuthService.instance.currentUser?.uid;
-      
-      if (uid == null) throw Exception('User not logged in');
 
-      await flow.repository.updateProfile(
-        uid: uid,
-        displayName: _nameController.text.trim(),
-        bio: _bioController.text.trim(),
-        age: int.tryParse(_ageController.text),
-        location: _locationController.text.trim(),
-        interests: _selectedInterests,
-      );
+      if (uid != null) {
+        await flow.repository.updateProfile(
+          uid: uid,
+          displayName: _nameController.text.trim(),
+          bio: _bioController.text.trim(),
+          age: int.tryParse(_ageController.text),
+          location: _locationController.text.trim(),
+          interests: _selectedInterests,
+        );
+        await flow.refreshProfile();
+      } else {
+        // Simulator / dev mode: save locally via onboarding data
+        await flow.updateOnboardingData(
+          name: _nameController.text.trim(),
+          bio: _bioController.text.trim(),
+          age: int.tryParse(_ageController.text),
+          interests: _selectedInterests,
+        );
+      }
 
       // Local state update
       await flow.setBioFilled(_bioController.text.trim().isNotEmpty);
       await flow.setPreferencesSet(_selectedInterests.isNotEmpty);
-      await flow.refreshProfile();
 
       if (mounted) {
         PremiumSnackBar.show(context, 'Profile updated successfully', type: SnackBarType.success);

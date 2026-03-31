@@ -256,6 +256,15 @@ class _AuthGatePageState extends State<AuthGatePage> {
                             foreground: Colors.white,
                             onTap: () => _signInWithEmail(flow),
                           ),
+                          const SizedBox(height: FreezmeInsets.elementSpacing),
+                          _AuthButton(
+                            label: 'Open Developer Preview',
+                            icon: Icons.developer_mode,
+                            foreground: FreezmeColors.primary,
+                            background: Colors.transparent,
+                            border: const BorderSide(color: FreezmeColors.primary, width: 1.5),
+                            onTap: () => flow.openDeveloperMenu(),
+                          ),
                         ],
                         const SizedBox(height: FreezmeInsets.sectionSpacing),
                         const Text(
@@ -424,7 +433,6 @@ class _AuthButton extends StatelessWidget {
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, color: textColor),
               const SizedBox(width: 12),

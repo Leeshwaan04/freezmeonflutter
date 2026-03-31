@@ -1,0 +1,27 @@
+appId: com.freezme.app
+---
+- launchApp:
+    clearState: false
+
+- assertVisible: "Tonight"
+
+# 1. Navigate to Profile Settings
+- tapOn: "Profile"
+- waitVisible: "Profile & Settings"
+
+# 2. Open Edit Profile
+- tapOn: "Edit Profile"
+- waitVisible: "Edit Profile"
+
+# 3. Update Bio
+- tapOn: "Bio"
+- inputText: "Music lover and coffee enthusiast. Testing the auto-save flow. ☕️🎸"
+- hideKeyboard
+
+# 4. Save Changes
+- tapOn: "Save"
+- waitVisible: "Profile updated successfully"
+
+# 5. Verify return to Settings
+- assertVisible: "Profile & Settings"
+- stopApp

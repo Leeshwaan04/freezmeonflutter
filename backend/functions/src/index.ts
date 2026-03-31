@@ -9,6 +9,8 @@
 
 import {setGlobalOptions} from "firebase-functions";
 import {onCall, HttpsError, CallableContext} from "firebase-functions/v1/https";
+import {onCall as onCallV2, HttpsError as HttpsErrorV2} from "firebase-functions/v2/https";
+import {defineSecret} from "firebase-functions/params";
 import * as admin from "firebase-admin";
 import {google, androidpublisher_v3 as androidPublisherV3} from "googleapis";
 
@@ -29,24 +31,14 @@ const PATH_INVITES_COLLECTION = "path_invites";
 const BLINDS_QUEUE_COLLECTION = "blinds_queue";
 const BLINDS_SESSIONS_COLLECTION = "blinds_sessions";
 
-const haversineKm = (
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number,
-): number => {
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return 6371 * c; // Earth radius km
-};
+// ── Secret Manager bindings (v2 functions only) ───────────────────────────
+// Provision with: firebase functions:secrets:set PLAY_SERVICE_ACCOUNT
+//                 firebase functions:secrets:set PLAY_BILLING_PACKAGE_NAME
+//                 firebase functions:secrets:set APPLE_SHARED_SECRET
+const secretPlayServiceAccount = defineSecret("PLAY_SERVICE_ACCOUNT");
+const secretPlayPackageName = defineSecret("PLAY_BILLING_PACKAGE_NAME");
+const secretAppleSharedSecret = defineSecret("APPLE_SHARED_SECRET");
+
 
 type Nullable<T> = T | null | undefined;
 
@@ -111,59 +103,22 @@ const requireAuth = (context: CallableContext): string => {
   return context.auth.uid;
 };
 
-const packageName = process.env.PLAY_BILLING_PACKAGE_NAME;
 
-let cachedPublisher:
-  | androidPublisherV3.Androidpublisher
-  | null = null;
-
-const getAndroidPublisherClient = async () => {
-  if (cachedPublisher) return cachedPublisher;
-
-  const serviceAccountJson = process.env.PLAY_SERVICE_ACCOUNT;
-  if (!serviceAccountJson) {
-    throw new HttpsError(
-      "failed-precondition",
-      "PLAY_SERVICE_ACCOUNT env var is not set",
-    );
-  }
-
-  if (!packageName) {
-    throw new HttpsError(
-      "failed-precondition",
-      "PLAY_BILLING_PACKAGE_NAME env var is not set",
-    );
-  }
-
-  let credentials: {client_email: string; private_key: string};
-  try {
-    credentials = JSON.parse(serviceAccountJson);
-  } catch (error) {
-    throw new HttpsError(
-      "invalid-argument",
-      `PLAY_SERVICE_ACCOUNT must be valid JSON: ${(error as Error).message}`,
-    );
-  }
-
-  const auth = new google.auth.JWT({
-    email: credentials.client_email,
-    key: credentials.private_key.replace(/\\n/g, "\n"),
-    scopes: ["https://www.googleapis.com/auth/androidpublisher"],
-  });
-
-  await auth.authorize();
-  cachedPublisher = google.androidpublisher({version: "v3", auth});
-  return cachedPublisher;
-};
 
 export const createProfile = onCall(async (data, context) => {
   const uid = requireAuth(context);
   const profile = sanitizeProfile(data);
 
-  await db.collection(PROFILE_COLLECTION).doc(uid).set(
+  // Hardening: Prevent client from overriding premium status
+  const profileRef = db.collection(PROFILE_COLLECTION).doc(uid);
+  const existingDoc = await profileRef.get();
+  const isCurrentlyPremium = existingDoc.exists ? existingDoc.data()?.isPremium === true : false;
+
+  await profileRef.set(
     {
       ...profile,
       uid,
+      isPremium: isCurrentlyPremium, // Retain existing status
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     },
     {merge: true},
@@ -282,6 +237,16 @@ export const likeProfile = onCall(async (data, context) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       status: "active",
     });
+
+    // Send notifications to both
+    const hostName = targetProfile.data()?.name || "Someone";
+    const likerName = (await db.collection(PROFILE_COLLECTION).doc(uid).get()).data()?.name || "Someone";
+
+    await Promise.all([
+      sendFCMNotification(uid, "It's a Match! 🧊", `You matched with ${hostName}!`),
+      sendFCMNotification(targetUid, "It's a Match! 🧊", `You matched with ${likerName}!`),
+    ]);
+
     return {matched: true, matchId: matchRef.id};
   }
 
@@ -301,94 +266,6 @@ export const getMatches = onCall(async (data, context) => {
   return {matches};
 });
 
-export const verifyAndroidPurchase = onCall(async (data, context) => {
-  const uid = requireAuth(context);
-
-  if (!packageName) {
-    throw new HttpsError(
-      "failed-precondition",
-      "PLAY_BILLING_PACKAGE_NAME env var must be configured",
-    );
-  }
-
-  const productId = typeof data?.productId === "string" ? data.productId : null;
-  const hasVerificationData =
-    typeof data?.verificationData === "object" &&
-    data.verificationData !== null;
-  const verificationData = hasVerificationData ?
-    data.verificationData as Record<string, unknown> :
-    null;
-
-  let purchaseToken: string | null = null;
-  if (typeof verificationData?.serverVerificationData === "string") {
-    purchaseToken = verificationData.serverVerificationData as string;
-  }
-
-  if (!productId || !purchaseToken) {
-    throw new HttpsError(
-      "invalid-argument",
-      "productId and verificationData.serverVerificationData are required",
-    );
-  }
-
-  const androidPublisher = await getAndroidPublisherClient();
-
-  try {
-    const response = await androidPublisher.purchases.subscriptions.get({
-      packageName,
-      subscriptionId: productId,
-      token: purchaseToken,
-    });
-
-    const subscription = response.data;
-    const expiryMillis = subscription.expiryTimeMillis ?
-      Number(subscription.expiryTimeMillis) :
-      null;
-    const isAcknowledged = subscription.acknowledgementState === 1;
-    // cancelReason: 0 = active, >0 = cancelled/refunded
-    const cancelReason = Number(subscription.cancelReason ?? 0);
-
-    const now = Date.now();
-    const isActive =
-      Boolean(expiryMillis && expiryMillis > now) &&
-      cancelReason === 0;
-
-    if (isActive && !isAcknowledged) {
-      await androidPublisher.purchases.subscriptions.acknowledge({
-        packageName,
-        subscriptionId: productId,
-        token: purchaseToken,
-        requestBody: {developerPayload: `ack-${uid}-${productId}`},
-      });
-    }
-
-    await db.collection(MEMBERSHIPS_COLLECTION).doc(uid).set(
-      {
-        productId,
-        active: isActive,
-        expiry: expiryMillis ?
-          admin.firestore.Timestamp.fromMillis(expiryMillis) :
-          null,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      {merge: true},
-    );
-
-    return {
-      valid: isActive,
-      expiry: expiryMillis ? new Date(expiryMillis).toISOString() : null,
-    };
-  } catch (error) {
-    console.error(
-      "verifyAndroidPurchase failed",
-      error,
-    );
-    throw new HttpsError(
-      "internal",
-      "Failed to verify purchase with Google Play",
-    );
-  }
-});
 
 export const sendMeltChatInvite = onCall(async (data, context) => {
   const hostUid = requireAuth(context);
@@ -463,7 +340,28 @@ export const sendMeltChatInvite = onCall(async (data, context) => {
   return {sessionId: sessionRef.id, resumed: false};
 });
 
-// -------------------- Paths (Nearby) --------------------
+import * as geofire from "geofire-common";
+
+// ── Notifications Helper ──────────────────────────────────────────────────
+const sendFCMNotification = async (
+  uid: string,
+  title: string,
+  body: string,
+  data?: Record<string, string>,
+) => {
+  const userDoc = await db.collection("users").doc(uid).get();
+  const fcmToken = userDoc.data()?.fcmToken;
+  if (!fcmToken) return;
+
+  await admin.messaging().send({
+    token: fcmToken,
+    notification: {title, body},
+    data: data || {},
+    apns: {payload: {aps: {sound: "default"}}},
+  });
+};
+
+// ── Paths (Nearby) Optimized with Geohash ──────────────────────────────────
 export const upsertPathsPresence = onCall(async (data, context) => {
   const uid = requireAuth(context);
   const intents = Array.isArray(data?.intents) ?
@@ -480,18 +378,12 @@ export const upsertPathsPresence = onCall(async (data, context) => {
     visible_until: admin.firestore.Timestamp.fromDate(visibleUntil),
     last_active_at: admin.firestore.FieldValue.serverTimestamp(),
   };
+
+  // Add geohash for radius search
   if (typeof data?.lat === "number" && typeof data?.lng === "number") {
     payload.lat = data.lat;
     payload.lng = data.lng;
-  }
-  if (typeof data?.geohash === "string") {
-    payload.geohash = data.geohash;
-  }
-  if (typeof data?.availability === "string") {
-    payload.availability = data.availability;
-  }
-  if (typeof data?.interestsSummary === "string") {
-    payload.interests = data.interestsSummary;
+    payload.geohash = geofire.geohashForLocation([data.lat, data.lng]);
   }
 
   await db.collection(PATHS_PRESENCE_COLLECTION)
@@ -502,48 +394,61 @@ export const upsertPathsPresence = onCall(async (data, context) => {
 
 export const getNearbyPaths = onCall(async (data, context) => {
   requireAuth(context);
-  const intents = Array.isArray(data?.intents) ?
-    data.intents.filter((v: unknown) => typeof v === "string") :
-    [];
   const originLat = typeof data?.lat === "number" ? data.lat : null;
   const originLng = typeof data?.lng === "number" ? data.lng : null;
-  const maxRadius = typeof data?.radiusKm === "number" && data.radiusKm > 0 ?
+  const radiusKm = typeof data?.radiusKm === "number" && data.radiusKm > 0 ?
     data.radiusKm :
-    50;
-  // NOTE: Replace with real geohash/radius filtering in production.
-  let ref = db.collection(PATHS_PRESENCE_COLLECTION)
-    .orderBy("last_active_at", "desc")
-    .limit(50);
-  if (intents.length > 0) {
-    ref = ref.where("intents", "array-contains-any", intents);
+    10;
+
+  if (originLat === null || originLng === null) {
+    throw new HttpsError("invalid-argument", "lat and lng are required");
   }
-  const snapshot = await ref.get();
+
+  const center: geofire.Geopoint = [originLat, originLng];
+  const radiusInM = radiusKm * 1000;
+
+  // Each item in 'bounds' represents a [startCode, endCode] range.
+  const bounds = geofire.geohashQueryBounds(center, radiusInM);
+  const promises = [];
+  for (const b of bounds) {
+    const q = db.collection(PATHS_PRESENCE_COLLECTION)
+      .orderBy("geohash")
+      .startAt(b[0])
+      .endAt(b[1]);
+    promises.push(q.get());
+  }
+
+  const snapshots = await Promise.all(promises);
   const now = Date.now();
-  const profiles = snapshot.docs
-    .map((doc) => ({
-      id: doc.id,
-      data: doc.data() as Record<string, unknown>,
-    }))
-    .filter(({data}) => {
-      const vu = (data.visible_until as admin.firestore.Timestamp |
-        undefined)?.toMillis?.();
-      if (vu && vu <= now) return false;
-      if (originLat !== null && originLng !== null &&
-        typeof data.lat === "number" &&
-        typeof data.lng === "number") {
-        const distance = haversineKm(
-          originLat,
-          originLng,
-          data.lat as number,
-          data.lng as number,
-        );
-        return distance <= maxRadius;
+  const profiles: any[] = [];
+
+  for (const snap of snapshots) {
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      const lat = d.lat as number;
+      const lng = d.lng as number;
+
+      // Filter by real distance and visibility
+      const distanceInKm = geofire.distanceBetween([lat, lng], center);
+      const distanceInM = distanceInKm * 1000;
+      const vu = (d.visible_until as admin.firestore.Timestamp | undefined)?.toMillis?.();
+
+      if (distanceInM <= radiusInM && (!vu || vu > now)) {
+        profiles.push({
+          id: doc.id,
+          ...d,
+          distance: distanceInKm,
+        });
       }
-      return true;
-    })
-    .map(({id, data}) => ({id, ...data}));
-  return {profiles};
+    }
+  }
+
+  // Sort by closest
+  profiles.sort((a, b) => a.distance - b.distance);
+
+  return {profiles: profiles.slice(0, 50)};
 });
+
 
 export const sendPathsInvite = onCall(async (data, context) => {
   const senderUid = requireAuth(context);
@@ -701,3 +606,282 @@ export const reportBlindSession = onCall(async (data, context) => {
   }, {merge: true});
   return {ok: true};
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Phase 2 — Receipt Verification  (Firebase Functions v2 + Secret Manager)
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+interface MembershipRecord {
+  platform: "ios" | "android";
+  productId: string;
+  active: boolean;
+  expiry: admin.firestore.Timestamp | null;
+  environment: "production" | "sandbox";
+  updatedAt: admin.firestore.FieldValue;
+}
+
+const writeMembership = async (
+  uid: string,
+  record: MembershipRecord,
+): Promise<void> => {
+  await db
+    .collection(MEMBERSHIPS_COLLECTION)
+    .doc(uid)
+    .set(record, {merge: true});
+};
+
+// ---------------------------------------------------------------------------
+// Apple App Store receipt verification
+//
+// Called from the Flutter in_app_purchase plugin after a purchase completes.
+// Payload: { productId: string, verificationData: { serverVerificationData: string } }
+// Returns: { valid: boolean, expiry: string | null, environment: string }
+// ---------------------------------------------------------------------------
+
+const APPLE_PRODUCTION_URL = "https://buy.itunes.apple.com/verifyReceipt";
+const APPLE_SANDBOX_URL = "https://sandbox.itunes.apple.com/verifyReceipt";
+
+interface AppleVerifyResponse {
+  status: number;
+  latest_receipt_info?: Array<{
+    product_id: string;
+    expires_date_ms: string;
+    cancellation_date_ms?: string;
+  }>;
+  receipt?: {bundle_id: string};
+}
+
+const callAppleEndpoint = async (
+  url: string,
+  receiptData: string,
+  sharedSecret: string,
+): Promise<AppleVerifyResponse> => {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      "receipt-data": receiptData,
+      "password": sharedSecret,
+      "exclude-old-transactions": true,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Apple endpoint ${url} returned HTTP ${res.status}`);
+  }
+  return res.json() as Promise<AppleVerifyResponse>;
+};
+
+export const verifyApplePurchase = onCallV2(
+  {secrets: [secretAppleSharedSecret]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsErrorV2("unauthenticated", "Authentication required");
+    }
+    const uid = request.auth.uid;
+
+    const productId =
+      typeof request.data?.productId === "string" ?
+        request.data.productId :
+        null;
+    const receiptData =
+      typeof request.data?.verificationData?.serverVerificationData === "string" ?
+        request.data.verificationData.serverVerificationData :
+        null;
+
+    if (!productId || !receiptData) {
+      throw new HttpsErrorV2(
+        "invalid-argument",
+        "productId and verificationData.serverVerificationData are required",
+      );
+    }
+
+    const sharedSecret = secretAppleSharedSecret.value();
+
+    // Try production first. Apple returns status 21007 when a sandbox receipt
+    // hits the production endpoint — retry against sandbox automatically.
+    let response = await callAppleEndpoint(
+      APPLE_PRODUCTION_URL,
+      receiptData,
+      sharedSecret,
+    ).catch((err: Error) => {
+      throw new HttpsErrorV2(
+        "internal",
+        `Apple request failed: ${err.message}`,
+      );
+    });
+
+    let environment: "production" | "sandbox" = "production";
+    if (response.status === 21007) {
+      response = await callAppleEndpoint(
+        APPLE_SANDBOX_URL,
+        receiptData,
+        sharedSecret,
+      ).catch((err: Error) => {
+        throw new HttpsErrorV2(
+          "internal",
+          `Apple sandbox request failed: ${err.message}`,
+        );
+      });
+      environment = "sandbox";
+    }
+
+    // Status 0 = valid. Status 21006 = expired but receipt is authentic — we
+    // still record it so the client knows the subscription lapsed cleanly.
+    if (response.status !== 0 && response.status !== 21006) {
+      console.error("Apple verification rejected", {uid, status: response.status});
+      throw new HttpsErrorV2(
+        "failed-precondition",
+        `Apple receipt invalid (status ${response.status})`,
+      );
+    }
+
+    // Find the most-recent non-cancelled transaction for this productId.
+    const transactions = (response.latest_receipt_info ?? [])
+      .filter((t) => t.product_id === productId && !t.cancellation_date_ms);
+    transactions.sort(
+      (a, b) => Number(b.expires_date_ms) - Number(a.expires_date_ms),
+    );
+    const latest = transactions[0];
+
+    const expiryMs = latest ? Number(latest.expires_date_ms) : null;
+    const isActive = Boolean(expiryMs && expiryMs > Date.now());
+
+    await writeMembership(uid, {
+      platform: "ios",
+      productId,
+      active: isActive,
+      expiry: expiryMs ?
+        admin.firestore.Timestamp.fromMillis(expiryMs) :
+        null,
+      environment,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return {
+      valid: isActive,
+      expiry: expiryMs ? new Date(expiryMs).toISOString() : null,
+      environment,
+    };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Google Play subscription verification  (v2 — reads from Secret Manager)
+//
+// Replaces the v1 verifyAndroidPurchase. Deploy both during the migration
+// period, then retire the v1 version once clients have been updated.
+// Payload: { productId: string, verificationData: { serverVerificationData: string } }
+// Returns: { valid: boolean, expiry: string | null }
+// ---------------------------------------------------------------------------
+
+let cachedPublisherV2: androidPublisherV3.Androidpublisher | null = null;
+
+const getAndroidPublisherClientV2 = async (
+  serviceAccountJson: string,
+): Promise<androidPublisherV3.Androidpublisher> => {
+  if (cachedPublisherV2) return cachedPublisherV2;
+
+  let credentials: {client_email: string; private_key: string};
+  try {
+    credentials = JSON.parse(serviceAccountJson);
+  } catch (err) {
+    throw new HttpsErrorV2(
+      "invalid-argument",
+      `PLAY_SERVICE_ACCOUNT secret is not valid JSON: ${(err as Error).message}`,
+    );
+  }
+
+  const auth = new google.auth.JWT({
+    email: credentials.client_email,
+    key: credentials.private_key.replace(/\\n/g, "\n"),
+    scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+  });
+  await auth.authorize();
+  cachedPublisherV2 = google.androidpublisher({version: "v3", auth});
+  return cachedPublisherV2;
+};
+
+export const verifyAndroidPurchaseV2 = onCallV2(
+  {secrets: [secretPlayServiceAccount, secretPlayPackageName]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsErrorV2("unauthenticated", "Authentication required");
+    }
+    const uid = request.auth.uid;
+
+    const productId =
+      typeof request.data?.productId === "string" ?
+        request.data.productId :
+        null;
+    const purchaseToken =
+      typeof request.data?.verificationData?.serverVerificationData === "string" ?
+        request.data.verificationData.serverVerificationData :
+        null;
+
+    if (!productId || !purchaseToken) {
+      throw new HttpsErrorV2(
+        "invalid-argument",
+        "productId and verificationData.serverVerificationData are required",
+      );
+    }
+
+    const pkg = secretPlayPackageName.value();
+    const androidPublisher = await getAndroidPublisherClientV2(
+      secretPlayServiceAccount.value(),
+    );
+
+    try {
+      const {data: subscription} =
+        await androidPublisher.purchases.subscriptions.get({
+          packageName: pkg,
+          subscriptionId: productId,
+          token: purchaseToken,
+        });
+
+      const expiryMillis = subscription.expiryTimeMillis ?
+        Number(subscription.expiryTimeMillis) :
+        null;
+      const isAcknowledged = subscription.acknowledgementState === 1;
+      const cancelReason = Number(subscription.cancelReason ?? 0);
+      const now = Date.now();
+      const isActive =
+        Boolean(expiryMillis && expiryMillis > now) && cancelReason === 0;
+
+      // Acknowledge so Google doesn't auto-refund after 3 days.
+      if (isActive && !isAcknowledged) {
+        await androidPublisher.purchases.subscriptions.acknowledge({
+          packageName: pkg,
+          subscriptionId: productId,
+          token: purchaseToken,
+          requestBody: {developerPayload: `ack-${uid}-${productId}`},
+        });
+      }
+
+      await writeMembership(uid, {
+        platform: "android",
+        productId,
+        active: isActive,
+        expiry: expiryMillis ?
+          admin.firestore.Timestamp.fromMillis(expiryMillis) :
+          null,
+        environment: "production",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return {
+        valid: isActive,
+        expiry: expiryMillis ? new Date(expiryMillis).toISOString() : null,
+      };
+    } catch (error) {
+      console.error("verifyAndroidPurchaseV2 failed", error);
+      throw new HttpsErrorV2(
+        "internal",
+        "Failed to verify purchase with Google Play",
+      );
+    }
+  },
+);

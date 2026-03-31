@@ -1,0 +1,20 @@
+appId: com.freezme.app
+---
+- launchApp:
+    clearState: false
+
+- assertVisible: "TONIGHT IN"
+
+# Navigate to Chats tab
+- tapOn: "Chats"
+- assertVisible: "All"
+
+# Navigate to Paths tab
+- tapOn: "Paths"
+- assertVisible: "Show me on Paths"
+
+# Navigate to Blinds tab
+- tapOn: "Blinds"
+
+# Navigate to Profile tab
+- tapOn: "Profile"
