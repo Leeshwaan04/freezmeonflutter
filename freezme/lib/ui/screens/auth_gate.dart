@@ -201,15 +201,8 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 20),
 
-                            // FREEZME wordmark
-                            Text(
-                              'FREEZME',
-                              style: FreezmeTypography.title.copyWith(
-                                letterSpacing: 1.2,
-                                color: FreezmeColors.primary,
-                                fontSize: 28,
-                              ),
-                            ),
+                            // FREEZME animated wordmark
+                            const _FreezmeWordmark(),
 
                             const SizedBox(height: 8),
 
@@ -319,6 +312,173 @@ class _AuthGatePageState extends State<AuthGatePage>
           );
         },
       ),
+    );
+  }
+}
+
+// ── FREEZME wordmark ─────────────────────────────────────────────────────────
+
+/// Typewriter letter-by-letter entrance, then an infinite shimmer sweep.
+class _FreezmeWordmark extends StatefulWidget {
+  const _FreezmeWordmark();
+
+  @override
+  State<_FreezmeWordmark> createState() => _FreezmeWordmarkState();
+}
+
+class _FreezmeWordmarkState extends State<_FreezmeWordmark>
+    with TickerProviderStateMixin {
+  static const _word = 'FREEZME';
+
+  // One controller per letter for the typewriter entrance
+  late final List<AnimationController> _letterControllers;
+  late final List<Animation<double>> _letterFades;
+  late final List<Animation<double>> _letterScales;
+
+  // Continuous shimmer sweep across the full word
+  late final AnimationController _shimmerController;
+
+  // Frost particle burst per letter
+  late final List<AnimationController> _frostControllers;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _letterControllers = List.generate(
+      _word.length,
+      (_) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 380),
+      ),
+    );
+
+    _letterFades = _letterControllers.map((c) {
+      return CurvedAnimation(parent: c, curve: Curves.easeOut);
+    }).toList();
+
+    _letterScales = _letterControllers.map((c) {
+      return Tween<double>(begin: 1.4, end: 1.0)
+          .animate(CurvedAnimation(parent: c, curve: Curves.easeOutBack));
+    }).toList();
+
+    _frostControllers = List.generate(
+      _word.length,
+      (_) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 500),
+      ),
+    );
+
+    // Stagger each letter by 90ms
+    for (var i = 0; i < _word.length; i++) {
+      Future.delayed(Duration(milliseconds: 200 + i * 90), () {
+        if (!mounted) return;
+        _letterControllers[i].forward();
+        _frostControllers[i].forward();
+      });
+    }
+
+    // Start shimmer after all letters have appeared
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    Future.delayed(
+      const Duration(milliseconds: 200 + _word.length * 90 + 300),
+      () { if (mounted) _shimmerController.repeat(); },
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final c in _letterControllers) { c.dispose(); }
+    for (final c in _frostControllers) { c.dispose(); }
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _shimmerController,
+      builder: (context, _) {
+        // Shimmer gradient sweeps left → right
+        final shimmerPos = _shimmerController.value;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(_word.length, (i) {
+            // Per-letter shimmer brightness — peak when sweep passes this letter
+            final letterFrac = i / (_word.length - 1);
+            final dist = (shimmerPos - letterFrac).abs();
+            final shimmerBright = math.max(0.0, 1.0 - dist * 4.0);
+
+            final color = Color.lerp(
+              FreezmeColors.primary,
+              const Color(0xFFB39DDB), // light lavender highlight
+              shimmerBright,
+            )!;
+
+            return AnimatedBuilder(
+              animation: Listenable.merge(
+                  [_letterControllers[i], _frostControllers[i]]),
+              builder: (context, _) {
+                final frost = _frostControllers[i].value;
+                return Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Frost particle ring — expands and fades on letter land
+                    if (frost > 0 && frost < 1)
+                      ...List.generate(6, (p) {
+                        final angle = (p / 6) * math.pi * 2;
+                        final radius = frost * 18.0;
+                        final particleAlpha = (1.0 - frost).clamp(0.0, 1.0);
+                        return Positioned(
+                          left: math.cos(angle) * radius,
+                          top: math.sin(angle) * radius - 4,
+                          child: Opacity(
+                            opacity: particleAlpha * 0.7,
+                            child: Icon(
+                              Icons.ac_unit,
+                              size: 5 + frost * 2,
+                              color: FreezmeColors.accent,
+                            ),
+                          ),
+                        );
+                      }),
+                    // The letter itself
+                    FadeTransition(
+                      opacity: _letterFades[i],
+                      child: ScaleTransition(
+                        scale: _letterScales[i],
+                        child: Text(
+                          _word[i],
+                          style: FreezmeTypography.title.copyWith(
+                            letterSpacing: 2.0,
+                            color: color,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            shadows: shimmerBright > 0.1
+                                ? [
+                                    Shadow(
+                                      color: FreezmeColors.primary
+                                          .withValues(alpha: shimmerBright * 0.4),
+                                      blurRadius: 12 * shimmerBright,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          }),
+        );
+      },
     );
   }
 }
