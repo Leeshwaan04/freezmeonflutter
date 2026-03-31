@@ -182,7 +182,7 @@ class _SplashScreenState extends State<SplashScreen>
                               ),
                               const SizedBox(height: 8),
                               const Text(
-                                'Where Compatibility Meets Real Connection 💜',
+                                'Where Compatibility Meets Real Connection',
                                 textAlign: TextAlign.center,
                                 style: FreezmeTypography.subtitle,
                               ),
