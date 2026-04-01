@@ -794,6 +794,7 @@ class _TonightProfileCard extends StatelessWidget {
           width: 1,
         ),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -806,37 +807,30 @@ class _TonightProfileCard extends StatelessWidget {
             );
           },
           child: SizedBox(
-            height: 120,
+            height: 130,
             child: Row(
               children: [
                 // Profile Image with gradient overlay
                 Stack(
                   children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(FreezmeDesignSystem.radiusLg)),
-                      child: CachedNetworkImage(
-                        imageUrl: profile.imageUrl,
+                    CachedNetworkImage(
+                      imageUrl: profile.imageUrl,
+                      width: 110,
+                      height: 130,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 220,
+                      memCacheHeight: 260,
+                      placeholder: (context, _) => Container(
                         width: 110,
-                        height: 120,
-                        fit: BoxFit.cover,
-                        memCacheWidth: 220,
-                        memCacheHeight: 240,
-                        placeholder: (context, _) => Container(
-                          width: 110,
-                          height: 120,
-                          decoration: const BoxDecoration(
-                            color: FreezmeDesignSystem.primaryLight,
-                          ),
-                          child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
-                        ),
-                        errorWidget: (context, _, _) => Container(
-                          width: 110,
-                          height: 120,
-                          decoration: const BoxDecoration(
-                            color: FreezmeDesignSystem.primaryLight,
-                          ),
-                          child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
-                        ),
+                        height: 130,
+                        color: FreezmeDesignSystem.primaryLight,
+                        child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
+                      ),
+                      errorWidget: (context, _, _) => Container(
+                        width: 110,
+                        height: 130,
+                        color: FreezmeDesignSystem.primaryLight,
+                        child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
                       ),
                     ),
                     // Compatibility badge
