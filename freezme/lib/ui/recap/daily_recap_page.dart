@@ -160,22 +160,31 @@ class DailyRecapPage extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            const _RecapBullet(
-                              color: FreezmeDesignSystem.primary,
-                              text:
-                                  'You had a great vibe date that turned into a chat! 💜',
-                            ),
+                            if (flow.matches.isNotEmpty)
+                              _RecapBullet(
+                                color: FreezmeDesignSystem.primary,
+                                text: flow.matches.length == 1
+                                    ? 'You matched with ${flow.matches.first.profile.name.split(' ').first} today! 💜'
+                                    : 'You matched with ${flow.matches.length} people today! 💜',
+                              )
+                            else
+                              const _RecapBullet(
+                                color: FreezmeDesignSystem.primary,
+                                text: 'No matches yet today — keep exploring! 💜',
+                              ),
                             const SizedBox(height: 8),
                             _RecapBullet(
                               color: FreezmeDesignSystem.secondary,
-                              text:
-                                  '${flow.matches.length} people viewed your profile today',
+                              text: flow.matches.isNotEmpty
+                                  ? '${flow.matches.length} ${flow.matches.length == 1 ? 'person is' : 'people are'} waiting to chat with you'
+                                  : 'Come back tonight for fresh profiles in your pool',
                             ),
                             const SizedBox(height: 8),
-                            const _RecapBullet(
+                            _RecapBullet(
                               color: FreezmeDesignSystem.accent,
-                              text:
-                                  'You\'re in the top 10% most active users this week! 🎉',
+                              text: flow.completionPercent >= 80
+                                  ? 'Your profile is ${flow.completionPercent.round()}% complete — looking great! 🎉'
+                                  : 'Complete your profile to get more matches 🚀',
                             ),
                           ],
                         ),

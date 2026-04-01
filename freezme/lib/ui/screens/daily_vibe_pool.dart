@@ -46,27 +46,28 @@ class _DailyVibePoolPageState extends State<DailyVibePoolPage> {
 
     final hasOverlap = profile.archetypes.contains(userMission);
 
+    final n = profile.name.split(' ').first;
     switch (userMission) {
       case LifestyleArchetype.gym:
         return hasOverlap
-            ? "Looking for a PR partner or a tennis rival? Arjun is ready! 🎾"
-            : "Arjun is more into ${profile.archetypes.first.name} vibes, but maybe a gym break? 🥦";
+            ? "$n is ready for a workout partner or friendly rivalry 🎾"
+            : "$n is more into ${profile.archetypes.isNotEmpty ? profile.archetypes.first.name : 'other'} vibes — opposites can spark! 🥦";
       case LifestyleArchetype.brunch:
         return hasOverlap
-            ? "Sarah knows the best avocado toast in town. Sunday brunch? 🥂"
-            : "Sarah is a clubbing pro, but she might enjoy a quiet coffee ☕";
+            ? "$n knows the best spots in town. Sunday brunch? 🥂"
+            : "$n has a different vibe, but a good coffee chat never hurts ☕";
       case LifestyleArchetype.clubbing:
         return hasOverlap
-            ? "Searching for someone who knows the best guestlists? Dance? 🎶"
-            : "A bit more 'Homey' than 'Clubby', but worth the vibe check! ✨";
+            ? "$n knows every good spot in the city. Dance? 🎶"
+            : "$n is a bit more low-key, but worth the vibe check! ✨";
       case LifestyleArchetype.travel:
         return hasOverlap
-            ? "Adventure partner found! Weekend trek or road trip? 🎒"
-            : "Not a traveler, but deep talks are guaranteed 🏠";
+            ? "$n is also an explorer! Weekend trek or road trip? 🎒"
+            : "$n prefers staying in, but deep conversations are guaranteed 🏠";
       case LifestyleArchetype.homebody:
         return hasOverlap
-            ? "Cozy night and deep talks. Perfect match for a slow weekend 🏠"
-            : "A bit higher energy than home, but opposites attract! ⚡";
+            ? "$n loves a cozy night and deep talks. Perfect slow weekend match 🏠"
+            : "$n is higher energy, but opposites attract! ⚡";
     }
   }
 

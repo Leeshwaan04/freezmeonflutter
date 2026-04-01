@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../main.dart';
 import '../../models/paths.dart';
 import '../design_system.dart';
@@ -23,7 +24,6 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
   bool notifyWhenNearby = true;
   final Map<String, String> inviteStatusByUser = {};
   final Map<String, StreamSubscription<PathsInvite>> _inviteSubs = {};
-  static bool _filtersExpanded = false;
   late final AnimationController _radarController;
 
   @override
@@ -135,144 +135,286 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
           child: CustomScrollView(
             key: const PageStorageKey('pathsScroll'),
             slivers: [
-              // 1. Header & Visibility Status
+              // 1. Header & Controls
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 sliver: SliverToBoxAdapter(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Header row
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Paths', style: FreezmeDesignSystem.display),
-                           _StatusBadge(visible: visible),
+                          const Spacer(),
+                          // Waves pill
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('👋', style: TextStyle(fontSize: 13)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '$wavesLeft left',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: FreezmeDesignSystem.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _StatusBadge(visible: visible),
                         ],
                       ),
                       const SizedBox(height: 16),
-                      // Main Visibility Card
-                      PremiumCard(
-                        padding: EdgeInsets.zero,
-                        child: Column(
+
+                      // Frosted visibility toggle card
+                      _FrostedCard(
+                        child: Row(
                           children: [
-                            SwitchListTile(
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                gradient: visible
+                                    ? const LinearGradient(
+                                        colors: [FreezmeDesignSystem.primary, Color(0xFF7C3AED)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      )
+                                    : null,
+                                color: visible ? null : FreezmeDesignSystem.surfaceAlt,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                visible ? Icons.location_on_rounded : Icons.location_off_rounded,
+                                color: visible ? Colors.white : FreezmeDesignSystem.textTertiary,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Show me on Paths',
+                                    style: FreezmeDesignSystem.h3.copyWith(fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    visible
+                                        ? 'Visible within ${radius.round()} km'
+                                        : 'Turn on to discover people nearby',
+                                    style: FreezmeDesignSystem.caption.copyWith(
+                                      color: visible
+                                          ? FreezmeDesignSystem.success
+                                          : FreezmeDesignSystem.textTertiary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
                               value: visible,
+                              activeThumbColor: Colors.white,
                               activeTrackColor: FreezmeDesignSystem.primary,
-                              title: Text(
-                                'Show me on Paths',
-                                style: FreezmeDesignSystem.h3.copyWith(fontSize: 18),
-                              ),
-                              subtitle: Text(
-                                visible 
-                                  ? 'You are visible to others within ${radius.round()}km' 
-                                  : 'Turn on to see who is nearby',
-                                style: FreezmeDesignSystem.caption,
-                              ),
+                              inactiveThumbColor: Colors.white,
+                              inactiveTrackColor: FreezmeDesignSystem.border,
                               onChanged: (v) {
+                                HapticFeedback.mediumImpact();
                                 setState(() => visible = v);
                                 if (v) _refresh(flow);
                               },
                             ),
-                            if (visible) ...[
-                              const Divider(height: 1, indent: 16, endIndent: 16, color: FreezmeDesignSystem.border),
-                              // Filters Expansion
-                              Theme(
-                                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                                child: ExpansionTile(
-                                  title: const Text(
-                                    'Filters & Preferences',
-                                    style: TextStyle(
-                                      color: FreezmeDesignSystem.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  leading: const Icon(Icons.tune_rounded, color: FreezmeDesignSystem.primary),
-                                  initiallyExpanded: _filtersExpanded,
-                                  onExpansionChanged: (exp) => setState(() => _filtersExpanded = exp),
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          // Distance Slider
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              const Text('Distance', style: FreezmeDesignSystem.bodyMedium),
-                                              Text('${radius.round()} km', style: FreezmeDesignSystem.h3.copyWith(fontSize: 18)),
-                                            ],
-                                          ),
-                                          Slider(
-                                            value: radius,
-                                            min: 1,
-                                            max: 50,
-                                            divisions: 49,
-                                            activeColor: FreezmeDesignSystem.primary,
-                                            inactiveColor: FreezmeDesignSystem.primary.withValues(alpha: 0.2),
-                                            onChanged: (v) => setState(() => radius = v),
-                                            onChangeEnd: (_) => _refresh(flow),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          // Intents Filter
-                                          const Text('Looking for:', style: FreezmeDesignSystem.caption),
-                                          const SizedBox(height: 8),
-                                          Wrap(
-                                            spacing: 8,
-                                            children: ['Friends', 'Dates', 'Either'].map((label) {
-                                              final isSelected = intents.contains(label);
-                                              return FilterChip(
-                                                label: Text(label),
-                                                selected: isSelected,
-                                                onSelected: (_) {
-                                                  setState(() {
-                                                    isSelected ? intents.remove(label) : intents.add(label);
-                                                  });
-                                                  _refresh(flow);
-                                                },
-                                                selectedColor: FreezmeDesignSystem.primary.withValues(alpha: 0.2),
-                                                labelStyle: TextStyle(
-                                                  color: isSelected ? FreezmeDesignSystem.primary : FreezmeDesignSystem.textSecondary,
-                                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                                                ),
-                                                checkmarkColor: FreezmeDesignSystem.primary,
-                                                backgroundColor: FreezmeDesignSystem.surfaceAlt,
-                                                side: BorderSide.none,
-                                                shape: const StadiumBorder(),
-                                              );
-                                            }).toList(),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          // Wave Stats
-                                          Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: FreezmeDesignSystem.primary.withValues(alpha: 0.1),
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                const Icon(Icons.waving_hand_rounded, size: 20, color: FreezmeDesignSystem.primary),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  '$wavesLeft waves remaining today',
-                                                  style: const TextStyle(
-                                                    color: FreezmeDesignSystem.primary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
+
+                      if (visible) ...[
+                        const SizedBox(height: 12),
+
+                        // Distance card
+                        _FrostedCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.straighten_rounded, size: 16, color: FreezmeDesignSystem.primary),
+                                  const SizedBox(width: 6),
+                                  const Text('Distance', style: FreezmeDesignSystem.captionMedium),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: FreezmeDesignSystem.primary,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '${radius.round()} km',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              // Quick select pills
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [1.0, 5.0, 10.0, 25.0, 50.0].map((km) {
+                                  final active = radius.round() == km.round();
+                                  return GestureDetector(
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() => radius = km);
+                                      _refresh(flow);
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: active
+                                            ? FreezmeDesignSystem.primary
+                                            : Colors.white.withValues(alpha: 0.5),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: active
+                                              ? FreezmeDesignSystem.primary
+                                              : FreezmeDesignSystem.border,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '${km.round()}km',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: active ? Colors.white : FreezmeDesignSystem.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 4,
+                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                                  activeTrackColor: FreezmeDesignSystem.primary,
+                                  inactiveTrackColor: FreezmeDesignSystem.primary.withValues(alpha: 0.15),
+                                  thumbColor: FreezmeDesignSystem.primary,
+                                  overlayColor: FreezmeDesignSystem.primary.withValues(alpha: 0.1),
+                                ),
+                                child: Slider(
+                                  value: radius,
+                                  min: 1,
+                                  max: 50,
+                                  divisions: 49,
+                                  onChanged: (v) => setState(() => radius = v),
+                                  onChangeEnd: (_) => _refresh(flow),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Tonight's Vibe card
+                        _FrostedCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.bolt_rounded, size: 16, color: FreezmeDesignSystem.primary),
+                                  const SizedBox(width: 6),
+                                  const Text("Tonight's Vibe", style: FreezmeDesignSystem.captionMedium),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              // Segmented pill toggle
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: FreezmeDesignSystem.surfaceAlt,
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                child: Row(
+                                  children: [
+                                    ('Connect', 'Friends'),
+                                    ('Spark', 'Dates'),
+                                    ('Open', 'Either'),
+                                  ].map(((String, String) item) {
+                                    final displayLabel = item.$1;
+                                    final intentKey = item.$2;
+                                    final isSelected = intents.contains(intentKey);
+                                    return Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          HapticFeedback.selectionClick();
+                                          setState(() {
+                                            isSelected ? intents.remove(intentKey) : intents.add(intentKey);
+                                          });
+                                          _refresh(flow);
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 180),
+                                          padding: const EdgeInsets.symmetric(vertical: 10),
+                                          decoration: BoxDecoration(
+                                            gradient: isSelected
+                                                ? const LinearGradient(
+                                                    colors: [FreezmeDesignSystem.primary, Color(0xFF7C3AED)],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  )
+                                                : null,
+                                            borderRadius: BorderRadius.circular(10),
+                                            boxShadow: isSelected
+                                                ? [
+                                                    BoxShadow(
+                                                      color: FreezmeDesignSystem.primary.withValues(alpha: 0.25),
+                                                      blurRadius: 8,
+                                                      offset: const Offset(0, 2),
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: Text(
+                                            displayLabel,
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : FreezmeDesignSystem.textSecondary,
+                                              letterSpacing: 0.2,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -403,6 +545,32 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
   }
 }
 
+class _FrostedCard extends StatelessWidget {
+  final Widget child;
+  const _FrostedCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: FreezmeDesignSystem.primary.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
 class _StatusBadge extends StatelessWidget {
   final bool visible;
   const _StatusBadge({required this.visible});
@@ -459,7 +627,7 @@ class _NearbyPersonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PremiumCard(
+    return _FrostedCard(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -468,10 +636,14 @@ class _NearbyPersonCard extends StatelessWidget {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: FreezmeDesignSystem.surfaceAlt,
+              gradient: const LinearGradient(
+                colors: [FreezmeDesignSystem.primary, Color(0xFF7C3AED)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 30),
+            child: const Icon(Icons.person, color: Colors.white, size: 30),
           ),
           const SizedBox(width: 16),
           // Content

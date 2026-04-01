@@ -87,17 +87,15 @@ class _MatchSuccessPageState extends State<MatchSuccessPage> with SingleTickerPr
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const _MatchAvatar(
-                            imageUrl:
-                                'https://images.unsplash.com/flagged/photo-1596479042555-9265a7fa7983?fit=crop&w=320',
-                            label: 'You',
+                          _MatchAvatar(
+                            imageUrl: flow.profilePhotoUrl ?? '',
+                            label: flow.profileName ?? 'You',
                           ),
                           const SizedBox(width: 24),
                           const Text('💜', style: TextStyle(fontSize: 48)),
                           const SizedBox(width: 24),
                           _MatchAvatar(
-                            imageUrl: profile?.imageUrl ??
-                                'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=320',
+                            imageUrl: profile?.imageUrl ?? '',
                             label: profile?.name ?? 'Match',
                           ),
                         ],

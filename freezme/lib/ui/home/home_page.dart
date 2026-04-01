@@ -29,6 +29,7 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   bool _hasError = false;
   List<models.VibeProfile> _tonightPool = [];
+  final Set<String> _likedUids = {};
   Timer? _timer;
   String _countdown = '00:00:00';
   String _locationName = 'Your Area';
@@ -144,6 +145,29 @@ class _HomePageState extends State<HomePage> {
           });
         }
       }
+    }
+  }
+
+  Future<void> _onLikeProfile(models.VibeProfile profile) async {
+    if (_likedUids.contains(profile.uid)) return;
+    setState(() {
+      _likedUids.add(profile.uid);
+      _tonightPool.removeWhere((p) => p.uid == profile.uid);
+    });
+    final flow = AppFlowScope.of(context, listen: false);
+    try {
+      await flow.repository.likeProfile(profile.uid);
+    } catch (_) {}
+    // Give server a moment to process, then check for a mutual match
+    await Future.delayed(const Duration(milliseconds: 700));
+    if (!mounted) return;
+    final matches = await flow.repository.fetchMatches();
+    final isMatch = matches.any((m) =>
+        m['id']?.toString() == profile.uid ||
+        m['otherUserUid']?.toString() == profile.uid);
+    if (isMatch && mounted) {
+      flow.activeProfile = profile;
+      flow.push(AppStage.matchSuccess);
     }
   }
 
@@ -469,16 +493,43 @@ class _HomePageState extends State<HomePage> {
           ),
           SizedBox(
             height: 300,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: FreezmeDesignSystem.spaceLg,
-              ),
-              itemCount: _tonightPool.length,
-              separatorBuilder: (context, i) => const SizedBox(width: 12),
-              itemBuilder: (context, index) =>
-                  _TonightProfileCard(profile: _tonightPool[index]),
-            ),
+            child: _tonightPool.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('💜', style: TextStyle(fontSize: 36)),
+                        const SizedBox(height: 8),
+                        Text(
+                          "You've seen everyone for tonight!",
+                          style: FreezmeDesignSystem.caption.copyWith(
+                            color: FreezmeDesignSystem.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Check back tomorrow for new matches.',
+                          style: FreezmeDesignSystem.caption.copyWith(
+                            color: FreezmeDesignSystem.textTertiary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.none,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: FreezmeDesignSystem.spaceLg,
+                    ),
+                    itemCount: _tonightPool.length,
+                    separatorBuilder: (context, i) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) => _TonightProfileCard(
+                      profile: _tonightPool[index],
+                      onLike: () => _onLikeProfile(_tonightPool[index]),
+                    ),
+                  ),
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceMd),
         ],
@@ -1641,19 +1692,59 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
 
 
 
-class _TonightProfileCard extends StatelessWidget {
+class _TonightProfileCard extends StatefulWidget {
   final models.VibeProfile profile;
+  final VoidCallback onLike;
 
-  const _TonightProfileCard({required this.profile});
+  const _TonightProfileCard({required this.profile, required this.onLike});
 
+  @override
+  State<_TonightProfileCard> createState() => _TonightProfileCardState();
+}
+
+class _TonightProfileCardState extends State<_TonightProfileCard>
+    with SingleTickerProviderStateMixin {
   static const double _cardWidth = 180;
+  bool _liked = false;
+  late final AnimationController _heartController;
+  late final Animation<double> _heartScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _heartController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _heartScale = TweenSequence([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.5), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.5, end: 1.0), weight: 50),
+    ]).animate(CurvedAnimation(parent: _heartController, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _heartController.dispose();
+    super.dispose();
+  }
+
+  void _handleLike() {
+    if (_liked) return;
+    setState(() => _liked = true);
+    _heartController.forward(from: 0);
+    HapticFeedback.mediumImpact();
+    // Brief delay so user sees the filled heart before card disappears
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (mounted) widget.onLike();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => ProfileDetailPage(profile: profile),
+          builder: (context) => ProfileDetailPage(profile: widget.profile),
         ),
       ),
       child: Container(
@@ -1685,7 +1776,7 @@ class _TonightProfileCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   CachedNetworkImage(
-                    imageUrl: profile.imageUrl,
+                    imageUrl: widget.profile.imageUrl,
                     fit: BoxFit.cover,
                     memCacheWidth: 540,
                     placeholder: (context, _) => Container(
@@ -1701,12 +1792,9 @@ class _TonightProfileCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Bottom fade-to-white gradient so name blends in
+                  // Bottom fade-to-white gradient
                   Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 48,
+                    bottom: 0, left: 0, right: 0, height: 48,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -1720,11 +1808,18 @@ class _TonightProfileCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  // Liked overlay
+                  if (_liked)
+                    Container(
+                      color: FreezmeDesignSystem.primary.withValues(alpha: 0.18),
+                      child: const Center(
+                        child: Text('💜', style: TextStyle(fontSize: 48)),
+                      ),
+                    ),
                   // Compatibility badge
-                  if (profile.compatibility > 0)
+                  if (widget.profile.compatibility > 0)
                     Positioned(
-                      top: 8,
-                      left: 8,
+                      top: 8, left: 8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
@@ -1736,11 +1831,9 @@ class _TonightProfileCard extends StatelessWidget {
                           children: [
                             const Icon(Icons.flash_on, size: 10, color: Colors.white),
                             Text(
-                              '${profile.compatibility}%',
+                              '${widget.profile.compatibility}%',
                               style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                                color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
@@ -1749,31 +1842,33 @@ class _TonightProfileCard extends StatelessWidget {
                     ),
                   // Like button top-right
                   Positioned(
-                    top: 8,
-                    right: 8,
+                    top: 8, right: 8,
                     child: GestureDetector(
-                      onTap: () {
-                        final flow = AppFlowScope.of(context, listen: false);
-                        flow.repository.likeProfile(profile.uid);
-                        PremiumSnackBar.show(context, 'You liked ${profile.name}!', type: SnackBarType.success);
-                      },
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 6,
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.favorite_border_rounded,
-                          size: 16,
-                          color: FreezmeDesignSystem.primary,
+                      onTap: _handleLike,
+                      child: ScaleTransition(
+                        scale: _heartScale,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 32, height: 32,
+                          decoration: BoxDecoration(
+                            color: _liked
+                                ? FreezmeDesignSystem.primary
+                                : Colors.white.withValues(alpha: 0.9),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _liked
+                                    ? FreezmeDesignSystem.primary.withValues(alpha: 0.4)
+                                    : Colors.black.withValues(alpha: 0.12),
+                                blurRadius: _liked ? 10 : 6,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            _liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            size: 16,
+                            color: _liked ? Colors.white : FreezmeDesignSystem.primary,
+                          ),
                         ),
                       ),
                     ),
@@ -1794,19 +1889,19 @@ class _TonightProfileCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            '${profile.name}, ${profile.age}',
+                            '${widget.profile.name}, ${widget.profile.age}',
                             style: FreezmeDesignSystem.h3.copyWith(fontSize: 14),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (profile.isPremium)
+                        if (widget.profile.isPremium)
                           _TrustBadge(tier: _TrustTier.verified),
                       ],
                     ),
-                    if (profile.bio.isNotEmpty)
+                    if (widget.profile.bio.isNotEmpty)
                       Text(
-                        profile.bio,
+                        widget.profile.bio,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: FreezmeDesignSystem.caption.copyWith(
@@ -1819,7 +1914,7 @@ class _TonightProfileCard extends StatelessWidget {
                         const Icon(Icons.location_on, size: 10, color: FreezmeDesignSystem.primary),
                         const SizedBox(width: 2),
                         Text(
-                          profile.distance,
+                          widget.profile.distance,
                           style: FreezmeDesignSystem.caption.copyWith(
                             fontSize: 10,
                             color: FreezmeDesignSystem.primary,
