@@ -109,9 +109,8 @@ class _HomePageState extends State<HomePage> {
           _tonightPool = profiles;
           _isLoading = false;
           _hasError = false;
-          // Set location name based on coordinates for simulation realism
-          if (locationResult.lat != null) {
-            _locationName = 'Downtown area'; 
+          if (locationResult.cityName != null) {
+            _locationName = locationResult.cityName!;
           }
         });
 
