@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
 import '../../models/blueprint.dart';
+import '../../models/vibe_profile.dart';
 import '../widgets/luxury_animations.dart';
 
 class MatchSuccessPage extends StatefulWidget {
@@ -320,7 +321,7 @@ class _CompatibilityExplainCard extends StatelessWidget {
 // ─── Spark Starter Card ───────────────────────────────────────────────────────
 class _SparkStarterCard extends StatefulWidget {
   const _SparkStarterCard({required this.profile});
-  final dynamic profile; // VibeProfile?
+  final VibeProfile? profile;
 
   @override
   State<_SparkStarterCard> createState() => _SparkStarterCardState();
