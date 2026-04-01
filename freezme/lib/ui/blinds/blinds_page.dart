@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../design_system.dart';
+import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
 import '../components/freezme_logo.dart';
 import '../shared/bottom_nav_bar.dart';
@@ -96,8 +97,8 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
     final flow = AppFlowScope.of(context);
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(gradient: FreezmeGradients.backgroundSoft),
+      body: AuroraBackground(
+        isPremium: flow.isPremium,
         child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {

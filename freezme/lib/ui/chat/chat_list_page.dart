@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../shared/bottom_nav_bar.dart';
 import '../../main.dart';
+import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
 import '../components/skeleton_loaders.dart';
 
@@ -210,8 +211,8 @@ class _ChatListPageState extends State<ChatListPage> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(gradient: FreezmeGradients.backgroundSoft),
+      body: AuroraBackground(
+        isPremium: flow.isPremium,
         child: SafeArea(
           bottom: false,
           child: StreamBuilder<List<Map<String, dynamic>>>(

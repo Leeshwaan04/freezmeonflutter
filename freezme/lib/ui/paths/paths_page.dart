@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../models/paths.dart';
 import '../design_system.dart';
+import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
 import '../shared/bottom_nav_bar.dart';
 
@@ -124,8 +125,8 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
     
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: const BoxDecoration(gradient: FreezmeGradients.backgroundSoft),
+      body: AuroraBackground(
+        isPremium: flow.isPremium,
         child: SafeArea(
           child: RefreshIndicator(
           color: FreezmeDesignSystem.primary,
