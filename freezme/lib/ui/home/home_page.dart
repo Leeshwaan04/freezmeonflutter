@@ -487,7 +487,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTrendingFeedSection({Key? key}) {
-    final flow = AppFlowScope.of(context);
+    final cards = _PulseCardData.generate(_locationName, _countdown);
     return SliverToBoxAdapter(
       key: key,
       child: Column(
@@ -495,125 +495,420 @@ class _HomePageState extends State<HomePage> {
         children: [
           const SizedBox(height: FreezmeDesignSystem.spaceXl),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
-            child: Text(
-              'TRENDING VIBES',
-              style: FreezmeDesignSystem.h3.copyWith(fontSize: 18),
+            padding: const EdgeInsets.symmetric(
+                horizontal: FreezmeDesignSystem.spaceLg),
+            child: Row(
+              children: [
+                Text(
+                  "TONIGHT'S PULSE",
+                  style: FreezmeDesignSystem.h3.copyWith(fontSize: 18),
+                ),
+                const SizedBox(width: 8),
+                _LiveDot(),
+              ],
             ),
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceMd),
-          StreamBuilder<List<Map<String, dynamic>>>(
-            stream: flow.repository.watchFeed(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
-                  child: SkeletonLoader(width: double.infinity, height: 120),
-                );
-              }
-              
-              final posts = snapshot.data ?? [];
-              if (posts.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg),
-                  child: Container(
-                    height: 110,
-                    decoration: BoxDecoration(
-                      color: FreezmeDesignSystem.surface,
-                      borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusLg),
-                      border: Border.all(color: FreezmeDesignSystem.border),
-                    ),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.auto_awesome, color: FreezmeDesignSystem.primary.withValues(alpha: 0.5), size: 28),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Vibes feed coming soon',
-                          style: FreezmeDesignSystem.body.copyWith(
-                            color: FreezmeDesignSystem.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Share moments with your matches',
-                          style: FreezmeDesignSystem.caption.copyWith(color: FreezmeDesignSystem.textTertiary),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              return Column(
-                children: posts.map((post) => _FeedPostItem(post: post)).toList(),
-              );
-            },
+          SizedBox(
+            height: 148,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: FreezmeDesignSystem.spaceLg),
+              itemCount: cards.length,
+              separatorBuilder: (context, i) => const SizedBox(width: 12),
+              itemBuilder: (context, i) => _PulseCard(data: cards[i]),
+            ),
           ),
+          const SizedBox(height: FreezmeDesignSystem.spaceMd),
         ],
       ),
     );
   }
 }
 
-class _FeedPostItem extends StatelessWidget {
-  final Map<String, dynamic> post;
+// ─── Live pulsing dot ────────────────────────────────────────────────────────
+class _LiveDot extends StatefulWidget {
+  @override
+  State<_LiveDot> createState() => _LiveDotState();
+}
 
-  const _FeedPostItem({required this.post});
+class _LiveDotState extends State<_LiveDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    )..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.4, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final photoUrls = List<String>.from(post['photoUrls'] ?? []);
-    final caption = post['caption'] ?? '';
-    final senderName = post['senderName'] ?? 'Freezme User';
-    final senderPhoto = post['senderPhotoUrl'] ?? '';
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) => Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF4CAF50).withValues(alpha: _anim.value),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4CAF50).withValues(alpha: _anim.value * 0.6),
+              blurRadius: 6,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: FreezmeDesignSystem.spaceLg, vertical: FreezmeDesignSystem.spaceSm),
-      child: Container(
-        decoration: FreezmeDesignSystem.cardDecoration,
-        clipBehavior: Clip.antiAlias,
+// ─── Card data model ─────────────────────────────────────────────────────────
+enum _PulseCardType { heat, mystery, poll, icebreaker, spark, clock }
+
+class _PulseCardData {
+  const _PulseCardData({
+    required this.type,
+    required this.icon,
+    required this.headline,
+    required this.sub,
+    required this.isLive,
+    this.compatScore,
+    this.pollOptions,
+  });
+
+  final _PulseCardType type;
+  final IconData icon;
+  final String headline;
+  final String sub;
+  final bool isLive;
+  final int? compatScore;
+  final List<String>? pollOptions;
+
+  static List<_PulseCardData> generate(String area, String countdown) {
+    final shortArea = area.split(' ').take(2).join(' ');
+    return [
+      _PulseCardData(
+        type: _PulseCardType.heat,
+        icon: Icons.local_fire_department_rounded,
+        headline: 'Active near you',
+        sub: '12 people in your area are in tonight\'s pool right now',
+        isLive: true,
+      ),
+      _PulseCardData(
+        type: _PulseCardType.mystery,
+        icon: Icons.auto_awesome_rounded,
+        headline: 'High match nearby',
+        sub: 'Someone in $shortArea has an unusually high vibe score with you',
+        isLive: true,
+        compatScore: 94,
+      ),
+      _PulseCardData(
+        type: _PulseCardType.spark,
+        icon: Icons.favorite_rounded,
+        headline: '3 connections',
+        sub: 'happened near $shortArea in the last hour',
+        isLive: true,
+      ),
+      _PulseCardData(
+        type: _PulseCardType.clock,
+        icon: Icons.timer_outlined,
+        headline: 'Pool closes in',
+        sub: 'Don\'t miss tonight\'s matches — $countdown left',
+        isLive: false,
+      ),
+      _PulseCardData(
+        type: _PulseCardType.poll,
+        icon: Icons.how_to_vote_rounded,
+        headline: 'Quick take',
+        sub: 'Spontaneous plans > scheduled dates',
+        isLive: false,
+        pollOptions: ['Agree', 'Disagree'],
+      ),
+      _PulseCardData(
+        type: _PulseCardType.icebreaker,
+        icon: Icons.chat_bubble_outline_rounded,
+        headline: 'Tonight\'s opener',
+        sub: 'What\'s the most spontaneous thing you\'ve ever done?',
+        isLive: false,
+      ),
+    ];
+  }
+}
+
+// ─── Pulse card widget ───────────────────────────────────────────────────────
+class _PulseCard extends StatefulWidget {
+  const _PulseCard({required this.data});
+  final _PulseCardData data;
+
+  @override
+  State<_PulseCard> createState() => _PulseCardState();
+}
+
+class _PulseCardState extends State<_PulseCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _glow;
+  int? _pollVote; // 0 = first option, 1 = second
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    )..repeat(reverse: true);
+    _glow = Tween<double>(begin: 0.0, end: 1.0)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  // Card width varies by type for an organic feel
+  double get _width {
+    switch (widget.data.type) {
+      case _PulseCardType.mystery:
+        return 200;
+      case _PulseCardType.poll:
+        return 210;
+      case _PulseCardType.icebreaker:
+        return 220;
+      default:
+        return 188;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.data;
+    final isMystery = d.type == _PulseCardType.mystery;
+    final isPoll = d.type == _PulseCardType.poll;
+
+    return AnimatedBuilder(
+      animation: _glow,
+      builder: (context, child) => Container(
+        width: _width,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: d.isLive
+                ? FreezmeDesignSystem.primary
+                    .withValues(alpha: 0.15 + _glow.value * 0.15)
+                : FreezmeDesignSystem.border,
+            width: d.isLive ? 1.5 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: d.isLive
+                  ? FreezmeDesignSystem.primary
+                      .withValues(alpha: 0.06 + _glow.value * 0.06)
+                  : Colors.black.withValues(alpha: 0.04),
+              blurRadius: d.isLive ? 16 : 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: child,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User section
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
+            // Header row
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: isMystery
+                          ? [
+                              FreezmeDesignSystem.primary,
+                              const Color(0xFF9C27B0),
+                            ]
+                          : [
+                              FreezmeDesignSystem.primary
+                                  .withValues(alpha: 0.15),
+                              FreezmeDesignSystem.primary
+                                  .withValues(alpha: 0.25),
+                            ],
+                    ),
+                  ),
+                  child: Icon(
+                    d.icon,
+                    size: 16,
+                    color: isMystery
+                        ? Colors.white
+                        : FreezmeDesignSystem.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    d.headline,
+                    style: FreezmeDesignSystem.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (d.isLive)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: Color(0xFF4CAF50),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Mystery card: blurred score teaser
+            if (isMystery) ...[
+              Row(
                 children: [
-                  UserAvatar(imageUrl: senderPhoto, size: 32),
+                  ImageFiltered(
+                    imageFilter: const ColorFilter.matrix([
+                      0, 0, 0, 0, 180,
+                      0, 0, 0, 0, 180,
+                      0, 0, 0, 0, 180,
+                      0, 0, 0, 1,   0,
+                    ]),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.grey,
+                      ),
+                      child: const Icon(Icons.person,
+                          color: Colors.white, size: 20),
+                    ),
+                  ),
                   const SizedBox(width: 10),
-                  Text(senderName, style: FreezmeDesignSystem.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${d.compatScore}% vibe match',
+                        style: TextStyle(
+                          color: FreezmeDesignSystem.primary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const Text(
+                        'Unlock to see who',
+                        style: TextStyle(
+                          color: Color(0xFF9C27B0),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-            ),
-            // Image
-            if (photoUrls.isNotEmpty)
-              CachedNetworkImage(
-                imageUrl: photoUrls.first,
-                width: double.infinity,
-                height: 250,
-                fit: BoxFit.cover,
+            ]
+            // Poll card
+            else if (isPoll && d.pollOptions != null) ...[
+              Text(
+                d.sub,
+                style: FreezmeDesignSystem.caption.copyWith(
+                  fontSize: 11,
+                  color: FreezmeDesignSystem.textSecondary,
+                  height: 1.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            // Caption
-            if (caption.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(caption, style: FreezmeDesignSystem.body),
-              ),
-            // Actions
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Row(
+              const Spacer(),
+              Row(
                 children: [
-                  Icon(Icons.favorite_border_rounded, size: 20, color: FreezmeDesignSystem.textSecondary),
-                  SizedBox(width: 16),
-                  Icon(Icons.chat_bubble_outline_rounded, size: 20, color: FreezmeDesignSystem.textSecondary),
+                  for (int i = 0; i < d.pollOptions!.length; i++) ...[
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _pollVote = i),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _pollVote == i
+                                ? FreezmeDesignSystem.primary
+                                : FreezmeDesignSystem.primary
+                                    .withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            d.pollOptions![i],
+                            style: TextStyle(
+                              color: _pollVote == i
+                                  ? Colors.white
+                                  : FreezmeDesignSystem.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (i == 0) const SizedBox(width: 8),
+                  ],
                 ],
               ),
-            ),
+            ]
+            // Default card
+            else ...[
+              Expanded(
+                child: Text(
+                  d.sub,
+                  style: FreezmeDesignSystem.caption.copyWith(
+                    fontSize: 11,
+                    color: FreezmeDesignSystem.textSecondary,
+                    height: 1.4,
+                  ),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ],
         ),
       ),
