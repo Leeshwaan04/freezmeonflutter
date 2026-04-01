@@ -815,19 +815,19 @@ class _TonightProfileCard extends StatelessWidget {
                   children: [
                     CachedNetworkImage(
                       imageUrl: profile.imageUrl,
-                      width: 110,
+                      width: 120,
                       height: 130,
                       fit: BoxFit.cover,
-                      memCacheWidth: 220,
-                      memCacheHeight: 260,
+                      memCacheWidth: 360,
+                      memCacheHeight: 390,
                       placeholder: (context, _) => Container(
-                        width: 110,
+                        width: 120,
                         height: 130,
                         color: FreezmeDesignSystem.primaryLight,
                         child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
                       ),
                       errorWidget: (context, _, _) => Container(
-                        width: 110,
+                        width: 120,
                         height: 130,
                         color: FreezmeDesignSystem.primaryLight,
                         child: const Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 40),
