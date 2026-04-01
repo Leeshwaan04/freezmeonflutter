@@ -510,13 +510,18 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceMd),
           SizedBox(
-            height: 176,
+            height: 186,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: FreezmeDesignSystem.spaceLg),
+              clipBehavior: Clip.none,
+              padding: const EdgeInsets.only(
+                left: FreezmeDesignSystem.spaceLg,
+                right: FreezmeDesignSystem.spaceLg,
+                top: 6,
+                bottom: 10,
+              ),
               itemCount: cards.length,
-              separatorBuilder: (context, i) => const SizedBox(width: 12),
+              separatorBuilder: (context, i) => const SizedBox(width: 14),
               itemBuilder: (context, i) => _PulseCard(data: cards[i]),
             ),
           ),
@@ -731,9 +736,10 @@ class _PulseCardState extends State<_PulseCard>
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: colors[0].withValues(alpha: 0.28 + _pulse.value * 0.14),
-                blurRadius: 18 + _pulse.value * 8,
-                offset: const Offset(0, 6),
+                color: colors[0].withValues(alpha: 0.22 + _pulse.value * 0.08),
+                blurRadius: 10 + _pulse.value * 4,
+                offset: const Offset(0, 4),
+                spreadRadius: 0,
               ),
             ],
           ),
