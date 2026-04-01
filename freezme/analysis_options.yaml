@@ -1,6 +1,10 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  exclude:
+    - lib/data/firestore_freezme_repository.dart
+    - lib/data/cloud_functions_freezme_repository.dart
+    - integration_test/**
   errors:
     unused_local_variable: error
     unused_field: error

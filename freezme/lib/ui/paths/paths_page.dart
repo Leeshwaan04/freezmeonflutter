@@ -6,7 +6,6 @@ import '../../models/paths.dart';
 import '../design_system.dart';
 import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
-import '../shared/bottom_nav_bar.dart';
 
 class PathsPage extends StatefulWidget {
   const PathsPage({super.key});

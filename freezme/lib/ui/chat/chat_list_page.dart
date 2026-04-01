@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../shared/bottom_nav_bar.dart';
 import '../../main.dart';
 import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
@@ -62,7 +61,6 @@ class _ChatListPageState extends State<ChatListPage> {
   String _query = '';
   bool _showUnreadOnly = false;
   List<Conversation> _conversations = [];
-  bool _tabLocked = false;
 
   @override
   void dispose() {

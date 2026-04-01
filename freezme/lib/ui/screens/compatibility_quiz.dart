@@ -32,7 +32,7 @@ class _CompatibilityQuizPageState extends State<CompatibilityQuizPage> {
     if (_currentQuestion < _questions.length - 1) {
       setState(() => _currentQuestion++);
     } else {
-      flow.finishCompatibilityQuiz();
+      flow.pop();
     }
   }
 
