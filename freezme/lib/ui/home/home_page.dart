@@ -1458,6 +1458,28 @@ class _SheetPrimaryButton extends StatelessWidget {
   }
 }
 
+// ─── Trust badge ─────────────────────────────────────────────────────────────
+enum _TrustTier { basic, verified, elite }
+
+class _TrustBadge extends StatelessWidget {
+  const _TrustBadge({required this.tier});
+  final _TrustTier tier;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color, label) = switch (tier) {
+      _TrustTier.elite    => (Icons.workspace_premium_rounded, const Color(0xFFF59E0B), 'Elite'),
+      _TrustTier.verified => (Icons.verified_rounded,          const Color(0xFF6B21A8), 'Verified'),
+      _TrustTier.basic    => (Icons.check_circle_outline,      const Color(0xFF6B7280), 'Basic'),
+    };
+
+    return Tooltip(
+      message: '$label member',
+      child: Icon(icon, size: 14, color: color),
+    );
+  }
+}
+
 class _LivePathCard extends StatefulWidget {
   final PathsPresence presence;
 
@@ -1762,11 +1784,19 @@ class _TonightProfileCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${profile.name}, ${profile.age}',
-                      style: FreezmeDesignSystem.h3.copyWith(fontSize: 14),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${profile.name}, ${profile.age}',
+                            style: FreezmeDesignSystem.h3.copyWith(fontSize: 14),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (profile.isPremium)
+                          _TrustBadge(tier: _TrustTier.verified),
+                      ],
                     ),
                     if (profile.bio.isNotEmpty)
                       Text(

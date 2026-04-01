@@ -108,9 +108,14 @@ class _MatchSuccessPageState extends State<MatchSuccessPage> with SingleTickerPr
                         delayIndex: 3,
                         child: _CompatibilityExplainCard(dna: profile!.dna!),
                       ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 20),
                     _StaggeredEntrance(
                       delayIndex: 4,
+                      child: _SparkStarterCard(profile: profile),
+                    ),
+                    const SizedBox(height: 32),
+                    _StaggeredEntrance(
+                      delayIndex: 5,
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.white,
@@ -131,7 +136,7 @@ class _MatchSuccessPageState extends State<MatchSuccessPage> with SingleTickerPr
                     ),
                     const SizedBox(height: 20),
                     _StaggeredEntrance(
-                      delayIndex: 5,
+                      delayIndex: 6,
                       child: TextButton(
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.white,
@@ -305,6 +310,157 @@ class _CompatibilityExplainCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Spark Starter Card ───────────────────────────────────────────────────────
+class _SparkStarterCard extends StatefulWidget {
+  const _SparkStarterCard({required this.profile});
+  final dynamic profile; // VibeProfile?
+
+  @override
+  State<_SparkStarterCard> createState() => _SparkStarterCardState();
+}
+
+class _SparkStarterCardState extends State<_SparkStarterCard> {
+  int _selected = 0;
+
+  static const _starters = [
+    (
+      icon: '☕',
+      angle: 'Coffee lover',
+      line: 'I see you\'re into coffee — best spot you\'ve discovered recently?',
+    ),
+    (
+      icon: '✈️',
+      angle: 'Adventurer',
+      line: 'Your energy feels like someone who\'s always planning the next trip. Where to next?',
+    ),
+    (
+      icon: '🎵',
+      angle: 'Shared vibe',
+      line: 'We matched for a reason — what\'s been the soundtrack to your week?',
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final starter = _starters[_selected];
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome_rounded, size: 12, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text(
+                      'SPARK STARTER',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Spacer(),
+              const Text(
+                'Tap to swap',
+                style: TextStyle(color: Colors.white54, fontSize: 10),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Suggested line
+          GestureDetector(
+            onTap: () => setState(() => _selected = (_selected + 1) % _starters.length),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.05, 0),
+                    end: Offset.zero,
+                  ).animate(anim),
+                  child: child,
+                ),
+              ),
+              child: Container(
+                key: ValueKey(_selected),
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(starter.icon, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '"${starter.line}"',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          height: 1.45,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Dots + angle label
+          Row(
+            children: [
+              for (int i = 0; i < _starters.length; i++)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: i == _selected ? 16 : 6,
+                  height: 6,
+                  margin: const EdgeInsets.only(right: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: i == _selected ? 0.9 : 0.35),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              const Spacer(),
+              Text(
+                starter.angle,
+                style: const TextStyle(color: Colors.white60, fontSize: 10),
+              ),
+            ],
           ),
         ],
       ),
