@@ -510,7 +510,7 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceMd),
           SizedBox(
-            height: 148,
+            height: 176,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(
@@ -663,17 +663,27 @@ class _PulseCard extends StatefulWidget {
 class _PulseCardState extends State<_PulseCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  late Animation<double> _glow;
-  int? _pollVote; // 0 = first option, 1 = second
+  late Animation<double> _pulse;
+  int? _pollVote;
+
+  // Per-type gradient palettes
+  static const _gradients = <_PulseCardType, List<Color>>{
+    _PulseCardType.heat: [Color(0xFF6B21A8), Color(0xFF9333EA)],
+    _PulseCardType.mystery: [Color(0xFF1E1B4B), Color(0xFF4C1D95)],
+    _PulseCardType.spark: [Color(0xFFBE185D), Color(0xFFEC4899)],
+    _PulseCardType.clock: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+    _PulseCardType.poll: [Color(0xFF1D4ED8), Color(0xFF60A5FA)],
+    _PulseCardType.icebreaker: [Color(0xFF92400E), Color(0xFFF59E0B)],
+  };
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 2400),
       vsync: this,
     )..repeat(reverse: true);
-    _glow = Tween<double>(begin: 0.0, end: 1.0)
+    _pulse = Tween<double>(begin: 0.0, end: 1.0)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
@@ -683,182 +693,169 @@ class _PulseCardState extends State<_PulseCard>
     super.dispose();
   }
 
-  // Card width varies by type for an organic feel
-  double get _width {
-    switch (widget.data.type) {
-      case _PulseCardType.mystery:
-        return 200;
-      case _PulseCardType.poll:
-        return 210;
-      case _PulseCardType.icebreaker:
-        return 220;
-      default:
-        return 188;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final d = widget.data;
-    final isMystery = d.type == _PulseCardType.mystery;
+    final colors = _gradients[d.type] ??
+        [FreezmeDesignSystem.primary, const Color(0xFF9C27B0)];
     final isPoll = d.type == _PulseCardType.poll;
+    final isMystery = d.type == _PulseCardType.mystery;
+    final isClock = d.type == _PulseCardType.clock;
 
     return AnimatedBuilder(
-      animation: _glow,
+      animation: _pulse,
       builder: (context, child) => Container(
-        width: _width,
+        width: 168,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: d.isLive
-                ? FreezmeDesignSystem.primary
-                    .withValues(alpha: 0.15 + _glow.value * 0.15)
-                : FreezmeDesignSystem.border,
-            width: d.isLive ? 1.5 : 1,
+          gradient: LinearGradient(
+            colors: colors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: d.isLive
-                  ? FreezmeDesignSystem.primary
-                      .withValues(alpha: 0.06 + _glow.value * 0.06)
-                  : Colors.black.withValues(alpha: 0.04),
-              blurRadius: d.isLive ? 16 : 8,
-              offset: const Offset(0, 4),
+              color: colors[0].withValues(alpha: 0.28 + _pulse.value * 0.14),
+              blurRadius: 18 + _pulse.value * 8,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: child,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row
+            // ── Top row: icon + LIVE badge ──────────────────────────────
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: isMystery
-                          ? [
-                              FreezmeDesignSystem.primary,
-                              const Color(0xFF9C27B0),
-                            ]
-                          : [
-                              FreezmeDesignSystem.primary
-                                  .withValues(alpha: 0.15),
-                              FreezmeDesignSystem.primary
-                                  .withValues(alpha: 0.25),
-                            ],
-                    ),
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    d.icon,
-                    size: 16,
-                    color: isMystery
-                        ? Colors.white
-                        : FreezmeDesignSystem.primary,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    d.headline,
-                    style: FreezmeDesignSystem.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Icon(d.icon, size: 18, color: Colors.white),
                 ),
                 if (d.isLive)
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF4CAF50).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
-                      'LIVE',
-                      style: TextStyle(
-                        color: Color(0xFF4CAF50),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF4ADE80),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'LIVE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 10),
 
-            // Mystery card: blurred score teaser
+            const Spacer(),
+
+            // ── Hero content by card type ───────────────────────────────
+
+            // Mystery: big score number
             if (isMystery) ...[
-              Row(
-                children: [
-                  ImageFiltered(
-                    imageFilter: const ColorFilter.matrix([
-                      0, 0, 0, 0, 180,
-                      0, 0, 0, 0, 180,
-                      0, 0, 0, 0, 180,
-                      0, 0, 0, 1,   0,
-                    ]),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey,
-                      ),
-                      child: const Icon(Icons.person,
-                          color: Colors.white, size: 20),
-                    ),
+              Text(
+                '${d.compatScore}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'vibe match nearby',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Text(
+                  'Unlock with Plus ✦',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${d.compatScore}% vibe match',
-                        style: TextStyle(
-                          color: FreezmeDesignSystem.primary,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const Text(
-                        'Unlock to see who',
-                        style: TextStyle(
-                          color: Color(0xFF9C27B0),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ]
-            // Poll card
+
+            // Clock: large countdown
+            else if (isClock) ...[
+              Text(
+                d.sub.contains('—')
+                    ? d.sub.split('—').last.trim()
+                    : d.sub,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'until pool closes',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ]
+
+            // Poll: question + two tap buttons
             else if (isPoll && d.pollOptions != null) ...[
               Text(
                 d.sub,
-                style: FreezmeDesignSystem.caption.copyWith(
-                  fontSize: 11,
-                  color: FreezmeDesignSystem.textSecondary,
-                  height: 1.3,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
                 ),
                 maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-              const Spacer(),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   for (int i = 0; i < d.pollOptions!.length; i++) ...[
@@ -866,13 +863,12 @@ class _PulseCardState extends State<_PulseCard>
                       child: GestureDetector(
                         onTap: () => setState(() => _pollVote = i),
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(vertical: 7),
                           decoration: BoxDecoration(
                             color: _pollVote == i
-                                ? FreezmeDesignSystem.primary
-                                : FreezmeDesignSystem.primary
-                                    .withValues(alpha: 0.08),
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,
@@ -880,33 +876,42 @@ class _PulseCardState extends State<_PulseCard>
                             d.pollOptions![i],
                             style: TextStyle(
                               color: _pollVote == i
-                                  ? Colors.white
-                                  : FreezmeDesignSystem.primary,
+                                  ? const Color(0xFF1D4ED8)
+                                  : Colors.white,
                               fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
                       ),
                     ),
-                    if (i == 0) const SizedBox(width: 8),
+                    if (i == 0) const SizedBox(width: 6),
                   ],
                 ],
               ),
             ]
-            // Default card
+
+            // Default (heat, spark, icebreaker)
             else ...[
-              Expanded(
-                child: Text(
-                  d.sub,
-                  style: FreezmeDesignSystem.caption.copyWith(
-                    fontSize: 11,
-                    color: FreezmeDesignSystem.textSecondary,
-                    height: 1.4,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                d.headline,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
                 ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                d.sub,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  fontSize: 11,
+                  height: 1.4,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ],
