@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Freezme</string>
+	<string>Freezme: Melt the Ice</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Freezme</string>
+	<string>Freezme: Melt the Ice</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -47,6 +47,10 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Freezme uses the camera when you want to capture new photos for your vibe.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Freezme uses your location to show nearby people on Paths and to surface relevant matches in your area.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Freezme uses your location to show nearby people on Paths and to surface relevant matches in your area.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Freezme uses your location to show nearby people on Paths.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

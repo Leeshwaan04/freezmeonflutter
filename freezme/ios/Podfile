@@ -49,11 +49,14 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
       config.build_settings['DT_TOOLCHAIN_DIR'] = '$(TOOLCHAIN_DIR)'
       
-      # Warnings suppression
+      # Warnings suppression + Xcode 26 module verifier fix
       config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
       config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+      config.build_settings['MODULE_VERIFIER_SUPPORTED_LANGUAGES'] = ''
+      config.build_settings['MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS'] = ''
       config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
       config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -suppress-warnings'
+      config.build_settings['OTHER_CFLAGS'] = '$(inherited) -Wno-quoted-include-in-framework-header'
       
       # Fix for Xcode 15+ "OS_CODE macro redefined" and other lexical issues
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
