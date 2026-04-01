@@ -209,9 +209,9 @@ class _ChatListPageState extends State<ChatListPage> {
     final flow = AppFlowScope.of(context);
 
     return Scaffold(
-      backgroundColor: FreezmeDesignSystem.background,
+      backgroundColor: Colors.transparent,
       body: Container(
-        color: FreezmeDesignSystem.background,
+        decoration: const BoxDecoration(gradient: FreezmeGradients.backgroundSoft),
         child: SafeArea(
           bottom: false,
           child: StreamBuilder<List<Map<String, dynamic>>>(

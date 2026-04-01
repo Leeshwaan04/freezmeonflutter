@@ -123,9 +123,11 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
     final flow = AppFlowScope.of(context);
     
     return Scaffold(
-      backgroundColor: FreezmeDesignSystem.background,
-      body: SafeArea(
-        child: RefreshIndicator(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: FreezmeGradients.backgroundSoft),
+        child: SafeArea(
+          child: RefreshIndicator(
           color: FreezmeDesignSystem.primary,
           backgroundColor: FreezmeDesignSystem.surface,
           onRefresh: () async => _refresh(flow),
@@ -393,6 +395,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
               const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
             ],
           ),
+        ),
         ),
       ),
     );

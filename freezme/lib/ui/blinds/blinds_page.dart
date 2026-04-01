@@ -95,8 +95,10 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context);
     return Scaffold(
-      backgroundColor: FreezmeDesignSystem.background,
-      body: SafeArea(
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(gradient: FreezmeGradients.backgroundSoft),
+        child: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
@@ -330,6 +332,7 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
               ),
             );
           },
+        ),
         ),
       ),
     );
