@@ -458,9 +458,9 @@ class _HomePageState extends State<HomePage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(
               FreezmeDesignSystem.spaceLg,
-              FreezmeDesignSystem.spaceSm,
+              FreezmeDesignSystem.spaceMd,
               FreezmeDesignSystem.spaceLg,
-              FreezmeDesignSystem.spaceSm,
+              FreezmeDesignSystem.spaceMd,
             ),
             child: Text(
               "TONIGHT'S POOL",
@@ -493,7 +493,7 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: FreezmeDesignSystem.spaceXl),
+          const SizedBox(height: FreezmeDesignSystem.spaceLg),
           Padding(
             padding: const EdgeInsets.symmetric(
                 horizontal: FreezmeDesignSystem.spaceLg),
@@ -520,7 +520,7 @@ class _HomePageState extends State<HomePage> {
               itemBuilder: (context, i) => _PulseCard(data: cards[i]),
             ),
           ),
-          const SizedBox(height: FreezmeDesignSystem.spaceMd),
+          const SizedBox(height: FreezmeDesignSystem.spaceLg),
         ],
       ),
     );
@@ -693,6 +693,20 @@ class _PulseCardState extends State<_PulseCard>
     super.dispose();
   }
 
+  void _showSheet(BuildContext context) {
+    final d = widget.data;
+    final colors = _gradients[d.type] ??
+        [FreezmeDesignSystem.primary, const Color(0xFF9C27B0)];
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _PulseCardSheet(data: d, colors: colors, pollVote: _pollVote,
+        onPollVote: (i) => setState(() => _pollVote = i)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = widget.data;
@@ -702,219 +716,742 @@ class _PulseCardState extends State<_PulseCard>
     final isMystery = d.type == _PulseCardType.mystery;
     final isClock = d.type == _PulseCardType.clock;
 
-    return AnimatedBuilder(
-      animation: _pulse,
-      builder: (context, child) => Container(
-        width: 168,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: colors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: colors[0].withValues(alpha: 0.28 + _pulse.value * 0.14),
-              blurRadius: 18 + _pulse.value * 8,
-              offset: const Offset(0, 6),
+    return GestureDetector(
+      onTap: () => _showSheet(context),
+      child: AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, child) => Container(
+          width: 168,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: colors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: colors[0].withValues(alpha: 0.28 + _pulse.value * 0.14),
+                blurRadius: 18 + _pulse.value * 8,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: child,
         ),
-        child: child,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Top row: icon + LIVE badge ──────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(d.icon, size: 18, color: Colors.white),
-                ),
-                if (d.isLive)
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Top row: icon + LIVE badge ─────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 5,
-                          height: 5,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF4ADE80),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          'LIVE',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: Icon(d.icon, size: 18, color: Colors.white),
                   ),
-              ],
-            ),
-
-            const Spacer(),
-
-            // ── Hero content by card type ───────────────────────────────
-
-            // Mystery: big score number
-            if (isMystery) ...[
-              Text(
-                '${d.compatScore}%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'vibe match nearby',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text(
-                  'Unlock with Plus ✦',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ]
-
-            // Clock: large countdown
-            else if (isClock) ...[
-              Text(
-                d.sub.contains('—')
-                    ? d.sub.split('—').last.trim()
-                    : d.sub,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'until pool closes',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ]
-
-            // Poll: question + two tap buttons
-            else if (isPoll && d.pollOptions != null) ...[
-              Text(
-                d.sub,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  for (int i = 0; i < d.pollOptions!.length; i++) ...[
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _pollVote = i),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(vertical: 7),
-                          decoration: BoxDecoration(
-                            color: _pollVote == i
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(10),
+                  if (d.isLive)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 5,
+                            height: 5,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF4ADE80),
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            d.pollOptions![i],
+                          const SizedBox(width: 4),
+                          const Text(
+                            'LIVE',
                             style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              const Spacer(),
+              // ── Hero content ───────────────────────────────────────────
+              if (isMystery) ...[
+                Text(
+                  '${d.compatScore}%',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'vibe match nearby',
+                  style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'Unlock with Plus ✦',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ] else if (isClock) ...[
+                Text(
+                  d.sub.contains('—') ? d.sub.split('—').last.trim() : d.sub,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'until pool closes',
+                  style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500),
+                ),
+              ] else if (isPoll && d.pollOptions != null) ...[
+                Text(
+                  d.sub,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (int i = 0; i < d.pollOptions!.length; i++) ...[
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _pollVote = i),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            decoration: BoxDecoration(
                               color: _pollVote == i
-                                  ? const Color(0xFF1D4ED8)
-                                  : Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              d.pollOptions![i],
+                              style: TextStyle(
+                                color: _pollVote == i
+                                    ? const Color(0xFF1D4ED8)
+                                    : Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    if (i == 0) const SizedBox(width: 6),
+                      if (i == 0) const SizedBox(width: 6),
+                    ],
                   ],
-                ],
-              ),
-            ]
-
-            // Default (heat, spark, icebreaker)
-            else ...[
-              Text(
-                d.headline,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  height: 1.2,
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                d.sub,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.75),
-                  fontSize: 11,
-                  height: 1.4,
+              ] else ...[
+                Text(
+                  d.headline,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.2),
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
+                const SizedBox(height: 6),
+                Text(
+                  d.sub,
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontSize: 11,
+                      height: 1.4),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Bottom sheet for each pulse card ────────────────────────────────────────
+class _PulseCardSheet extends StatefulWidget {
+  const _PulseCardSheet({
+    required this.data,
+    required this.colors,
+    required this.pollVote,
+    required this.onPollVote,
+  });
+
+  final _PulseCardData data;
+  final List<Color> colors;
+  final int? pollVote;
+  final ValueChanged<int> onPollVote;
+
+  @override
+  State<_PulseCardSheet> createState() => _PulseCardSheetState();
+}
+
+class _PulseCardSheetState extends State<_PulseCardSheet> {
+  late int? _vote;
+
+  @override
+  void initState() {
+    super.initState();
+    _vote = widget.pollVote;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.data;
+    final colors = widget.colors;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Gradient header ─────────────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                  colors: colors,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(d.icon, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        d.headline,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (d.isLive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.circle,
+                                size: 7, color: Color(0xFF4ADE80)),
+                            SizedBox(width: 4),
+                            Text('LIVE',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ── Body ────────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: _buildSheetBody(context, d, colors),
+          ),
+
+          // ── Bottom safe area ────────────────────────────────────────────
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSheetBody(
+      BuildContext context, _PulseCardData d, List<Color> colors) {
+    switch (d.type) {
+      case _PulseCardType.heat:
+        return _SheetHeat(colors: colors);
+      case _PulseCardType.mystery:
+        return _SheetMystery(score: d.compatScore ?? 94, colors: colors);
+      case _PulseCardType.spark:
+        return _SheetSpark(colors: colors);
+      case _PulseCardType.clock:
+        return _SheetClock(countdown: d.sub, colors: colors);
+      case _PulseCardType.poll:
+        return _SheetPoll(
+          question: d.sub,
+          options: d.pollOptions ?? ['Agree', 'Disagree'],
+          vote: _vote,
+          colors: colors,
+          onVote: (i) {
+            setState(() => _vote = i);
+            widget.onPollVote(i);
+          },
+        );
+      case _PulseCardType.icebreaker:
+        return _SheetIcebreaker(question: d.sub, colors: colors);
+    }
+  }
+}
+
+// ── Sheet body variants ───────────────────────────────────────────────────────
+
+class _SheetHeat extends StatelessWidget {
+  const _SheetHeat({required this.colors});
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StatRow(icon: Icons.people_alt_rounded, label: '12 people', sub: 'active in your area right now', colors: colors),
+        const SizedBox(height: 12),
+        _StatRow(icon: Icons.trending_up_rounded, label: 'Peak window', sub: '9 PM – 11 PM tonight', colors: colors),
+        const SizedBox(height: 12),
+        _StatRow(icon: Icons.location_on_rounded, label: 'Near you', sub: 'No precise location shared', colors: colors),
+        const SizedBox(height: 24),
+        Text('Open tonight\'s pool to meet them.',
+            style: TextStyle(color: FreezmeDesignSystem.textSecondary, fontSize: 13, height: 1.5)),
+        const SizedBox(height: 20),
+        _SheetPrimaryButton(label: 'View Tonight\'s Pool', colors: colors,
+            onTap: () => Navigator.pop(context)),
+      ],
+    );
+  }
+}
+
+class _SheetMystery extends StatelessWidget {
+  const _SheetMystery({required this.score, required this.colors});
+  final int score;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors[0].withValues(alpha: 0.1),
+              ),
+              child: Icon(Icons.lock_rounded, color: colors[0], size: 28),
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$score% Vibe Match',
+                    style: TextStyle(
+                        color: colors[0],
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900)),
+                const SizedBox(height: 4),
+                const Text('Someone nearby — identity hidden',
+                    style: TextStyle(
+                        color: FreezmeDesignSystem.textSecondary, fontSize: 13)),
+              ],
+            ),
           ],
+        ),
+        const SizedBox(height: 20),
+        _InfoCard(
+          icon: Icons.shield_outlined,
+          text: 'We never reveal who this person is without mutual consent.',
+          colors: colors,
+        ),
+        const SizedBox(height: 12),
+        _InfoCard(
+          icon: Icons.star_rounded,
+          text: 'Unlock with Freezme+ to see their profile and send a match request.',
+          colors: colors,
+        ),
+        const SizedBox(height: 24),
+        _SheetPrimaryButton(label: 'Unlock with Freezme+ ✦', colors: colors,
+            onTap: () => Navigator.pop(context)),
+      ],
+    );
+  }
+}
+
+class _SheetSpark extends StatelessWidget {
+  const _SheetSpark({required this.colors});
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StatRow(icon: Icons.favorite_rounded, label: '3 connections', sub: 'made near you in the last hour', colors: colors),
+        const SizedBox(height: 12),
+        _StatRow(icon: Icons.groups_rounded, label: 'All anonymous', sub: 'No personal details shared', colors: colors),
+        const SizedBox(height: 20),
+        _InfoCard(
+          icon: Icons.info_outline_rounded,
+          text: 'Connections happen when two people both like each other. You could be next.',
+          colors: colors,
+        ),
+        const SizedBox(height: 24),
+        _SheetPrimaryButton(label: 'See Tonight\'s Pool', colors: colors,
+            onTap: () => Navigator.pop(context)),
+      ],
+    );
+  }
+}
+
+class _SheetClock extends StatelessWidget {
+  const _SheetClock({required this.countdown, required this.colors});
+  final String countdown;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final time = countdown.contains('—') ? countdown.split('—').last.trim() : countdown;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Text(
+            time,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 42, fontWeight: FontWeight.w900, letterSpacing: 2),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _InfoCard(
+          icon: Icons.lock_clock,
+          text: 'Tonight\'s pool resets at 6 PM tomorrow. Profiles you haven\'t seen yet will be gone.',
+          colors: colors,
+        ),
+        const SizedBox(height: 24),
+        _SheetPrimaryButton(label: 'Browse Pool Now', colors: colors,
+            onTap: () => Navigator.pop(context)),
+      ],
+    );
+  }
+}
+
+class _SheetPoll extends StatelessWidget {
+  const _SheetPoll({
+    required this.question,
+    required this.options,
+    required this.vote,
+    required this.colors,
+    required this.onVote,
+  });
+  final String question;
+  final List<String> options;
+  final int? vote;
+  final List<Color> colors;
+  final ValueChanged<int> onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          question,
+          style: const TextStyle(
+              fontSize: 17, fontWeight: FontWeight.w700, height: 1.4),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Anonymous · results shown after you vote',
+          style: TextStyle(color: FreezmeDesignSystem.textSecondary, fontSize: 12),
+        ),
+        const SizedBox(height: 20),
+        for (int i = 0; i < options.length; i++) ...[
+          GestureDetector(
+            onTap: () => onVote(i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                gradient: vote == i
+                    ? LinearGradient(colors: colors)
+                    : null,
+                color: vote == i ? null : colors[0].withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: vote == i ? Colors.transparent : colors[0].withValues(alpha: 0.2),
+                ),
+              ),
+              child: Text(
+                options[i],
+                style: TextStyle(
+                  color: vote == i ? Colors.white : colors[0],
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+          ),
+        ],
+        if (vote != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            'You voted: ${options[vote!]}  ·  Results update in real time',
+            style: TextStyle(
+                color: colors[0], fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ],
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+}
+
+class _SheetIcebreaker extends StatelessWidget {
+  const _SheetIcebreaker({required this.question, required this.colors});
+  final String question;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: colors[0].withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors[0].withValues(alpha: 0.15)),
+          ),
+          child: Text(
+            '"$question"',
+            style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: colors[0],
+                height: 1.45),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Use this as your opening line tonight. It\'s refreshed daily.',
+          style: TextStyle(
+              color: FreezmeDesignSystem.textSecondary,
+              fontSize: 13,
+              height: 1.5),
+        ),
+        const SizedBox(height: 24),
+        _SheetPrimaryButton(
+            label: 'Copy to clipboard',
+            colors: colors,
+            onTap: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Copied to clipboard!')),
+              );
+            }),
+      ],
+    );
+  }
+}
+
+// ── Shared sheet components ───────────────────────────────────────────────────
+
+class _StatRow extends StatelessWidget {
+  const _StatRow({required this.icon, required this.label, required this.sub, required this.colors});
+  final IconData icon;
+  final String label;
+  final String sub;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: colors[0].withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: colors[0], size: 18),
+        ),
+        const SizedBox(width: 14),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, fontSize: 14)),
+            Text(sub,
+                style: const TextStyle(
+                    color: FreezmeDesignSystem.textSecondary, fontSize: 12)),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.icon, required this.text, required this.colors});
+  final IconData icon;
+  final String text;
+  final List<Color> colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors[0].withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors[0].withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: colors[0]),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    fontSize: 13,
+                    color: FreezmeDesignSystem.textSecondary,
+                    height: 1.4)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetPrimaryButton extends StatelessWidget {
+  const _SheetPrimaryButton({required this.label, required this.colors, required this.onTap});
+  final String label;
+  final List<Color> colors;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+              colors: colors,
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: colors[0].withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
     );
