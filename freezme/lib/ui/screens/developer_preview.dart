@@ -23,13 +23,6 @@ class DeveloperPreviewScreen extends StatelessWidget {
         action: () => flow.replaceStack(<AppStage>[AppStage.dailyPool]),
       ),
       (
-        label: 'Video Date',
-        action: () {
-          flow.replaceStack(<AppStage>[AppStage.dailyPool]);
-          flow.startVideoDate(flow.currentProfile);
-        },
-      ),
-      (
         label: 'Match Success',
         action: () {
           flow.replaceStack(<AppStage>[AppStage.matchSuccess]);

@@ -2,7 +2,6 @@ enum AppStage {
   splash,
   authGate,
   onboarding,
-  compatibilityQuiz,
   dailyPool,
   videoDate,
   matchSuccess,

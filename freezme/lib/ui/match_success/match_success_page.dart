@@ -48,10 +48,9 @@ class MatchSuccessPage extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.favorite, color: Colors.white, size: 96),
@@ -121,7 +120,6 @@ class MatchSuccessPage extends StatelessWidget {
                     style: TextStyle(color: Colors.white70),
                   ),
                 ],
-              ),
             ),
           ),
         ),
@@ -129,6 +127,7 @@ class MatchSuccessPage extends StatelessWidget {
     );
   }
 }
+
 
 class _MatchAvatar extends StatelessWidget {
   const _MatchAvatar({required this.imageUrl, required this.label});

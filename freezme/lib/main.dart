@@ -23,8 +23,6 @@ export 'models/photo_slot.dart';
 import 'ui/screens/splash_screen.dart';
 import 'ui/screens/auth_gate.dart';
 import 'ui/screens/onboarding_flow.dart';
-import 'ui/screens/compatibility_quiz.dart';
-import 'ui/screens/daily_vibe_pool.dart';
 import 'ui/home/home_page.dart';
 import 'ui/screens/video_date.dart';
 import 'ui/screens/match_success.dart';
@@ -222,8 +220,6 @@ class FlowNavigator extends StatelessWidget {
         return const AuthGatePage();
       case AppStage.onboarding:
         return const OnboardingFlowPage();
-      case AppStage.compatibilityQuiz:
-        return const CompatibilityQuizPage();
       case AppStage.dailyPool:
         return const HomePage();
       case AppStage.videoDate:

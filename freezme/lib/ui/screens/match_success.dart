@@ -43,10 +43,9 @@ class _MatchSuccessPageState extends State<MatchSuccessPage> with SingleTickerPr
           const Positioned.fill(child: VibeSparkle(child: SizedBox.expand())),
 
           SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Column(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+              child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const _StaggeredEntrance(
@@ -147,7 +146,6 @@ class _MatchSuccessPageState extends State<MatchSuccessPage> with SingleTickerPr
                     ),
                   ],
                 ),
-              ),
             ),
           ),
         ],

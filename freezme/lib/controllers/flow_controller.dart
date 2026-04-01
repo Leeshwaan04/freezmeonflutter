@@ -469,19 +469,6 @@ class AppFlowController extends ChangeNotifier {
     replaceStack(<AppStage>[AppStage.onboarding]);
   }
 
-  void beginCompatibilityQuiz() => pushIfMissing(AppStage.compatibilityQuiz);
-
-  Future<void> finishCompatibilityQuiz() async {
-    if (_stack.isNotEmpty && _stack.last == AppStage.compatibilityQuiz) {
-      _stack.removeLast();
-    }
-    if (_stack.isNotEmpty && _stack.last == AppStage.onboarding) {
-      _stack.removeLast();
-    }
-    await _prefs?.setBool(_kOnboardingCompleteKey, true);
-    _stack.add(AppStage.dailyPool);
-    notifyListeners();
-  }
 
   Future<void> completeOnboarding() async {
     if (_stack.isNotEmpty && _stack.last == AppStage.onboarding) {
