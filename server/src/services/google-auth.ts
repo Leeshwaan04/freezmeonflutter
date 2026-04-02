@@ -1,6 +1,12 @@
 import { OAuth2Client } from 'google-auth-library';
 
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const client = new OAuth2Client();
+
+// Accept tokens from both web and iOS OAuth clients
+const ALLOWED_AUDIENCES = [
+  process.env.GOOGLE_CLIENT_ID!,                                              // web client
+  '542457497074-3uq4cfeimroq5v6d711ip0r52gdle7jn.apps.googleusercontent.com', // iOS client
+];
 
 export interface GoogleUser {
   uid: string;
@@ -12,7 +18,7 @@ export interface GoogleUser {
 export async function verifyGoogleToken(idToken: string): Promise<GoogleUser> {
   const ticket = await client.verifyIdToken({
     idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
+    audience: ALLOWED_AUDIENCES,
   });
 
   const payload = ticket.getPayload();
