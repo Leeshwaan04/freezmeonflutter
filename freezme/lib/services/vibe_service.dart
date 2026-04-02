@@ -4,7 +4,7 @@ import '../models/vibe_profile.dart';
 /// VibeService handles the E2E communication with the Go Backend
 /// and Pinecone-backed Matching Engine.
 class VibeService {
-  final String baseUrl = "https://api.freezme.app/v1";
+  final String baseUrl = "https://api.freezme.in/v1";
 
   Future<void> toggleFreeze(bool status) async {
     // POST /user/toggle-freeze

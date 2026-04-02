@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../main.dart';
 import '../../models/paths.dart';
 import '../design_system.dart';
@@ -21,6 +22,8 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
   bool todayOnly = true;
   int wavesLeft = 5;
   bool notifyWhenNearby = true;
+  static const _wavesKey = 'paths_waves_left';
+  static const _wavesDateKey = 'paths_waves_date';
   final Map<String, String> inviteStatusByUser = {};
   final Map<String, StreamSubscription<PathsInvite>> _inviteSubs = {};
   late final AnimationController _radarController;
@@ -36,6 +39,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final flow = AppFlowScope.of(context, listen: false);
       _refresh(flow);
+      _loadWaves();
     });
   }
 
@@ -63,13 +67,30 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
     }
   }
 
-  void _useWave(BuildContext context) {
+  Future<void> _loadWaves() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final savedDate = prefs.getString(_wavesDateKey);
+    if (savedDate == today) {
+      if (mounted) setState(() => wavesLeft = prefs.getInt(_wavesKey) ?? 5);
+    } else {
+      // New day — reset to 5
+      await prefs.setInt(_wavesKey, 5);
+      await prefs.setString(_wavesDateKey, today);
+      if (mounted) setState(() => wavesLeft = 5);
+    }
+  }
+
+  Future<void> _useWave(BuildContext context) async {
     if (wavesLeft <= 0) {
       PremiumSnackBar.show(context, 'Daily waves used up. Check back tomorrow.');
       return;
     }
-    setState(() => wavesLeft -= 1);
-    PremiumSnackBar.show(context, 'Wave sent. $wavesLeft left today.', type: SnackBarType.success);
+    final newCount = wavesLeft - 1;
+    setState(() => wavesLeft = newCount);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_wavesKey, newCount);
+    PremiumSnackBar.show(context, 'Wave sent. $newCount left today.', type: SnackBarType.success);
   }
 
   Future<void> _refresh(AppFlowController flow) async {

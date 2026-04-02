@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/auth_service.dart';
+import '../services/api_client.dart';
 
 import '../core/app_stage.dart';
 import '../models/vibe_profile.dart';
@@ -197,6 +198,11 @@ class AppFlowController extends ChangeNotifier {
   BlindSession? get activeBlindSession => _activeBlindSession;
   bool get blindsConsent => _blindsConsent;
   void setBlindsConsent(bool value) { _blindsConsent = value; notifyListeners(); }
+  void updateBlindPreferences({required bool allowReveal}) {
+    final uid = AuthService.instance.currentUser?.uid;
+    if (uid == null) return;
+    _repository.updateProfile(uid: uid, allowBlindReveal: allowReveal);
+  }
   Future<void> enqueueBlind({
     required String intent,
     required String distanceBucket,
@@ -512,6 +518,15 @@ class AppFlowController extends ChangeNotifier {
     }
     await _prefs?.setBool('is_freezed', _isFreezed);
     await _prefs?.setString('freeze_until', _freezeUntil?.toIso8601String() ?? '');
+    // Persist to backend
+    try {
+      await ApiClient.instance.dio.patch('/profiles/freeze', data: {
+        'frozen': _isFreezed,
+        if (_freezeUntil != null) 'freezeUntil': _freezeUntil!.toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('[Flow] toggleFreeze backend error: $e');
+    }
     notifyListeners();
   }
 

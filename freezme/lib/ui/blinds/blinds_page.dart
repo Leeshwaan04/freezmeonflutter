@@ -4,7 +4,6 @@ import '../design_system.dart';
 import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
 import '../components/freezme_logo.dart';
-import '../shared/bottom_nav_bar.dart';
 
 class BlindsPage extends StatefulWidget {
   const BlindsPage({super.key});
@@ -14,9 +13,11 @@ class BlindsPage extends StatefulWidget {
 }
 
 class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
-  late bool consented; // Changed to late
+  late bool consented;
   bool revealAllowed = false;
   bool isSearching = false;
+  String _selectedIntent = 'friends';
+  String _selectedDistance = '10km';
   final List<(String, IconData)> prompts = const [
     ('What made you smile today?', Icons.sentiment_satisfied_alt),
     ('Share a small win from this week.', Icons.celebration),
@@ -66,13 +67,9 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
     try {
       if (!isSearching || !mounted) return;
 
-      // In a real app, we'd get this from user settings or a dialog
-      const intent = 'friends'; 
-      const distanceBucket = '10km';
-
       await flow.enqueueBlind(
-        intent: intent,
-        distanceBucket: distanceBucket,
+        intent: _selectedIntent,
+        distanceBucket: _selectedDistance,
         availableUntil: DateTime.now().add(const Duration(hours: 1)),
       );
 
@@ -304,7 +301,40 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                             title: const Text('Allow Reveal', style: TextStyle(fontWeight: FontWeight.w500)),
                             subtitle: const Text('Show profile after mutual thumbs up'),
                             value: revealAllowed,
-                            onChanged: (v) => setState(() => revealAllowed = v),
+                            onChanged: (v) {
+                              setState(() => revealAllowed = v);
+                              flow.updateBlindPreferences(allowReveal: v);
+                            },
+                          ),
+                          const Divider(color: FreezmeDesignSystem.border),
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Intent', style: TextStyle(fontWeight: FontWeight.w500)),
+                            trailing: DropdownButton<String>(
+                              value: _selectedIntent,
+                              underline: const SizedBox(),
+                              items: const [
+                                DropdownMenuItem(value: 'friends', child: Text('Friends')),
+                                DropdownMenuItem(value: 'dates', child: Text('Dates')),
+                                DropdownMenuItem(value: 'either', child: Text('Either')),
+                              ],
+                              onChanged: (v) => setState(() => _selectedIntent = v ?? 'friends'),
+                            ),
+                          ),
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Distance', style: TextStyle(fontWeight: FontWeight.w500)),
+                            trailing: DropdownButton<String>(
+                              value: _selectedDistance,
+                              underline: const SizedBox(),
+                              items: const [
+                                DropdownMenuItem(value: '5km', child: Text('5 km')),
+                                DropdownMenuItem(value: '10km', child: Text('10 km')),
+                                DropdownMenuItem(value: '25km', child: Text('25 km')),
+                                DropdownMenuItem(value: '50km', child: Text('50 km')),
+                              ],
+                              onChanged: (v) => setState(() => _selectedDistance = v ?? '10km'),
+                            ),
                           ),
                         ],
                       ),

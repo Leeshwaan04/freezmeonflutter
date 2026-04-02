@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _kBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
@@ -8,6 +9,47 @@ const _kBaseUrl = String.fromEnvironment(
 
 const _kAccessTokenKey = 'access_token';
 const _kRefreshTokenKey = 'refresh_token';
+
+/// Token storage that tries SecureStorage first, falls back to SharedPreferences.
+/// SecureStorage silently fails on iOS Simulator (no Keychain entitlements).
+class _TokenStorage {
+  final FlutterSecureStorage _secure = const FlutterSecureStorage();
+
+  Future<void> write(String key, String value) async {
+    try {
+      await _secure.write(key: key, value: value);
+      // Verify the write actually stuck (simulator keychain bug)
+      final check = await _secure.read(key: key);
+      if (check == value) return;
+    } catch (_) {}
+    // Fallback to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, value);
+  }
+
+  Future<String?> read(String key) async {
+    try {
+      final val = await _secure.read(key: key);
+      if (val != null && val.isNotEmpty) return val;
+    } catch (_) {}
+    // Fallback to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(key);
+  }
+
+  Future<void> delete(String key) async {
+    try { await _secure.delete(key: key); } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+  }
+
+  Future<void> deleteAll() async {
+    try { await _secure.deleteAll(); } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kAccessTokenKey);
+    await prefs.remove(_kRefreshTokenKey);
+  }
+}
 
 class ApiClient {
   ApiClient._() {
@@ -23,7 +65,7 @@ class ApiClient {
   static final ApiClient instance = ApiClient._();
 
   late final Dio _dio;
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final _TokenStorage _storage = _TokenStorage();
 
   Dio get dio => _dio;
 
@@ -34,18 +76,18 @@ class ApiClient {
     required String refreshToken,
   }) async {
     await Future.wait([
-      _storage.write(key: _kAccessTokenKey, value: accessToken),
-      _storage.write(key: _kRefreshTokenKey, value: refreshToken),
+      _storage.write(_kAccessTokenKey, accessToken),
+      _storage.write(_kRefreshTokenKey, refreshToken),
     ]);
   }
 
-  Future<String?> getAccessToken() => _storage.read(key: _kAccessTokenKey);
-  Future<String?> getRefreshToken() => _storage.read(key: _kRefreshTokenKey);
+  Future<String?> getAccessToken() => _storage.read(_kAccessTokenKey);
+  Future<String?> getRefreshToken() => _storage.read(_kRefreshTokenKey);
 
   Future<void> clearTokens() async {
     await Future.wait([
-      _storage.delete(key: _kAccessTokenKey),
-      _storage.delete(key: _kRefreshTokenKey),
+      _storage.delete(_kAccessTokenKey),
+      _storage.delete(_kRefreshTokenKey),
     ]);
   }
 
@@ -58,7 +100,7 @@ class ApiClient {
 class _AuthInterceptor extends Interceptor {
   _AuthInterceptor(this._storage, this._dio);
 
-  final FlutterSecureStorage _storage;
+  final _TokenStorage _storage;
   final Dio _dio;
   bool _refreshing = false;
 
@@ -67,13 +109,9 @@ class _AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    try {
-      final token = await _storage.read(key: _kAccessTokenKey);
-      if (token != null) {
-        options.headers['Authorization'] = 'Bearer $token';
-      }
-    } catch (_) {
-      // Keychain unavailable (e.g. iOS Simulator entitlement error) — proceed without token
+    final token = await _storage.read(_kAccessTokenKey);
+    if (token != null) {
+      options.headers['Authorization'] = 'Bearer $token';
     }
     handler.next(options);
   }
@@ -86,16 +124,9 @@ class _AuthInterceptor extends Interceptor {
     if (err.response?.statusCode == 401 && !_refreshing) {
       _refreshing = true;
       try {
-        String? refreshToken;
-        try {
-          refreshToken = await _storage.read(key: _kRefreshTokenKey);
-        } catch (_) {
-          handler.next(err);
-          _refreshing = false;
-          return;
-        }
+        final refreshToken = await _storage.read(_kRefreshTokenKey);
         if (refreshToken == null) {
-          try { await _storage.deleteAll(); } catch (_) {}
+          await _storage.deleteAll();
           handler.next(err);
           return;
         }
@@ -108,15 +139,15 @@ class _AuthInterceptor extends Interceptor {
 
         final newAccess = response.data['accessToken'] as String;
         final newRefresh = response.data['refreshToken'] as String;
-        await _storage.write(key: _kAccessTokenKey, value: newAccess);
-        await _storage.write(key: _kRefreshTokenKey, value: newRefresh);
+        await _storage.write(_kAccessTokenKey, newAccess);
+        await _storage.write(_kRefreshTokenKey, newRefresh);
 
         // Retry original request
         err.requestOptions.headers['Authorization'] = 'Bearer $newAccess';
         final retried = await _dio.fetch(err.requestOptions);
         handler.resolve(retried);
       } catch (_) {
-        try { await _storage.deleteAll(); } catch (_) {}
+        await _storage.deleteAll();
         handler.next(err);
       } finally {
         _refreshing = false;

@@ -41,7 +41,7 @@ class FakeFreezmeRepository implements FreezmeRepository {
   Future<VibeProfile?> fetchProfile(String uid) async => null;
 
   @override
-  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? gender, String? location, List<String>? interests, bool? isPremium}) async {}
+  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? gender, String? location, List<String>? interests, bool? isPremium, bool? allowBlindReveal}) async {}
 
   @override
   Future<void> sendMessage(ChatMessage message) async {}

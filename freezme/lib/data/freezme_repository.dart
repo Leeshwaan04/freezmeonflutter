@@ -43,6 +43,7 @@ abstract class FreezmeRepository {
     String? location,
     List<String>? interests,
     bool? isPremium,
+    bool? allowBlindReveal,
   });
 
   // Messaging

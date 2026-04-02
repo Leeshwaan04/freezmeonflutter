@@ -99,6 +99,7 @@ class MockFreezmeRepository implements FreezmeRepository {
     String? location,
     List<String>? interests,
     bool? isPremium,
+    bool? allowBlindReveal,
   }) async {}
 
   @override

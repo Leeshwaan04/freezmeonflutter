@@ -83,12 +83,14 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     String? location,
     List<String>? interests,
     bool? isPremium,
+    bool? allowBlindReveal,
   }) async {
     await _client.dio.post<void>('/profiles', data: {
       if (displayName != null) 'name': displayName,
       if (bio != null) 'bio': bio,
       if (age != null) 'age': age,
       if (interests != null) 'interests': interests,
+      if (allowBlindReveal != null) 'allowBlindReveal': allowBlindReveal,
     });
   }
 

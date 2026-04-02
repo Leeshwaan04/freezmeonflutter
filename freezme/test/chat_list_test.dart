@@ -127,7 +127,7 @@ class FakeFreezmeRepository implements FreezmeRepository {
   Future<Map<String, dynamic>> fetchUserPreferences() async => {};
 
   @override
-  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? gender, String? location, List<String>? interests, bool? isPremium}) async {}
+  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? gender, String? location, List<String>? interests, bool? isPremium, bool? allowBlindReveal}) async {}
 
   @override
   Future<String> createPost({required List<String> photoUrls, String? caption, required String visibility}) async => '';
