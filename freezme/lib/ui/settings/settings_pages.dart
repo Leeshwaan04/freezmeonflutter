@@ -5,8 +5,8 @@ import '../../main.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';
 
-const _kTermsUrl = 'https://freezme.in/terms';
-const _kPrivacyUrl = 'https://freezme.in/privacy';
+const _kTermsUrl = 'https://api.freezme.in/terms';
+const _kPrivacyUrl = 'https://api.freezme.in/privacy';
 
 Future<void> _openUrl(String url) async {
   final uri = Uri.parse(url);

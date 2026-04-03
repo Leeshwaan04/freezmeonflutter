@@ -8,8 +8,8 @@ import '../theme.dart';
 import '../widgets/freezme_logo.dart';
 import '../widgets/floating_orbs.dart';
 
-const _kTermsUrl = 'https://freezme.in/terms';
-const _kPrivacyUrl = 'https://freezme.in/privacy';
+const _kTermsUrl = 'https://api.freezme.in/terms';
+const _kPrivacyUrl = 'https://api.freezme.in/privacy';
 
 Future<void> _openUrl(String url) async {
   final uri = Uri.parse(url);
@@ -96,9 +96,21 @@ class _AuthGatePageState extends State<AuthGatePage>
   }
 
   static const _highlights = [
-    (icon: Icons.favorite_outline, label: 'Curated daily matches'),
-    (icon: Icons.videocam_outlined, label: '1:1 video vibes'),
-    (icon: Icons.spa_outlined, label: 'Mindful prompts & check-ins'),
+    (
+      icon: Icons.favorite_outline,
+      label: 'Daily Matches',
+      sub: 'Meet someone who actually gets you',
+    ),
+    (
+      icon: Icons.explore_outlined,
+      label: 'Paths',
+      sub: 'Cross paths with people around you',
+    ),
+    (
+      icon: Icons.visibility_off_outlined,
+      label: 'Blinds',
+      sub: 'Feel the vibe before the face',
+    ),
   ];
 
   @override
@@ -169,11 +181,27 @@ class _AuthGatePageState extends State<AuthGatePage>
                             const SizedBox(height: 36),
 
                             // Animated feature highlights
-                            const _AnimatedHighlights(highlights: _highlights),
-
-                            const Spacer(),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              child: const _AnimatedHighlights(highlights: _highlights),
+                            ),
 
                             const SizedBox(height: 40),
+
+                            // Social proof
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.people_outline, size: 15, color: FreezmeColors.primary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Join thousands finding real connections',
+                                  style: FreezmeTypography.bodyMuted.copyWith(fontSize: 12.5),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 32),
 
                             // Sign-in buttons
                             if (_isLoading)
@@ -187,25 +215,23 @@ class _AuthGatePageState extends State<AuthGatePage>
                               _AuthButton(
                                 label: 'Continue with Apple',
                                 icon: Icons.apple,
-                                background: Colors.black,
+                                variant: _AuthButtonVariant.apple,
                                 foreground: Colors.white,
                                 onTap: () => _signInWithApple(flow),
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 10),
                               _AuthButton(
                                 label: 'Continue with Google',
                                 icon: Icons.g_mobiledata,
+                                variant: _AuthButtonVariant.google,
                                 foreground: FreezmeColors.neutral,
-                                background: Colors.white,
-                                border: const BorderSide(
-                                    color: FreezmeColors.border, width: 1.5),
                                 onTap: () => _signInWithGoogle(flow),
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 10),
                               _AuthButton(
                                 label: 'Continue with Email',
                                 icon: Icons.mail_outline,
-                                gradient: FreezmeGradients.primary,
+                                variant: _AuthButtonVariant.email,
                                 foreground: Colors.white,
                                 onTap: () => _signInWithEmail(flow),
                               ),
@@ -443,9 +469,16 @@ class _FreezmeWordmarkState extends State<_FreezmeWordmark>
 
 // ── Animated highlights ──────────────────────────────────────────────────────
 
+// Per-feature accent colours
+const _kFeatureColors = [
+  Color(0xFF4D2C91), // deep purple — Daily Matches
+  Color(0xFF2563EB), // blue    — Paths
+  Color(0xFFDB2777), // pink    — Blinds
+];
+
 class _AnimatedHighlights extends StatefulWidget {
   const _AnimatedHighlights({required this.highlights});
-  final List<({IconData icon, String label})> highlights;
+  final List<({IconData icon, String label, String sub})> highlights;
 
   @override
   State<_AnimatedHighlights> createState() => _AnimatedHighlightsState();
@@ -453,18 +486,15 @@ class _AnimatedHighlights extends StatefulWidget {
 
 class _AnimatedHighlightsState extends State<_AnimatedHighlights>
     with TickerProviderStateMixin {
-  // Cascade entrance
+  // Entrance per card
   late final List<AnimationController> _entranceControllers;
   late final List<Animation<double>> _entranceFades;
   late final List<Animation<Offset>> _entranceSlides;
 
-  // Continuous levitation
-  late final AnimationController _levitateController;
+  // Shared continuous ticker
+  late final AnimationController _loopController;
 
-  // Shimmer sweep on the border
-  late final AnimationController _shimmerController;
-
-  // Stagger driver — ticker-based so tests can pump it cleanly (no Future.delayed)
+  // Stagger driver — purely ticker-based (no Future.delayed, safe in tests)
   late final AnimationController _staggerDriver;
 
   @override
@@ -472,31 +502,25 @@ class _AnimatedHighlightsState extends State<_AnimatedHighlights>
     super.initState();
     final count = widget.highlights.length;
 
-    // Staggered entrance — each chip 180ms after the previous
     _entranceControllers = List.generate(
       count,
-      (i) => AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 550),
-      ),
+      (_) => AnimationController(vsync: this, duration: const Duration(milliseconds: 600)),
     );
-    _entranceFades = _entranceControllers.map((c) {
-      return CurvedAnimation(parent: c, curve: Curves.easeOut);
-    }).toList();
-    _entranceSlides = _entranceControllers.map((c) {
-      return Tween<Offset>(
-        begin: const Offset(0, 0.35),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(parent: c, curve: Curves.easeOutCubic));
-    }).toList();
+    _entranceFades = _entranceControllers
+        .map((c) => CurvedAnimation(parent: c, curve: Curves.easeOut))
+        .toList();
+    _entranceSlides = _entranceControllers
+        .map((c) => Tween<Offset>(begin: const Offset(0, 0.4), end: Offset.zero)
+            .animate(CurvedAnimation(parent: c, curve: Curves.easeOutBack)))
+        .toList();
 
-    final staggerTotal = 120 + count * 180;
+    final staggerTotal = 200 + count * 220;
     _staggerDriver = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: staggerTotal),
     );
     for (var i = 0; i < count; i++) {
-      final threshold = (120 + i * 180) / staggerTotal;
+      final threshold = (200 + i * 220) / staggerTotal;
       _staggerDriver.addListener(() {
         if (_staggerDriver.value >= threshold &&
             _entranceControllers[i].status == AnimationStatus.dismissed) {
@@ -506,41 +530,38 @@ class _AnimatedHighlightsState extends State<_AnimatedHighlights>
     }
     _staggerDriver.forward();
 
-    // Slow levitation loop (different phase per chip handled at render time)
-    _levitateController = AnimationController(
+    _loopController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3200),
-    )..repeat(reverse: true);
-
-    // Shimmer sweep
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
+      duration: const Duration(milliseconds: 4000),
     )..repeat();
   }
 
   @override
   void dispose() {
     _staggerDriver.dispose();
-    for (final c in _entranceControllers) {
-      c.dispose();
-    }
-    _levitateController.dispose();
-    _shimmerController.dispose();
+    for (final c in _entranceControllers) c.dispose();
+    _loopController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_levitateController, _shimmerController]),
+      animation: _loopController,
       builder: (context, _) {
+        final t = _loopController.value; // 0..1 looping
         return Column(
           children: List.generate(widget.highlights.length, (i) {
-            // Each chip bobs at a different phase offset
-            final phase = i * (math.pi * 2 / widget.highlights.length);
-            final levitate =
-                math.sin(_levitateController.value * math.pi + phase) * 5.0;
+            final color = _kFeatureColors[i % _kFeatureColors.length];
+            final phaseOffset = i / widget.highlights.length;
+            final loopT = (t + phaseOffset) % 1.0;
+
+            // Orb pulse — breathes in and out
+            final orbScale = 1.0 + math.sin(loopT * math.pi * 2) * 0.08;
+            // Levitate — gentle vertical float
+            final levitate = math.sin(loopT * math.pi * 2) * 6.0;
+            // Particle orbit angle
+            final particleAngle = loopT * math.pi * 2;
 
             return FadeTransition(
               opacity: _entranceFades[i],
@@ -549,13 +570,16 @@ class _AnimatedHighlightsState extends State<_AnimatedHighlights>
                 child: Transform.translate(
                   offset: Offset(0, levitate),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: _ShimmerChip(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: _FeatureOrb(
                       icon: widget.highlights[i].icon,
                       label: widget.highlights[i].label,
-                      shimmerProgress: (_shimmerController.value + i * 0.33) % 1.0,
+                      sub: widget.highlights[i].sub,
+                      color: color,
+                      orbScale: orbScale,
+                      particleAngle: particleAngle,
                       iconIndex: i,
-                      levitate: levitate,
+                      loopT: loopT,
                     ),
                   ),
                 ),
@@ -568,108 +592,190 @@ class _AnimatedHighlightsState extends State<_AnimatedHighlights>
   }
 }
 
-class _ShimmerChip extends StatelessWidget {
-  const _ShimmerChip({
+class _FeatureOrb extends StatelessWidget {
+  const _FeatureOrb({
     required this.icon,
     required this.label,
-    required this.shimmerProgress,
+    required this.sub,
+    required this.color,
+    required this.orbScale,
+    required this.particleAngle,
     required this.iconIndex,
-    required this.levitate,
+    required this.loopT,
   });
 
   final IconData icon;
   final String label;
-  final double shimmerProgress; // 0..1 cyclic
+  final String sub;
+  final Color color;
+  final double orbScale;
+  final double particleAngle;
   final int iconIndex;
-  final double levitate;
+  final double loopT;
 
   @override
   Widget build(BuildContext context) {
-    // Shimmer angle sweeps around the pill border
-    final shimmerAngle = shimmerProgress * math.pi * 2;
-    final shimmerX = math.cos(shimmerAngle);
-    final shimmerY = math.sin(shimmerAngle);
-
-    // Glow intensity pulses with shimmer
-    final glowAlpha = 0.06 + shimmerProgress * 0.14;
-
-    // Icon micro-animation values derived from shimmerProgress
+    // Icon-specific micro-motion
     final double iconScale;
     final double iconRotation;
     switch (iconIndex) {
-      case 0: // Heart — subtle pulse beat
-        iconScale = 1.0 + math.sin(shimmerProgress * math.pi * 2) * 0.18;
+      case 0: // Heart — heartbeat double-pulse
+        final beat = math.sin(loopT * math.pi * 4);
+        iconScale = 1.0 + beat.clamp(0.0, 1.0) * 0.22;
         iconRotation = 0;
-      case 1: // Camera — blink/zoom
-        iconScale = 1.0 + math.sin(shimmerProgress * math.pi * 4) * 0.1;
-        iconRotation = 0;
-      case 2: // Leaf — gentle sway
+      case 1: // Compass — slow spin
         iconScale = 1.0;
-        iconRotation = math.sin(shimmerProgress * math.pi * 2) * 0.18;
+        iconRotation = loopT * math.pi * 2;
+      case 2: // Eye — scale blink
+        iconScale = 1.0 + math.sin(loopT * math.pi * 2) * 0.14;
+        iconRotation = 0;
       default:
         iconScale = 1.0;
         iconRotation = 0;
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 11),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: Colors.white.withValues(alpha: 0.75),
-        gradient: LinearGradient(
-          begin: Alignment(shimmerX * 0.6, shimmerY * 0.6),
-          end: Alignment(-shimmerX * 0.6, -shimmerY * 0.6),
-          colors: [
-            Colors.white.withValues(alpha: 0.95),
-            FreezmeColors.surfaceAlt.withValues(alpha: 0.85),
-            Colors.white.withValues(alpha: 0.95),
-          ],
-          stops: const [0.0, 0.5, 1.0],
+    // 3 orbiting particles at 120° apart
+    final particles = List.generate(3, (p) {
+      final angle = particleAngle + p * (math.pi * 2 / 3);
+      final r = 32.0;
+      return Offset(math.cos(angle) * r, math.sin(angle) * r);
+    });
+
+    const orbSize = 64.0;
+
+    return Row(
+      children: [
+        // Orb with particles
+        SizedBox(
+          width: orbSize + 24,
+          height: orbSize + 24,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer glow ring
+              Transform.scale(
+                scale: orbScale * 1.35,
+                child: Container(
+                  width: orbSize,
+                  height: orbSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color.withValues(alpha: 0.10),
+                  ),
+                ),
+              ),
+              // Orb body
+              Transform.scale(
+                scale: orbScale,
+                child: Container(
+                  width: orbSize,
+                  height: orbSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        color.withValues(alpha: 0.28),
+                        color.withValues(alpha: 0.10),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: color.withValues(alpha: 0.35),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.25 + orbScale * 0.08),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Transform.rotate(
+                      angle: iconRotation,
+                      child: Transform.scale(
+                        scale: iconScale,
+                        child: Icon(icon, size: 26, color: color),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Orbiting particles
+              ...particles.map((offset) => Positioned(
+                left: orbSize / 2 + 12 + offset.dx - 3,
+                top: orbSize / 2 + 12 + offset.dy - 3,
+                child: Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color.withValues(alpha: 0.55),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.4),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              )),
+            ],
+          ),
         ),
-        border: Border.all(
-          color: FreezmeColors.primary.withValues(
-            alpha: 0.15 + shimmerProgress * 0.25,
+        const SizedBox(width: 16),
+        // Text
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: FreezmeTypography.body.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  color: FreezmeColors.neutral,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                sub,
+                style: FreezmeTypography.body.copyWith(
+                  fontWeight: FontWeight.w400,
+                  fontSize: 12.5,
+                  color: FreezmeColors.neutral.withValues(alpha: 0.5),
+                  height: 1.4,
+                ),
+              ),
+            ],
           ),
-          width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: FreezmeColors.primary.withValues(alpha: glowAlpha),
-            blurRadius: 16 + shimmerProgress * 8,
-            offset: Offset(shimmerX * 2, shimmerY * 2 + levitate * 0.3),
+        // Accent dot
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.4 + orbScale * 0.2),
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 6),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Transform.rotate(
-            angle: iconRotation,
-            child: Transform.scale(
-              scale: iconScale,
-              child: Icon(icon, size: 17, color: FreezmeColors.primary),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: FreezmeTypography.body.copyWith(
-              fontWeight: FontWeight.w600,
-              fontSize: 13.5,
-              color: FreezmeColors.neutral,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _AuthButton extends StatelessWidget {
+enum _AuthButtonVariant { apple, google, email }
+
+class _AuthButton extends StatefulWidget {
   const _AuthButton({
     required this.label,
     required this.icon,
     required this.onTap,
+    required this.variant,
     this.background,
     this.foreground,
     this.gradient,
@@ -679,42 +785,183 @@ class _AuthButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final _AuthButtonVariant variant;
   final Color? background;
   final Color? foreground;
   final Gradient? gradient;
   final BorderSide? border;
 
   @override
-  Widget build(BuildContext context) {
-    final textColor = foreground ?? Colors.white;
+  State<_AuthButton> createState() => _AuthButtonState();
+}
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: gradient,
-            color: gradient == null ? background : null,
-            borderRadius: BorderRadius.circular(999),
-            border: border != null ? Border.fromBorderSide(border!) : null,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: textColor),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: FreezmeTypography.button.copyWith(color: textColor),
-              ),
-            ],
-          ),
+class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  bool _pressed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = widget.foreground ?? Colors.white;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: AnimatedBuilder(
+          animation: _ctrl,
+          builder: (context, _) {
+            final t = _ctrl.value;
+            return _buildButton(context, t, textColor);
+          },
         ),
       ),
     );
+  }
+
+  Widget _buildButton(BuildContext context, double t, Color textColor) {
+    switch (widget.variant) {
+      case _AuthButtonVariant.apple:
+        // Dark frosted glass with a soft shimmer sweep
+        final shimmerX = math.cos(t * math.pi * 2);
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment(shimmerX - 1, -0.5),
+              end: Alignment(shimmerX + 1, 0.5),
+              colors: const [
+                Color(0xFF1A1A1A),
+                Color(0xFF2D2D2D),
+                Color(0xFF1A1A1A),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, color: textColor, size: 20),
+              const SizedBox(width: 12),
+              Text(widget.label, style: FreezmeTypography.button.copyWith(color: textColor, fontSize: 15)),
+            ],
+          ),
+        );
+
+      case _AuthButtonVariant.google:
+        // White card with subtle animated Google-colour dots
+        const gColors = [Color(0xFF4285F4), Color(0xFFEA4335), Color(0xFFFBBC04), Color(0xFF34A853)];
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFFE5E5E5), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Animated 4-dot Google logo
+              SizedBox(
+                width: 20, height: 20,
+                child: Stack(
+                  children: List.generate(4, (i) {
+                    final angle = (i / 4) * math.pi * 2 + t * math.pi * 2;
+                    final dx = math.cos(angle) * 6 + 6;
+                    final dy = math.sin(angle) * 6 + 6;
+                    return Positioned(
+                      left: dx, top: dy,
+                      child: Container(
+                        width: 5, height: 5,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: gColors[i],
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(widget.label,
+                style: FreezmeTypography.button.copyWith(
+                  color: const Color(0xFF1A1A1A), fontSize: 15)),
+            ],
+          ),
+        );
+
+      case _AuthButtonVariant.email:
+        // Aurora gradient with moving shimmer + sliding arrow
+        final auroraAngle = t * math.pi * 2;
+        final arrowSlide = _pressed ? 6.0 : 0.0;
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment(math.cos(auroraAngle) * 0.8, -1),
+              end: Alignment(-math.cos(auroraAngle) * 0.8, 1),
+              colors: const [
+                Color(0xFF4D2C91),
+                Color(0xFF5E35A8),
+                Color(0xFF3D2070),
+                Color(0xFF4D2C91),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF4D2C91).withValues(alpha: 0.45),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, color: textColor, size: 20),
+              const SizedBox(width: 12),
+              Text(widget.label,
+                style: FreezmeTypography.button.copyWith(color: textColor, fontSize: 15)),
+              const Spacer(),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 100),
+                transform: Matrix4.translationValues(arrowSlide, 0, 0),
+                child: Icon(Icons.arrow_forward_rounded, color: textColor.withValues(alpha: 0.8), size: 18),
+              ),
+            ],
+          ),
+        );
+    }
   }
 }
 
