@@ -20,17 +20,14 @@ jobs:
 
       - name: Copy public files to EC2
         run: |
-          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/public ubuntu@13.61.190.208:~/server/
+          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/public ubuntu@13.61.190.208:~/freezme-server/
 
       - name: Deploy via SSH
         run: |
           ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@13.61.190.208 << 'ENDSSH'
             set -e
-            echo "=== Environment Info ==="
-            pwd
-            ls -la ~
-            
-            cd ~/server || cd ~/freezmeonflutter || { echo "Directory server not found"; exit 1; }
+            echo "=== Production Deployment ==="
+            cd ~/freezme-server
             git pull origin main
             cd server
             npm ci
@@ -39,7 +36,6 @@ jobs:
             grep -c "terms" dist/src/index.js || echo "terms NOT in dist"
             ls public/ || echo "public/ dir missing"
             # Move public files to where index.js expects them (../../public)
-            # dist/src/index.js -> .. (src) -> .. (dist) -> public
             mkdir -p dist/public
             cp -r ../public/* dist/public/ || echo "failed to copy public files"
             npx prisma migrate deploy
