@@ -27,11 +27,16 @@ jobs:
           ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@13.61.190.208 << 'ENDSSH'
             cd ~/server
             git pull origin main
+            cd server
             npm ci
             npm run build
             echo "=== dist/src/index.js terms route ==="
             grep -c "terms" dist/src/index.js || echo "terms NOT in dist"
             ls public/ || echo "public/ dir missing"
+            # Move public files to where index.js expects them (../../public)
+            # dist/src/index.js -> .. (src) -> .. (dist) -> public
+            mkdir -p dist/public
+            cp -r ../public/* dist/public/ || echo "failed to copy public files"
             npx prisma migrate deploy
             pm2 restart freezme-api
             sleep 3
