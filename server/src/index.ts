@@ -2,6 +2,7 @@ import 'dotenv/config';
 import './services/logger'; // init logger first (patches console.*)
 import express from 'express';
 import http from 'http';
+import path from 'path';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -65,6 +66,11 @@ app.use('/feed', feedRouter);
 app.use('/users', usersRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
+
+// ── Static legal pages ───────────────────────────────────────────────────────
+const publicDir = path.join(__dirname, '../../public');
+app.get('/terms', (_req, res) => res.sendFile(path.join(publicDir, 'terms.html')));
+app.get('/privacy', (_req, res) => res.sendFile(path.join(publicDir, 'privacy.html')));
 
 // Global error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/auth_service.dart';
@@ -170,11 +171,11 @@ class AppFlowController extends ChangeNotifier {
   }
   int get matchesCount => matches.length;
 
-  // Paths stubs
+  // Paths
   double _lastPathsRadiusKm = 5.0;
   Set<String> _lastPathsIntents = const {'coffee', 'walk'};
   final List<PathsPresence> _nearbyPaths = [];
-  final bool _pathsLoading = false;
+  bool _pathsLoading = false;
   String? _pathsError;
   double get lastPathsRadiusKm => _lastPathsRadiusKm;
   Set<String> get lastPathsIntents => _lastPathsIntents;
@@ -185,6 +186,57 @@ class AppFlowController extends ChangeNotifier {
   Future<void> refreshPaths({required double radiusKm, required Set<String> intents}) async {
     _lastPathsRadiusKm = radiusKm;
     _lastPathsIntents = intents;
+    _pathsLoading = true;
+    _pathsError = null;
+    notifyListeners();
+
+    try {
+      // Get device location
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw Exception('Location services disabled');
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permission denied');
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+      );
+
+      // Upsert presence on EC2
+      await _repository.upsertPathsPresence(PathsPresence(
+        uid: currentUserId ?? '',
+        lat: pos.latitude,
+        lng: pos.longitude,
+        intents: intents.toList(),
+        radiusKm: radiusKm,
+        visibleUntil: DateTime.now().add(const Duration(hours: 1)),
+      ));
+
+      // Fetch nearby
+      final nearby = await _repository
+          .fetchNearbyPaths(
+            radiusKm: radiusKm,
+            intents: intents,
+            lat: pos.latitude,
+            lng: pos.longitude,
+          )
+          .first;
+
+      _nearbyPaths
+        ..clear()
+        ..addAll(nearby);
+      _pathsError = null;
+    } catch (e) {
+      _pathsError = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      _pathsLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<String> sendPathsInvite({required String receiverUid, required String intent}) =>
