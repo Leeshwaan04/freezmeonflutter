@@ -58,7 +58,7 @@ class _AuthGatePageState extends State<AuthGatePage>
       if (mounted) flow.startOnboarding();
     } catch (e) {
       final msg = e.toString();
-      if (msg.contains('canceled') || msg.contains('cancelled') || msg.contains('cancel') || msg.contains('1001')) return;
+      if (msg.contains('canceled') || msg.contains('cancelled') || msg.contains('cancel') || msg.contains('1001') || msg.contains('not supported') || msg.contains('AuthorizationErrorCode.unknown')) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Apple sign-in failed. Please try again.')),
