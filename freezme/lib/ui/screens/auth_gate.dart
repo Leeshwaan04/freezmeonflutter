@@ -269,6 +269,8 @@ class _FreezmeWordmarkState extends State<_FreezmeWordmark>
 
   // Frost particle burst per letter
   late final List<AnimationController> _frostControllers;
+  // Single driver for staggered entrance — tracked as field so dispose() can clean it up
+  late final AnimationController _staggerDriver;
 
   @override
   void initState() {
@@ -299,28 +301,39 @@ class _FreezmeWordmarkState extends State<_FreezmeWordmark>
       ),
     );
 
-    // Stagger each letter by 90ms
-    for (var i = 0; i < _word.length; i++) {
-      Future.delayed(Duration(milliseconds: 200 + i * 90), () {
-        if (!mounted) return;
-        _letterControllers[i].forward();
-        _frostControllers[i].forward();
-      });
-    }
-
-    // Start shimmer after all letters have appeared
     _shimmerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     );
-    Future.delayed(
-      const Duration(milliseconds: 200 + _word.length * 90 + 300),
-      () { if (mounted) _shimmerController.repeat(); },
+
+    // Stagger via a single AnimationController so fake-time in tests works correctly.
+    // All timers are ticker-driven — no Future.delayed so tests can pump them cleanly.
+    const staggerTotal = 200 + _word.length * 90 + 300;
+    _staggerDriver = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: staggerTotal),
     );
+    for (var i = 0; i < _word.length; i++) {
+      final threshold = (200 + i * 90) / staggerTotal;
+      _staggerDriver.addListener(() {
+        if (_staggerDriver.value >= threshold &&
+            _letterControllers[i].status == AnimationStatus.dismissed) {
+          _letterControllers[i].forward();
+          _frostControllers[i].forward();
+        }
+      });
+    }
+    _staggerDriver.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        _shimmerController.repeat();
+      }
+    });
+    _staggerDriver.forward();
   }
 
   @override
   void dispose() {
+    _staggerDriver.dispose();
     for (final c in _letterControllers) { c.dispose(); }
     for (final c in _frostControllers) { c.dispose(); }
     _shimmerController.dispose();
@@ -435,6 +448,9 @@ class _AnimatedHighlightsState extends State<_AnimatedHighlights>
   // Shimmer sweep on the border
   late final AnimationController _shimmerController;
 
+  // Stagger driver — ticker-based so tests can pump it cleanly (no Future.delayed)
+  late final AnimationController _staggerDriver;
+
   @override
   void initState() {
     super.initState();
@@ -458,11 +474,21 @@ class _AnimatedHighlightsState extends State<_AnimatedHighlights>
       ).animate(CurvedAnimation(parent: c, curve: Curves.easeOutCubic));
     }).toList();
 
+    final staggerTotal = 120 + count * 180;
+    _staggerDriver = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: staggerTotal),
+    );
     for (var i = 0; i < count; i++) {
-      Future.delayed(Duration(milliseconds: 120 + i * 180), () {
-        if (mounted) _entranceControllers[i].forward();
+      final threshold = (120 + i * 180) / staggerTotal;
+      _staggerDriver.addListener(() {
+        if (_staggerDriver.value >= threshold &&
+            _entranceControllers[i].status == AnimationStatus.dismissed) {
+          _entranceControllers[i].forward();
+        }
       });
     }
+    _staggerDriver.forward();
 
     // Slow levitation loop (different phase per chip handled at render time)
     _levitateController = AnimationController(
@@ -479,6 +505,7 @@ class _AnimatedHighlightsState extends State<_AnimatedHighlights>
 
   @override
   void dispose() {
+    _staggerDriver.dispose();
     for (final c in _entranceControllers) {
       c.dispose();
     }

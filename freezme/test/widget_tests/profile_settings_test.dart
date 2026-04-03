@@ -7,17 +7,7 @@ import 'package:freezme/core/app_stage.dart';
 import 'package:freezme/services/melt_chat_service.dart';
 import 'package:freezme/services/photo_upload_service.dart';
 import 'package:freezme/services/iap_service.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 import '../mocks/mock_repository.dart';
-
-class _FakeIAP implements IAPService {
-  @override Stream<List<PurchaseDetails>> get purchaseStream => const Stream.empty();
-  @override Future<bool> isAvailable() async => false;
-  @override Future<List<ProductDetails>> fetchProducts(Set<String> ids) async => [];
-  @override Future<void> buyProduct(ProductDetails product) async {}
-  @override Future<void> restorePurchases() async {}
-  @override void dispose() {}
-}
 
 Future<void> setSurface(WidgetTester tester) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -33,6 +23,7 @@ Future<void> setSurface(WidgetTester tester) async {
 Future<AppFlowController> pumpToProfileSettings(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
   final p = await SharedPreferences.getInstance();
+  final repo = MockFreezmeRepository();
   late AppFlowController ctrl;
   await tester.pumpWidget(FreezmeApp(
     controllerBuilder: () async {
@@ -40,16 +31,18 @@ Future<AppFlowController> pumpToProfileSettings(WidgetTester tester) async {
         prefs: p,
         photoUploadService: MockPhotoUploadService(),
         meltChatService: MockMeltChatService(),
-        repository: MockFreezmeRepository(),
-        iapService: _FakeIAP(),
+        repository: repo,
+        iapService: IAPService(repo),
       );
-      // Simulate authenticated user on home screen
       ctrl.replaceStack([AppStage.dailyPool]);
       return ctrl;
     },
   ));
   await tester.pump(const Duration(milliseconds: 100));
-  await tester.pump(const Duration(seconds: 2));
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pump(const Duration(milliseconds: 500));
+  await tester.pump(const Duration(milliseconds: 500));
   return ctrl;
 }
 
@@ -61,23 +54,16 @@ void main() {
       await setSurface(tester);
       final ctrl = await pumpToProfileSettings(tester);
 
-      // Navigate to profile settings
       ctrl.push(AppStage.profileSettings);
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(seconds: 1));
 
-      // Find "Edit Profile" button/tile
       final editBtn = find.textContaining('Edit Profile');
       if (editBtn.evaluate().isNotEmpty) {
         await tester.tap(editBtn.first);
         await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(seconds: 1));
 
-        // Bottom nav bar should still be visible (Navigator.push not flow.push)
-        // BottomNavigationBar or NavigationBar must still be in the tree
-        final hasBottomNav = find.byType(BottomNavigationBar).evaluate().isNotEmpty ||
-                             find.byType(NavigationBar).evaluate().isNotEmpty;
-        // If modal route — bottom nav may be obscured but widget is still in tree
         expect(find.byType(Scaffold), findsWidgets);
       }
     });
@@ -89,14 +75,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(seconds: 1));
 
-      // Should show completion, matches, vibes left
-      expect(
-        find.textContaining('%') |
-        find.textContaining('Complete') |
-        find.textContaining('Vibes') |
-        find.textContaining('Matches'),
-        findsWidgets,
-      );
+      final hasStats =
+          find.textContaining('%').evaluate().isNotEmpty ||
+          find.textContaining('Complete').evaluate().isNotEmpty ||
+          find.textContaining('Vibes').evaluate().isNotEmpty ||
+          find.textContaining('Matches').evaluate().isNotEmpty;
+      expect(hasStats, isTrue);
     });
 
     testWidgets('Sign Out button is present', (tester) async {

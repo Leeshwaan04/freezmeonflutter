@@ -7,7 +7,7 @@ import 'api_client.dart';
 
 const _kWsUrl = String.fromEnvironment(
   'WS_BASE_URL',
-  defaultValue: 'https://api.freezme.app',
+  defaultValue: 'https://api.freezme.in',
 );
 
 /// Stream-based wrapper around socket.io-client.
