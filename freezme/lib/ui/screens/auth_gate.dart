@@ -1,10 +1,22 @@
 import 'dart:math' as math;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/flow_controller.dart';
 import '../../services/auth_service.dart';
 import '../theme.dart';
 import '../widgets/freezme_logo.dart';
 import '../widgets/floating_orbs.dart';
+
+const _kTermsUrl = 'https://freezme.in/terms';
+const _kPrivacyUrl = 'https://freezme.in/privacy';
+
+Future<void> _openUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
 
 class AuthGatePage extends StatefulWidget {
   const AuthGatePage({super.key});
@@ -201,29 +213,33 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 24),
 
-                            // Legal
+                            // Legal — tappable Terms and Privacy Policy
                             Text.rich(
                               TextSpan(
                                 text: 'By continuing you agree to our ',
                                 style: FreezmeTypography.bodyMuted
                                     .copyWith(fontSize: 12),
-                                children: const [
+                                children: [
                                   TextSpan(
                                     text: 'Terms',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       color: FreezmeColors.primary,
                                       fontWeight: FontWeight.w600,
                                     ),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () => _openUrl(_kTermsUrl),
                                   ),
-                                  TextSpan(text: ' and '),
+                                  const TextSpan(text: ' and '),
                                   TextSpan(
                                     text: 'Privacy Policy',
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       color: FreezmeColors.primary,
                                       fontWeight: FontWeight.w600,
                                     ),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () => _openUrl(_kPrivacyUrl),
                                   ),
-                                  TextSpan(text: '.'),
+                                  const TextSpan(text: '.'),
                                 ],
                               ),
                               textAlign: TextAlign.center,

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
 import { geohashForCoords, getGeohashRanges, kmBetween } from '../services/geo';
+import { sendPushNotification } from '../services/fcm';
 
 const router = Router();
 router.use(requireAuth);
@@ -78,6 +79,20 @@ router.post('/invite', async (req: Request, res: Response) => {
       data: { senderUid: req.uid, receiverUid, intent },
     });
 
+    // Push to receiver
+    const [receiverUser, senderProfile] = await Promise.all([
+      prisma.user.findUnique({ where: { id: receiverUid } }),
+      prisma.profile.findUnique({ where: { userId: req.uid } }),
+    ]);
+    if (receiverUser?.fcmToken && senderProfile?.name) {
+      sendPushNotification(
+        receiverUser.fcmToken,
+        'Someone crossed your path',
+        `${senderProfile.name} wants to connect — ${intent}`,
+        { type: 'paths_invite', inviteId: invite.id }
+      ).catch(() => {});
+    }
+
     res.json(invite);
   } catch (err) {
     res.status(500).json({ error: 'Failed to send paths invite' });
@@ -101,12 +116,25 @@ router.post('/invite/:id/respond', async (req: Request, res: Response) => {
       data: { status, respondedAt: new Date() },
     });
 
-    // On accept, create a chat
+    // On accept, create a chat and notify the original sender
     let chat = null;
     if (status === 'accepted') {
       chat = await prisma.chat.create({
         data: { members: [invite.senderUid, invite.receiverUid] },
       });
+
+      const [senderUser, accepterProfile] = await Promise.all([
+        prisma.user.findUnique({ where: { id: invite.senderUid } }),
+        prisma.profile.findUnique({ where: { userId: req.uid } }),
+      ]);
+      if (senderUser?.fcmToken && accepterProfile?.name) {
+        sendPushNotification(
+          senderUser.fcmToken,
+          'Path invite accepted!',
+          `${accepterProfile.name} accepted your invite. Say hello!`,
+          { type: 'paths_accepted', chatId: chat.id }
+        ).catch(() => {});
+      }
     }
 
     res.json({ invite: updated, chat });

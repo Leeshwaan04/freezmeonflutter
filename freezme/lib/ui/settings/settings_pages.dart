@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../main.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';
+
+const _kTermsUrl = 'https://freezme.in/terms';
+const _kPrivacyUrl = 'https://freezme.in/privacy';
+
+Future<void> _openUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
 
 class SafetyPrivacyPage extends StatefulWidget {
   const SafetyPrivacyPage({super.key});
@@ -499,24 +510,12 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
               children: [
                 _buildLegalTile(
                   title: 'Terms of Service',
-                  onTap: () {
-                    PremiumSnackBar.show(
-                      context,
-                      'Opening Terms of Service...',
-                      type: SnackBarType.info,
-                    );
-                  },
+                  onTap: () => _openUrl(_kTermsUrl),
                 ),
                 const Divider(color: FreezmeDesignSystem.border),
                 _buildLegalTile(
                   title: 'Privacy Policy',
-                  onTap: () {
-                    PremiumSnackBar.show(
-                      context,
-                      'Opening Privacy Policy...',
-                      type: SnackBarType.info,
-                    );
-                  },
+                  onTap: () => _openUrl(_kPrivacyUrl),
                 ),
               ],
             ),
