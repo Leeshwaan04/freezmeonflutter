@@ -1,1 +1,1 @@
-Sat Apr  4 2026 - fix scp to server/ subdir, add npm run build
+Sat Apr  4 2026 - add sendFile error handler to expose path on 404
