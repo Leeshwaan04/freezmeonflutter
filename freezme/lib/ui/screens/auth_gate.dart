@@ -39,9 +39,11 @@ class _AuthGatePageState extends State<AuthGatePage>
       await AuthService.instance.signInWithGoogle();
       if (mounted) flow.startOnboarding();
     } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('canceled') || msg.contains('cancelled') || msg.contains('cancel')) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google sign-in failed: $e')),
+          SnackBar(content: Text('Google sign-in failed. Please try again.')),
         );
       }
     } finally {
@@ -55,9 +57,11 @@ class _AuthGatePageState extends State<AuthGatePage>
       await AuthService.instance.signInWithApple();
       if (mounted) flow.startOnboarding();
     } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('canceled') || msg.contains('cancelled') || msg.contains('cancel') || msg.contains('1001')) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Apple sign-in failed: $e')),
+          SnackBar(content: Text('Apple sign-in failed. Please try again.')),
         );
       }
     } finally {
