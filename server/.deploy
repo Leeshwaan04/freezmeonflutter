@@ -1,1 +1,1 @@
-Sat Apr  4 2026 - add sendFile error handler to expose path on 404
+Sat Apr  4 2026 - add version to health, add express.static for public/

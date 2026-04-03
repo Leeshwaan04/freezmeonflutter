@@ -65,7 +65,8 @@ app.use('/storage', storageRouter);
 app.use('/feed', feedRouter);
 app.use('/users', usersRouter);
 
-app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
+app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString(), v: '2026-04-04' }));
+app.use('/public', express.static(path.join(__dirname, '../../public')));
 
 // ── Static legal pages ───────────────────────────────────────────────────────
 const publicDir = path.join(__dirname, '../../public');
