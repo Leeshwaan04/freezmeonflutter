@@ -20,18 +20,21 @@ jobs:
 
       - name: Copy public files to EC2
         run: |
-          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/public ubuntu@${{ secrets.EC2_HOST }}:~/server/
+          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/public ubuntu@16.170.31.58:~/server/server/ 2>/dev/null || true
 
       - name: Deploy via SSH
         run: |
-          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'ENDSSH'
-            cd ~/server
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@16.170.31.58 << 'ENDSSH'
+            # Pull latest code (repo root)
+            cd ~/freezmeonflutter 2>/dev/null || cd ~/server
             git pull origin main
+            # Build and restart from the server/ subdirectory
+            cd server
             npm ci
             npm run build
             npx prisma migrate deploy
             pm2 restart freezme-api
-            pm2 logs freezme-api --lines 10 --nostream
+            pm2 logs freezme-api --lines 15 --nostream
           ENDSSH
 
       - name: Cleanup key
