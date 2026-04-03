@@ -7,6 +7,7 @@ import '../components/freezme_logo.dart';
 import '../components/aurora_background.dart';
 import '../settings/preferences_page.dart';
 import '../settings/settings_pages.dart';
+import 'edit_profile_page.dart';
 
 // FreezmePlusPage is imported but ideally we use flow.push or named route if structure allows
 // But here we are using Navigator.push with SmoothPageRoute which matches flow architecture for 'sub-pages'
@@ -111,7 +112,7 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         icon: Icons.person_outline,
         label: 'Edit Profile',
         description: 'Update your photos and bio',
-        action: () => flow.pushIfMissing(AppStage.editProfile),
+        action: () => Navigator.of(context).push(SmoothPageRoute(page: const EditProfilePage())),
       ),
       (
         icon: Icons.tune,

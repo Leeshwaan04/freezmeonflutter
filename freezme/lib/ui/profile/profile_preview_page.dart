@@ -4,6 +4,7 @@ import '../../main.dart'; // For AppFlowScope
 import '../design_system.dart';
 import '../components/freezme_logo.dart';
 import '../components/premium_components.dart';
+import 'edit_profile_page.dart';
 
 class ProfilePreviewPage extends StatelessWidget {
   const ProfilePreviewPage({super.key});
@@ -165,7 +166,7 @@ class ProfilePreviewPage extends StatelessWidget {
                                   child: PremiumButton(
                                     label: 'Edit Details',
                                     variant: ButtonVariant.outlined,
-                                    onPressed: () => flow.pushIfMissing(AppStage.editProfile),
+                                    onPressed: () => Navigator.of(context).push(SmoothPageRoute(page: const EditProfilePage())),
                                   ),
                                 ),
                               ],

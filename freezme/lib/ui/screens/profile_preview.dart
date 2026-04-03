@@ -4,6 +4,8 @@ import '../theme.dart';
 import '../../controllers/flow_controller.dart';
 import '../../core/app_stage.dart';
 import '../../models/photo_slot.dart';
+import '../profile/edit_profile_page.dart';
+import '../components/premium_components.dart';
 
 class ProfilePreviewPage extends StatelessWidget {
   const ProfilePreviewPage({super.key});
@@ -102,7 +104,7 @@ class ProfilePreviewPage extends StatelessWidget {
                             ),
                           ),
                           GestureDetector(
-                            onTap: () => flow.push(AppStage.editProfile),
+                            onTap: () => Navigator.of(context).push(SmoothPageRoute(page: const EditProfilePage())),
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: const BoxDecoration(
