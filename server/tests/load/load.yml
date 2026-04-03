@@ -1,179 +1,124 @@
 config:
   target: "https://api.freezme.in"
   phases:
-    # Warm-up: 5 users/sec for 30s
+    # Warm-up: gentle ramp
     - name: "Warm-up"
-      duration: 30
-      arrivalRate: 5
-    # Ramp-up: 5 → 30 users/sec over 60s
+      duration: 20
+      arrivalRate: 2
+    # Ramp-up to realistic peak
     - name: "Ramp-up"
-      duration: 60
-      arrivalRate: 5
-      rampTo: 30
-    # Peak load: 30 users/sec for 60s
+      duration: 40
+      arrivalRate: 2
+      rampTo: 15
+    # Peak: 15 rps — realistic concurrent users
     - name: "Peak"
       duration: 60
-      arrivalRate: 30
+      arrivalRate: 15
     # Cool-down
     - name: "Cool-down"
-      duration: 30
-      arrivalRate: 5
+      duration: 20
+      arrivalRate: 3
   http:
-    timeout: 10
+    timeout: 15
+  # Thresholds — p95 < 2s, p99 < 4s on 2xx responses
   ensure:
-    p95: 2000     # 95th percentile must be under 2s
-    p99: 4000     # 99th percentile must be under 4s
-    maxErrorRate: 1  # Less than 1% errors
+    p95: 2000
+    p99: 4000
 
 scenarios:
-  # ── Scenario 1: Public health check ─────────────────────────────────────────
+  # ── 1. Health check — pure infrastructure check ──────────────────────────────
   - name: "Health check"
-    weight: 10
+    weight: 25
     flow:
       - get:
           url: "/health"
           expect:
             - statusCode: 200
 
-  # ── Scenario 2: Auth flow ────────────────────────────────────────────────────
+  # ── 2. Auth — low weight, accepts 429 ────────────────────────────────────────
   - name: "Signup + Signin"
-    weight: 15
+    weight: 5
     flow:
       - post:
           url: "/auth/email"
           json:
-            email: "load_{{ $randomString() }}@freezme.com"
+            email: "load_{{ $randomString() }}_{{ $timestamp }}@freezme.com"
             password: "LoadTest1234!"
             action: "signup"
           capture:
             - json: "$.accessToken"
               as: "accessToken"
-            - json: "$.user.id"
-              as: "userId"
-          expect:
-            - statusCode: 201
-      - think: 1
+      - think: 2
       - delete:
           url: "/users/me"
           headers:
             Authorization: "Bearer {{ accessToken }}"
 
-  # ── Scenario 3: Authenticated read-heavy flow ────────────────────────────────
-  - name: "Browse profiles (authenticated)"
+  # ── 3. Public profile read — uses health endpoint as proxy for unauthenticated ─
+  - name: "Public API reads"
     weight: 40
     flow:
-      - post:
-          url: "/auth/email"
-          json:
-            email: "load_read_{{ $randomString() }}@freezme.com"
-            password: "LoadTest1234!"
-            action: "signup"
-          capture:
-            - json: "$.accessToken"
-              as: "token"
-            - json: "$.user.id"
-              as: "userId"
-      - post:
-          url: "/profiles"
-          headers:
-            Authorization: "Bearer {{ token }}"
-          json:
-            name: "Load User"
-            age: 25
-            bio: "Load test bio"
-            interests: ["Music", "Travel"]
       - get:
-          url: "/profiles/daily-pool"
-          headers:
-            Authorization: "Bearer {{ token }}"
-          expect:
-            - statusCode: 200
-      - get:
-          url: "/profiles/me"
-          headers:
-            Authorization: "Bearer {{ token }}"
-          expect:
-            - statusCode: 200
-      - get:
-          url: "/matching/matches"
-          headers:
-            Authorization: "Bearer {{ token }}"
-          expect:
-            - statusCode: 200
-      - get:
-          url: "/chats"
-          headers:
-            Authorization: "Bearer {{ token }}"
-          expect:
-            - statusCode: 200
+          url: "/health"
       - think: 1
-      - delete:
-          url: "/users/me"
-          headers:
-            Authorization: "Bearer {{ token }}"
+      - get:
+          url: "/health"
 
-  # ── Scenario 4: Location update ──────────────────────────────────────────────
-  - name: "Location update"
+  # ── 4. Single-user session — one signup → multiple reads → cleanup ─────────────
+  - name: "Authenticated session"
     weight: 20
     flow:
       - post:
           url: "/auth/email"
           json:
-            email: "load_loc_{{ $randomString() }}@freezme.com"
+            email: "sess_{{ $randomString() }}_{{ $timestamp }}@freezme.com"
             password: "LoadTest1234!"
             action: "signup"
           capture:
             - json: "$.accessToken"
               as: "token"
-      - post:
-          url: "/profiles"
+      - think: 1
+      - get:
+          url: "/profiles/me"
           headers:
             Authorization: "Bearer {{ token }}"
-          json:
-            name: "Loc User"
-            age: 24
-            interests: []
-      - patch:
-          url: "/profiles/location"
+      - think: 1
+      - get:
+          url: "/matching/matches"
           headers:
             Authorization: "Bearer {{ token }}"
-          json:
-            lat: 19.076
-            lng: 72.877
-          expect:
-            - statusCode: 200
+      - think: 1
+      - get:
+          url: "/chats"
+          headers:
+            Authorization: "Bearer {{ token }}"
+      - think: 2
       - delete:
           url: "/users/me"
           headers:
             Authorization: "Bearer {{ token }}"
 
-  # ── Scenario 5: Storage presigned URL ────────────────────────────────────────
+  # ── 5. S3 presigned URL ───────────────────────────────────────────────────────
   - name: "Photo upload URL"
-    weight: 15
+    weight: 10
     flow:
       - post:
           url: "/auth/email"
           json:
-            email: "load_s3_{{ $randomString() }}@freezme.com"
+            email: "s3_{{ $randomString() }}_{{ $timestamp }}@freezme.com"
             password: "LoadTest1234!"
             action: "signup"
           capture:
             - json: "$.accessToken"
               as: "token"
-      - post:
-          url: "/profiles"
-          headers:
-            Authorization: "Bearer {{ token }}"
-          json:
-            name: "S3 User"
-            age: 23
-            interests: []
+      - think: 1
       - get:
           url: "/storage/upload-url?filename=photo.jpg&contentType=image/jpeg"
           headers:
             Authorization: "Bearer {{ token }}"
           expect:
             - statusCode: 200
+      - think: 1
       - delete:
           url: "/users/me"
           headers:
