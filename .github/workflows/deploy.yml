@@ -25,7 +25,12 @@ jobs:
       - name: Deploy via SSH
         run: |
           ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@13.61.190.208 << 'ENDSSH'
-            cd ~/server
+            set -e
+            echo "=== Environment Info ==="
+            pwd
+            ls -la ~
+            
+            cd ~/server || cd ~/freezmeonflutter || { echo "Directory server not found"; exit 1; }
             git pull origin main
             cd server
             npm ci
