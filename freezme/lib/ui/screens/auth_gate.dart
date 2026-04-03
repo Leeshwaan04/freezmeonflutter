@@ -70,82 +70,17 @@ class _AuthGatePageState extends State<AuthGatePage>
   }
 
   Future<void> _signInWithEmail(AppFlowController flow) async {
-    final emailCtrl = TextEditingController();
-    final passCtrl = TextEditingController();
-    bool isSignUp = true;
-
-    final confirmed = await showDialog<bool>(
+    await showModalBottomSheet(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: Text(isSignUp ? 'Create Account' : 'Sign In'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: passCtrl,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () =>
-                    setDialogState(() => isSignUp = !isSignUp),
-                child: Text(isSignUp
-                    ? 'Already have an account? Sign in'
-                    : 'New here? Create account'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
-            FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text(isSignUp ? 'Sign Up' : 'Sign In')),
-          ],
-        ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _EmailAuthSheet(
+        onSuccess: () {
+          Navigator.of(ctx).pop();
+          flow.startOnboarding();
+        },
       ),
     );
-
-    if (confirmed != true) return;
-    setState(() => _isLoading = true);
-    try {
-      if (isSignUp) {
-        await AuthService.instance.signUpWithEmail(
-          email: emailCtrl.text.trim(),
-          password: passCtrl.text,
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Account created — welcome to Freezme!')),
-          );
-        }
-      } else {
-        await AuthService.instance.signInWithEmail(
-          email: emailCtrl.text.trim(),
-          password: passCtrl.text,
-        );
-      }
-      if (mounted) flow.startOnboarding();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
 
   static const _highlights = [
@@ -735,6 +670,295 @@ class _AuthButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Email Auth Bottom Sheet ──────────────────────────────────────────────────
+
+class _EmailAuthSheet extends StatefulWidget {
+  const _EmailAuthSheet({required this.onSuccess});
+  final VoidCallback onSuccess;
+
+  @override
+  State<_EmailAuthSheet> createState() => _EmailAuthSheetState();
+}
+
+class _EmailAuthSheetState extends State<_EmailAuthSheet> {
+  bool _isSignUp = true;
+  bool _loading = false;
+  bool _obscurePass = true;
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final email = _emailCtrl.text.trim();
+    final pass = _passCtrl.text;
+    if (email.isEmpty || pass.isEmpty) {
+      setState(() => _error = 'Please fill in all fields.');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      if (_isSignUp) {
+        await AuthService.instance.signUpWithEmail(email: email, password: pass);
+      } else {
+        await AuthService.instance.signInWithEmail(email: email, password: pass);
+      }
+      widget.onSuccess();
+    } catch (e) {
+      final msg = e.toString();
+      setState(() {
+        _error = msg.contains('already') ? 'Email already in use. Try signing in.'
+            : msg.contains('password') || msg.contains('credential') ? 'Wrong email or password.'
+            : msg.contains('invalid') ? 'Please enter a valid email.'
+            : 'Something went wrong. Please try again.';
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Handle bar
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 20),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: FreezmeColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Header
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: FreezmeGradients.primary,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.mail_outline, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isSignUp ? 'Create Account' : 'Welcome Back',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      _isSignUp ? 'Join Freezme today' : 'Sign in to continue',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Toggle tabs
+          Container(
+            decoration: BoxDecoration(
+              color: FreezmeColors.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: [
+                _Tab(label: 'Create Account', selected: _isSignUp, onTap: () => setState(() => _isSignUp = true)),
+                _Tab(label: 'Sign In', selected: !_isSignUp, onTap: () => setState(() => _isSignUp = false)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Email field
+          _AuthField(
+            controller: _emailCtrl,
+            label: 'Email',
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 14),
+
+          // Password field
+          _AuthField(
+            controller: _passCtrl,
+            label: 'Password',
+            icon: Icons.lock_outline,
+            obscureText: _obscurePass,
+            suffixIcon: IconButton(
+              icon: Icon(_obscurePass ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  color: FreezmeColors.muted, size: 20),
+              onPressed: () => setState(() => _obscurePass = !_obscurePass),
+            ),
+          ),
+
+          // Error
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 24),
+
+          // Submit button
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _loading ? null : _submit,
+              borderRadius: BorderRadius.circular(999),
+              child: Ink(
+                decoration: BoxDecoration(
+                  gradient: FreezmeGradients.primary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 17),
+                child: Center(
+                  child: _loading
+                      ? const SizedBox(
+                          width: 22, height: 22,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : Text(
+                          _isSignUp ? 'Create Account' : 'Sign In',
+                          style: FreezmeTypography.button.copyWith(color: Colors.white),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Tab extends StatelessWidget {
+  const _Tab({required this.label, required this.selected, required this.onTap});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: selected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8)] : null,
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              color: selected ? FreezmeColors.primary : FreezmeColors.muted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AuthField extends StatelessWidget {
+  const _AuthField({
+    required this.controller,
+    required this.label,
+    required this.icon,
+    this.keyboardType,
+    this.obscureText = false,
+    this.suffixIcon,
+  });
+  final TextEditingController controller;
+  final String label;
+  final IconData icon;
+  final TextInputType? keyboardType;
+  final bool obscureText;
+  final Widget? suffixIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      style: const TextStyle(color: FreezmeColors.neutral, fontSize: 15),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: FreezmeColors.muted),
+        prefixIcon: Icon(icon, color: FreezmeColors.primary, size: 20),
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: FreezmeColors.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: FreezmeColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: FreezmeColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: FreezmeColors.primary, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
