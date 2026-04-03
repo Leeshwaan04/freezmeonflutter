@@ -20,20 +20,21 @@ jobs:
 
       - name: Copy public files to EC2
         run: |
-          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/public ubuntu@16.170.31.58:~/server/server/ 2>/dev/null || true
+          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/public ubuntu@16.170.31.58:~/server/
 
       - name: Deploy via SSH
         run: |
           ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@16.170.31.58 << 'ENDSSH'
-            # Pull latest code (repo root)
-            cd ~/freezmeonflutter 2>/dev/null || cd ~/server
+            cd ~/server
             git pull origin main
-            # Build and restart from the server/ subdirectory
-            cd server
             npm ci
             npm run build
+            echo "=== dist/src/index.js terms route ==="
+            grep -c "terms" dist/src/index.js || echo "terms NOT in dist"
+            ls public/ || echo "public/ dir missing"
             npx prisma migrate deploy
             pm2 restart freezme-api
+            sleep 3
             pm2 logs freezme-api --lines 15 --nostream
           ENDSSH
 
