@@ -2,37 +2,37 @@ name: Deploy to EC2
 
 on:
   push:
-      branches: [main]
-          paths:
-                - 'server/**'
+    branches: [main]
+    paths:
+      - 'server/**'
 
-                jobs:
-                  deploy:
-                      runs-on: ubuntu-latest
-                          steps:
-                                - name: Checkout
-                                        uses: actions/checkout@v4
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-                                              - name: Decode SSH key
-                                                      run: |
-                                                                echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 -d > /tmp/deploy_key
-                                                                          chmod 600 /tmp/deploy_key
+      - name: Decode SSH key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 -d > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
 
-                                                                                - name: Copy public files to EC2
-                                                                                        run: |
-                                                                                                  scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/public ubuntu@${{ secrets.EC2_HOST }}:~/server/
+      - name: Copy public files to EC2
+        run: |
+          scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -r server/public ubuntu@16.170.31.58:~/server/
 
-                                                                                                        - name: Deploy via SSH
-                                                                                                                run: |
-                                                                                                                          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'ENDSSH'
-                                                                                                                                      cd ~/server
-                                                                                                                                                  git pull origin main
-                                                                                                                                                              npm ci --omit=dev
-                                                                                                                                                                          npx prisma migrate deploy
-                                                                                                                                                                                      pm2 restart freezme-api
-                                                                                                                                                                                                  pm2 logs freezme-api --lines 10 --nostream
-                                                                                                                                                                                                            ENDSSH
-                                                                                                                                                                                                            
-                                                                                                                                                                                                                  - name: Cleanup key
-                                                                                                                                                                                                                          if: always()
-                                                                                                                                                                                                                                  run: rm -f /tmp/deploy_key
+      - name: Deploy via SSH
+        run: |
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@16.170.31.58 << 'ENDSSH'
+            cd ~/server
+            git pull origin main
+            npm ci --omit=dev
+            npx prisma migrate deploy
+            pm2 restart freezme-api
+            pm2 logs freezme-api --lines 10 --nostream
+          ENDSSH
+
+      - name: Cleanup key
+        if: always()
+        run: rm -f /tmp/deploy_key
