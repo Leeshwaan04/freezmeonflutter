@@ -3,11 +3,8 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 
 const s3 = new S3Client({
-  region: process.env.AWS_REGION ?? 'us-east-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
+  region: process.env.AWS_REGION ?? 'eu-north-1',
+  // credentials omitted — SDK auto-uses EC2 IAM instance role
 });
 
 const BUCKET = process.env.S3_BUCKET_NAME!;

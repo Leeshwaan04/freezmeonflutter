@@ -5,6 +5,11 @@ import { verifyGoogleToken } from '../services/google-auth';
 import { verifyAppleToken } from '../services/apple-auth';
 import { issueTokenPair, verifyRefreshToken, revokeRefreshToken } from '../services/jwt';
 
+function safeUser(user: Record<string, any>) {
+  const { passwordHash, ...safe } = user;
+  return safe;
+}
+
 const router = Router();
 
 // POST /auth/google
@@ -43,7 +48,7 @@ router.post('/google', async (req: Request, res: Response) => {
       });
     }
 
-    res.json({ ...tokens, user: { ...user, displayName: name, photoUrl: photoUrl || googleUser.picture }, hasProfile: !!profile });
+    res.json({ ...tokens, user: safeUser({ ...user, displayName: name, photoUrl: photoUrl || googleUser.picture }), hasProfile: !!profile });
   } catch (err) {
     console.error('[auth/google]', err);
     res.status(401).json({ error: 'Google authentication failed' });
@@ -67,7 +72,7 @@ router.post('/apple', async (req: Request, res: Response) => {
     const tokens = await issueTokenPair(user.id, user.email ?? undefined);
     const profile = await prisma.profile.findUnique({ where: { userId: user.id } });
 
-    res.json({ ...tokens, user, hasProfile: !!profile });
+    res.json({ ...tokens, user: safeUser(user), hasProfile: !!profile });
   } catch (err) {
     console.error('[auth/apple]', err);
     res.status(401).json({ error: 'Apple authentication failed' });
@@ -89,7 +94,7 @@ router.post('/email', async (req: Request, res: Response) => {
       const passwordHash = await bcrypt.hash(password, 12);
       const user = await prisma.user.create({ data: { email, passwordHash } });
       const tokens = await issueTokenPair(user.id, user.email ?? undefined);
-      res.status(201).json({ ...tokens, user, hasProfile: false });
+      res.status(201).json({ ...tokens, user: safeUser(user), hasProfile: false });
     } else {
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user?.passwordHash) { res.status(401).json({ error: 'Invalid credentials' }); return; }
@@ -100,7 +105,7 @@ router.post('/email', async (req: Request, res: Response) => {
       await prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
       const tokens = await issueTokenPair(user.id, user.email ?? undefined);
       const profile = await prisma.profile.findUnique({ where: { userId: user.id } });
-      res.json({ ...tokens, user, hasProfile: !!profile });
+      res.json({ ...tokens, user: safeUser(user), hasProfile: !!profile });
     }
   } catch (err) {
     console.error('[auth/email]', err);
