@@ -59,17 +59,18 @@ class LocationService {
       final address = data['address'] as Map<String, dynamic>?;
       if (address == null) return null;
 
-      // Pick the most specific meaningful name available
-      final name =
-          address['neighbourhood'] as String? ??
-          address['suburb'] as String? ??
-          address['quarter'] as String? ??
-          address['city_district'] as String? ??
-          address['city'] as String? ??
+      // Prefer city-level name for clean display (e.g. "Mumbai" not "Zone 5")
+      final city = address['city'] as String? ??
           address['town'] as String? ??
           address['village'] as String? ??
-          address['county'] as String? ??
-          address['state'] as String?;
+          address['county'] as String?;
+      // Optionally append suburb for specificity if city is known
+      final suburb = address['suburb'] as String? ??
+          address['neighbourhood'] as String? ??
+          address['city_district'] as String?;
+      final name = city != null && suburb != null && suburb != city
+          ? '$city, $suburb'
+          : city ?? suburb ?? address['state'] as String?;
 
       return name;
     } catch (_) {

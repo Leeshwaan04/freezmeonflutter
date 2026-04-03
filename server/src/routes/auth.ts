@@ -10,7 +10,7 @@ const router = Router();
 // POST /auth/google
 router.post('/google', async (req: Request, res: Response) => {
   try {
-    const { idToken } = req.body;
+    const { idToken, displayName, photoUrl } = req.body;
     if (!idToken) { res.status(400).json({ error: 'idToken required' }); return; }
 
     const googleUser = await verifyGoogleToken(idToken);
@@ -22,9 +22,28 @@ router.post('/google', async (req: Request, res: Response) => {
     });
 
     const tokens = await issueTokenPair(user.id, user.email ?? undefined);
-    const profile = await prisma.profile.findUnique({ where: { userId: user.id } });
+    let profile = await prisma.profile.findUnique({ where: { userId: user.id } });
 
-    res.json({ ...tokens, user, hasProfile: !!profile });
+    // Auto-populate profile with Google info if name is available
+    const name = displayName || googleUser.name;
+    if (name && !profile) {
+      profile = await prisma.profile.create({
+        data: {
+          userId: user.id,
+          name,
+          age: 25, // placeholder until user sets it in onboarding
+          imageUrl: photoUrl || googleUser.picture || null,
+          interests: [],
+        },
+      });
+    } else if (profile && (photoUrl || googleUser.picture) && !profile.imageUrl) {
+      profile = await prisma.profile.update({
+        where: { userId: user.id },
+        data: { imageUrl: photoUrl || googleUser.picture },
+      });
+    }
+
+    res.json({ ...tokens, user: { ...user, displayName: name, photoUrl: photoUrl || googleUser.picture }, hasProfile: !!profile });
   } catch (err) {
     console.error('[auth/google]', err);
     res.status(401).json({ error: 'Google authentication failed' });

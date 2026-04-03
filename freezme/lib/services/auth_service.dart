@@ -36,7 +36,7 @@ class AuthUser {
     final List<String> photoUrls = rawPhotoUrls is List
         ? rawPhotoUrls.whereType<String>().toList()
         : const [];
-    final String? imageUrl = json['imageUrl'] as String?;
+    final String? imageUrl = json['imageUrl'] as String? ?? json['photoUrl'] as String?;
     final String? primaryPhoto =
         photoUrls.isNotEmpty ? photoUrls.first : imageUrl;
 
@@ -127,7 +127,11 @@ class AuthService {
 
     final response = await _client.dio.post(
       '/auth/google',
-      data: {'idToken': idToken},
+      data: {
+        'idToken': idToken,
+        'displayName': googleUser.displayName,
+        'photoUrl': googleUser.photoUrl,
+      },
     );
 
     return _handleAuthResponse(response.data as Map<String, dynamic>);
