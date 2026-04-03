@@ -23,8 +23,19 @@ let socketA: Socket, socketB: Socket;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+async function authWithRetry(email: string, action: 'signup' | 'signin', retries = 8): Promise<any> {
+  for (let i = 0; i < retries; i++) {
+    const r = await http.post('/auth/email', { email, password: PASSWORD, action });
+    if (r.status !== 429) return r;
+    const wait = (i + 1) * 8000; // 8s, 16s, 24s ...
+    console.log(`Rate limited on ${action} for ${email}, waiting ${wait / 1000}s...`);
+    await new Promise(res => setTimeout(res, wait));
+  }
+  throw new Error(`Rate limited after ${retries} retries for ${email}`);
+}
+
 async function setupUsers() {
-  const rA = await http.post('/auth/email', { email: WS_EMAIL_A, password: PASSWORD, action: 'signup' });
+  const rA = await authWithRetry(WS_EMAIL_A, 'signup');
   tokenA = rA.data.accessToken;
   await http.post('/profiles', { name: 'WS-Alice', age: 25, bio: 'ws test', interests: [] }, authH(tokenA));
   const meA = await http.get('/profiles/me', authH(tokenA));
@@ -32,7 +43,7 @@ async function setupUsers() {
 
   await new Promise(r => setTimeout(r, 2000)); // rate limit gap
 
-  const rB = await http.post('/auth/email', { email: WS_EMAIL_B, password: PASSWORD, action: 'signup' });
+  const rB = await authWithRetry(WS_EMAIL_B, 'signup');
   tokenB = rB.data.accessToken;
   await http.post('/profiles', { name: 'WS-Bob', age: 27, bio: 'ws test bob', interests: [] }, authH(tokenB));
   const meB = await http.get('/profiles/me', authH(tokenB));
@@ -65,7 +76,7 @@ beforeAll(async () => {
   await setupUsers();
   socketA = await connectSocket(tokenA);
   socketB = await connectSocket(tokenB);
-}, 40000);
+}, 120000);
 
 afterAll(async () => {
   socketA?.disconnect();
@@ -116,24 +127,27 @@ describe('WebSocket — Chat Messaging', () => {
 
   it('Bob receives the message Alice sent', (done) => {
     // Alice sends a message; Bob (the other member) should receive it via chat:message
-    socketB.once('chat:message', (data) => {
-      expect(data).toHaveProperty('chatId');
-      expect(data).toHaveProperty('message');
-      expect(data.chatId).toBe(chatId);
-      expect(data.message.text).toBe('Hello from Bob sender via Alice send.');
-      expect(data.message.senderUid).toBe(aliceUid);
-      done();
-    });
+    const targetText = 'Hello from Bob sender via Alice send.';
+    function handler(data: any) {
+      if (data.message?.text === targetText) {
+        socketB.off('chat:message', handler);
+        expect(data).toHaveProperty('chatId');
+        expect(data.chatId).toBe(chatId);
+        expect(data.message.senderUid).toBe(aliceUid);
+        done();
+      }
+    }
+    socketB.on('chat:message', handler);
 
     // Small delay so Bob's listener is registered before send
     setTimeout(() => {
       socketA.emit('chat:send', {
         chatId,
-        text: 'Hello from Bob sender via Alice send.',
+        text: targetText,
         clientMsgId: 'test-msg-002',
       });
-    }, 200);
-  }, 10000);
+    }, 300);
+  }, 15000);
 
   it('Alice receives Bob message too (delivered to all members)', (done) => {
     const targetText = 'Ping from Bob to Alice.';
