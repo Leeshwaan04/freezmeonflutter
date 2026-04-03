@@ -1,0 +1,26 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 16.170.31.58
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          timeout: 60s
+          script: |
+            cd ~/server
+            git pull origin main
+            npm ci --omit=dev
+            npx prisma migrate deploy
+            pm2 restart freezme-api
+            pm2 logs freezme-api --lines 10 --nostream
