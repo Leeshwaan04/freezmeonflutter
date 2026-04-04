@@ -1,1 +1,1 @@
-Sat Apr  4 2026 - add version to health, add express.static for public/
+Sat Apr  4 2026 - switch deploy to rsync src/ directly (EC2 has no git repo)
