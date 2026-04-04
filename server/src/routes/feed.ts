@@ -50,6 +50,19 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /feed/:id
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const post = await prisma.feedPost.findUnique({ where: { id: req.params.id } });
+    if (!post) { res.status(404).json({ error: 'Post not found' }); return; }
+    if (post.authorUid !== req.uid) { res.status(403).json({ error: 'Forbidden' }); return; }
+    await prisma.feedPost.delete({ where: { id: req.params.id } });
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete post' });
+  }
+});
+
 // POST /feed/:id/like
 router.post('/:id/like', async (req: Request, res: Response) => {
   try {

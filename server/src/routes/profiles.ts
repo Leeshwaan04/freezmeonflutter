@@ -37,7 +37,7 @@ router.get('/me', async (req: Request, res: Response) => {
   try {
     const profile = await prisma.profile.findUnique({ where: { userId: req.uid } });
     if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
-    res.json(profile);
+    res.json({ ...profile, uid: profile.userId });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
@@ -66,7 +66,9 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
       orderBy: { updatedAt: 'desc' },
     });
 
-    res.json(candidates);
+    // Map userId → uid so Flutter VibeProfile.fromJson can read it
+    const pool = candidates.map((p) => ({ ...p, uid: p.userId }));
+    res.json(pool);
   } catch (err) {
     console.error('[profiles/daily-pool]', err);
     res.status(500).json({ error: 'Failed to fetch daily pool' });
@@ -78,7 +80,7 @@ router.get('/:uid', async (req: Request, res: Response) => {
   try {
     const profile = await prisma.profile.findUnique({ where: { userId: req.params.uid } });
     if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
-    res.json(profile);
+    res.json({ ...profile, uid: profile.userId });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
