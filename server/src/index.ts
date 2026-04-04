@@ -69,7 +69,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOS
 app.use('/public', express.static(path.join(__dirname, '../../public')));
 
 // ── Static legal pages ───────────────────────────────────────────────────────
-const publicDir = path.join(__dirname, '../../public');
+const publicDir = path.join(__dirname, '../public');
 app.get('/terms', (_req, res) => {
   const file = path.join(publicDir, 'terms.html');
   res.sendFile(file, (err) => { if (err) res.status(404).send(`terms.html not found at ${file}`); });

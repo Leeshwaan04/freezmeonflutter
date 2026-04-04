@@ -13,27 +13,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install and build
+        run: |
+          cd server
+          npm ci
+          npm run build
+
       - name: Decode SSH key
         run: |
           echo "${{ secrets.EC2_SSH_KEY_B64 }}" | base64 -d > /tmp/deploy_key
           chmod 600 /tmp/deploy_key
 
-      - name: Copy server source to EC2
+      - name: Copy source and compiled dist to EC2
         run: |
           rsync -avz --delete \
             -e "ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no" \
             --exclude node_modules \
-            --exclude dist \
             --exclude .env \
             server/ ubuntu@13.61.190.208:~/freezme-server/
 
-      - name: Build and restart on EC2
+      - name: Install prod deps, migrate, restart on EC2
         run: |
           ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@13.61.190.208 << 'ENDSSH'
             set -e
             cd ~/freezme-server
-            npm ci
-            npm run build
+            npm ci --omit=dev
             echo "terms in dist: $(grep -c 'terms' dist/index.js 2>/dev/null || echo 0)"
             echo "public dir: $(ls public/ 2>/dev/null | wc -l) files"
             npx prisma migrate deploy
