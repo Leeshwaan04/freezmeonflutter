@@ -61,6 +61,13 @@ class _ChatListPageState extends State<ChatListPage> {
   String _query = '';
   bool _showUnreadOnly = false;
   List<Conversation> _conversations = [];
+  Stream<List<Map<String, dynamic>>>? _matchesStream;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _matchesStream ??= AppFlowScope.of(context, listen: false).repository.watchMatches();
+  }
 
   @override
   void dispose() {
@@ -214,7 +221,7 @@ class _ChatListPageState extends State<ChatListPage> {
         child: SafeArea(
           bottom: false,
           child: StreamBuilder<List<Map<String, dynamic>>>(
-            stream: flow.repository.watchMatches(),
+            stream: _matchesStream,
             initialData: const [], // Start with empty list so we always have data
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {

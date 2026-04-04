@@ -53,6 +53,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessageItem> _messages = <ChatMessageItem>[];
   StreamSubscription<List<ChatMessage>>? _msgSub;
+  Stream<List<ChatMessage>>? _messagesStream;
+  String? _messagesStreamChatId;
   bool _sending = false;
   final bool _simulatedTyping = false;
 
@@ -142,6 +144,14 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
       ),
       builder: (_) => _ConversationHealthSheet(energy: energy),
     );
+  }
+
+  Stream<List<ChatMessage>> _chatStreamFor(dynamic flow, String chatId) {
+    if (_messagesStreamChatId != chatId) {
+      _messagesStreamChatId = chatId;
+      _messagesStream = flow.repository.messagesForChat(chatId);
+    }
+    return _messagesStream!;
   }
 
   @override
@@ -291,7 +301,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                         ),
                       )
                     : StreamBuilder<List<ChatMessage>>(
-                        stream: flow.repository.messagesForChat(chatId),
+                        stream: _chatStreamFor(flow, chatId),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
