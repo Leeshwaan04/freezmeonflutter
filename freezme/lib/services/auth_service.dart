@@ -120,7 +120,9 @@ class AuthService {
 
   Future<AuthUser> signInWithGoogle() async {
     final google = GoogleSignIn.instance;
-    await google.initialize();
+    await google.initialize(
+      serverClientId: '542457497074-a16d48099255920f1e576b.apps.googleusercontent.com',
+    );
     final googleUser = await google.authenticate();
     final idToken = googleUser.authentication.idToken;
     if (idToken == null) throw Exception('Google auth: no idToken');
