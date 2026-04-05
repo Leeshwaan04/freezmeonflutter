@@ -140,6 +140,17 @@ export function setupSocket(io: Server): void {
       }
     });
 
+    // ── FREEZE ROOM: JOIN SOCKET ROOM ───────────────────────────────────────
+
+    socket.on('freeze_room:join', ({ roomId }: { roomId: string }) => {
+      socket.join(`freeze_room:${roomId}`);
+      logger.info({ msg: 'freeze_room_socket_joined', uid, roomId });
+    });
+
+    socket.on('freeze_room:leave', ({ roomId }: { roomId: string }) => {
+      socket.leave(`freeze_room:${roomId}`);
+    });
+
     // ── DISCONNECT ──────────────────────────────────────────────────────────
 
     socket.on('disconnect', (reason) => {

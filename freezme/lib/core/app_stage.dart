@@ -19,6 +19,7 @@ enum AppStage {
   // Stages added by remote refactor
   profileCompletion,
   editProfile,
+  freezeRoom,
 }
 
 enum LifestyleArchetype {

@@ -87,12 +87,94 @@ new Worker(
     }
 
     if (type === 'old_messages') {
-      // Archive messages older than 90 days
       const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-      const deleted = await prisma.message.deleteMany({
-        where: { createdAt: { lt: cutoff } },
-      });
+      const deleted = await prisma.message.deleteMany({ where: { createdAt: { lt: cutoff } } });
       logger.info({ msg: 'old_messages_pruned', count: deleted.count });
+    }
+
+    // Open a new Freeze Room (rolls every 2 hours)
+    if (type === 'freeze_room_open') {
+      const types: Array<'reflective' | 'playful' | 'values'> = ['reflective', 'playful', 'values'];
+      const promptType = types[Math.floor(Date.now() / (2 * 60 * 60 * 1000)) % 3];
+      const promptBanks: Record<string, string[]> = {
+        reflective: [
+          'The best decision you ever made — describe it in one sentence.',
+          'Something you changed your mind about completely in the last year.',
+          'A moment you felt most like yourself.',
+          'The thing you wish you had done sooner.',
+        ],
+        playful: [
+          "You're planning the perfect Sunday for two strangers. What happens?",
+          'The most chaotic thing you\'ve done that turned out perfectly.',
+          'Describe your ideal morning using only three words.',
+          'The last thing that made you laugh until it hurt.',
+        ],
+        values: [
+          'The one thing you\'d never compromise on.',
+          'What does a good day look like to you?',
+          'Something you believe that most people around you don\'t.',
+          'What you\'re most proud of that nobody gave you an award for.',
+        ],
+      };
+      const list = promptBanks[promptType];
+      const prompt = list[Math.floor(Math.random() * list.length)];
+      const now = new Date();
+      const closesAt = new Date(now.getTime() + 20 * 60 * 1000); // 20 minutes
+      const room = await prisma.freezeRoom.create({
+        data: { promptType, prompt, closesAt, status: 'open' },
+      });
+      logger.info({ msg: 'freeze_room_opened', roomId: room.id, promptType, prompt });
+    }
+
+    // Close expired Freeze Rooms
+    if (type === 'freeze_room_close') {
+      const closed = await prisma.freezeRoom.updateMany({
+        where: { status: 'open', closesAt: { lt: new Date() } },
+        data: { status: 'closed' },
+      });
+      if (closed.count > 0) logger.info({ msg: 'freeze_rooms_closed', count: closed.count });
+    }
+
+    // Recompute presence scores for all profiles
+    if (type === 'presence_score_update') {
+      const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const cutoff7d  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000);
+
+      const profiles = await prisma.profile.findMany({ select: { userId: true } });
+
+      for (const p of profiles) {
+        const [events30d, events7d, messagesSent7d, matchesResponded7d] = await Promise.all([
+          prisma.presenceEvent.count({ where: { uid: p.userId, createdAt: { gte: cutoff30d } } }),
+          prisma.presenceEvent.count({ where: { uid: p.userId, createdAt: { gte: cutoff7d } } }),
+          prisma.message.count({ where: { senderUid: p.userId, createdAt: { gte: cutoff7d } } }),
+          prisma.message.count({
+            where: {
+              senderUid: p.userId,
+              createdAt: { gte: cutoff7d },
+              chat: { messages: { some: { senderUid: { not: p.userId } } } },
+            },
+          }),
+        ]);
+
+        // Score: activity frequency (40) + recency (30) + conversation depth (30)
+        const activityScore  = Math.min(events30d / 30, 1) * 40;   // 1 event/day = full score
+        const recencyScore   = Math.min(events7d / 7, 1) * 30;     // active last 7d
+        const depthScore     = Math.min((messagesSent7d + matchesResponded7d) / 10, 1) * 30;
+
+        const presenceScore  = Math.round(activityScore + recencyScore + depthScore);
+
+        const presenceLabel  = presenceScore >= 80 ? 'in_the_fire'
+          : presenceScore >= 50 ? 'in_the_flow'
+          : presenceScore >= 20 ? 'in_the_quiet'
+          : 'frozen';
+
+        await prisma.profile.update({
+          where: { userId: p.userId },
+          data: { presenceScore, presenceLabel },
+        });
+      }
+
+      logger.info({ msg: 'presence_scores_updated', count: profiles.length });
     }
   },
   { connection }
@@ -121,6 +203,30 @@ export async function scheduleRecurringJobs(): Promise<void> {
     { type: 'old_messages' },
     { repeat: { every: 24 * 60 * 60 * 1000 }, jobId: 'old_messages_daily' }
   );
+
+  // Open a new Freeze Room every 2 hours
+  await cleanupQueue.add(
+    'freeze_room_open',
+    { type: 'freeze_room_open' },
+    { repeat: { every: 2 * 60 * 60 * 1000 }, jobId: 'freeze_room_open' }
+  );
+
+  // Close expired Freeze Rooms — every 5 minutes
+  await cleanupQueue.add(
+    'freeze_room_close',
+    { type: 'freeze_room_close' },
+    { repeat: { every: 5 * 60 * 1000 }, jobId: 'freeze_room_close' }
+  );
+
+  // Recompute presence scores — every 6 hours
+  await cleanupQueue.add(
+    'presence_score_update',
+    { type: 'presence_score_update' },
+    { repeat: { every: 6 * 60 * 60 * 1000 }, jobId: 'presence_score_update' }
+  );
+
+  // Open first room immediately on startup
+  await cleanupQueue.add('freeze_room_open', { type: 'freeze_room_open' }, { jobId: 'freeze_room_open_boot' });
 
   logger.info('[Jobs] recurring jobs scheduled');
 }

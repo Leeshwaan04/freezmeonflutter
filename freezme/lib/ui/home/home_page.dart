@@ -277,6 +277,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 )
               ] else ...[
+                _buildFreezeRoomBanner(key: const ValueKey('freeze_room_banner')),
                 _buildLivePathsSection(key: const ValueKey('live_paths_section')),
                 _buildTonightPoolSection(key: const ValueKey('tonight_pool_section')),
                 _buildTrendingFeedSection(key: const ValueKey('trending_feed_section')),
@@ -357,6 +358,73 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFreezeRoomBanner({Key? key}) {
+    final flow = AppFlowScope.of(context, listen: false);
+    return SliverToBoxAdapter(
+      key: key,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: GestureDetector(
+          onTap: flow.openFreezeRoom,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF4D2C91), Color(0xFF7C3AED)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4D2C91).withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Text('❄️', style: TextStyle(fontSize: 32)),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Freeze Room',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white)),
+                      SizedBox(height: 2),
+                      Text('Anonymous answers. Real connections.',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70)),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('Enter',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1908,6 +1976,31 @@ class _TonightProfileCardState extends State<_TonightProfileCard>
                           fontSize: 11,
                           color: FreezmeDesignSystem.textSecondary,
                         ),
+                      ),
+                    // Energy + Presence badges
+                    if (widget.profile.energyType != null || widget.profile.presenceLabel != null)
+                      Row(
+                        children: [
+                          if (widget.profile.energyType != null) ...[
+                            Text(widget.profile.energyType!.emoji,
+                                style: const TextStyle(fontSize: 11)),
+                            const SizedBox(width: 2),
+                            Text(widget.profile.energyType!.label,
+                                style: FreezmeDesignSystem.caption.copyWith(
+                                    fontSize: 9,
+                                    color: FreezmeDesignSystem.textTertiary)),
+                            const SizedBox(width: 6),
+                          ],
+                          if (widget.profile.presenceLabel != null) ...[
+                            Text(widget.profile.presenceLabel!.emoji,
+                                style: const TextStyle(fontSize: 11)),
+                            const SizedBox(width: 2),
+                            Text(widget.profile.presenceLabel!.label,
+                                style: FreezmeDesignSystem.caption.copyWith(
+                                    fontSize: 9,
+                                    color: FreezmeDesignSystem.textTertiary)),
+                          ],
+                        ],
                       ),
                     Row(
                       children: [

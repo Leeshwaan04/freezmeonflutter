@@ -35,11 +35,31 @@ model Profile {
   freezeUntil      DateTime?
   allowBlindReveal Boolean   @default(false)
   updatedAt        DateTime  @updatedAt
+
+  // ── Calibration / onboarding signals ───────────────────────────────────────
+  intent            String?    // meaningful | exploring | friendship
+  personalityTraits String[]   // introvert, extrovert, adventurous, cautious, logical, emotional, spontaneous, planner
+  lifestyleFactors  String[]   // fitness, travel, career, creative, spiritual
+  archetype         String?    // explorer | nurturer | visionary | harmonizer | dynamo
+  promptAnswer      Json?      // { prompt: string, answer: string }
+
+  // ── Derived energy profile from forced-choice calibration ──────────────────
+  energyType        String?    // deep_diver | room_igniter | quiet_storm | open_road
+  paceSignal        String?    // takes_their_time | moves_with_interest | quick_connector
+
+  // ── Presence system ─────────────────────────────────────────────────────────
+  presenceWindows   Json?      // [{ day: 0-6, startHour: 9, endHour: 22 }]
+  presenceScore     Int        @default(50)   // 0-100, computed by cron
+  presenceLabel     String     @default("in_the_flow") // in_the_fire | in_the_flow | in_the_quiet | frozen
+
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([geohash])
   @@index([isPremium])
   @@index([frozen])
+  @@index([intent])
+  @@index([energyType])
+  @@index([presenceScore])
 }
 
 model Like {
@@ -233,4 +253,54 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ── Freeze Room ──────────────────────────────────────────────────────────────
+
+model FreezeRoom {
+  id          String              @id @default(cuid())
+  openedAt    DateTime            @default(now())
+  closesAt    DateTime            // openedAt + 20 minutes
+  promptType  String              // reflective | playful | values
+  prompt      String
+  status      String              @default("open") // open | closed
+  participants FreezeRoomParticipant[]
+
+  @@index([status, closesAt])
+}
+
+model FreezeRoomParticipant {
+  id        String    @id @default(cuid())
+  roomId    String
+  uid       String
+  answer    String?
+  reveals   String[]  // UIDs this participant has revealed to (max 3)
+  joinedAt  DateTime  @default(now())
+  room      FreezeRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, uid])
+  @@index([uid])
+}
+
+model FreezeMatch {
+  id        String   @id @default(cuid())
+  roomId    String
+  userA     String
+  userB     String
+  createdAt DateTime @default(now())
+
+  @@unique([userA, userB])
+  @@index([userA])
+  @@index([userB])
+}
+
+// ── Presence events (for computing presenceScore) ────────────────────────────
+
+model PresenceEvent {
+  id        String   @id @default(cuid())
+  uid       String
+  eventType String   // app_open | message_sent | match_responded | room_joined
+  createdAt DateTime @default(now())
+
+  @@index([uid, createdAt])
 }

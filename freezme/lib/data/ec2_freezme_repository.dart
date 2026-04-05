@@ -84,6 +84,14 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     List<String>? interests,
     bool? isPremium,
     bool? allowBlindReveal,
+    String? intent,
+    List<String>? personalityTraits,
+    List<String>? lifestyleFactors,
+    String? archetype,
+    String? energyType,
+    String? paceSignal,
+    Map<String, dynamic>? promptAnswer,
+    List<Map<String, dynamic>>? presenceWindows,
   }) async {
     await _client.dio.post<void>('/profiles', data: {
       if (displayName != null) 'name': displayName,
@@ -91,6 +99,14 @@ class Ec2FreezmeRepository implements FreezmeRepository {
       if (age != null) 'age': age,
       if (interests != null) 'interests': interests,
       if (allowBlindReveal != null) 'allowBlindReveal': allowBlindReveal,
+      if (intent != null) 'intent': intent,
+      if (personalityTraits != null) 'personalityTraits': personalityTraits,
+      if (lifestyleFactors != null) 'lifestyleFactors': lifestyleFactors,
+      if (archetype != null) 'archetype': archetype,
+      if (energyType != null) 'energyType': energyType,
+      if (paceSignal != null) 'paceSignal': paceSignal,
+      if (promptAnswer != null) 'promptAnswer': promptAnswer,
+      if (presenceWindows != null) 'presenceWindows': presenceWindows,
     });
   }
 

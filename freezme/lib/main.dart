@@ -37,6 +37,7 @@ import 'ui/screens/verification_screen.dart';
 import 'ui/screens/vector_simulation.dart';
 import 'ui/screens/circle_discovery.dart';
 import 'ui/screens/circle_chat.dart';
+import 'ui/freeze_room/freeze_room_page.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -252,6 +253,8 @@ class FlowNavigator extends StatelessWidget {
         return const OnboardingFlowPage();
       case AppStage.editProfile:
         return const ProfileSettingsPage();
+      case AppStage.freezeRoom:
+        return const FreezeRoomPage();
     }
   }
 }

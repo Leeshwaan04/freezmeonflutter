@@ -280,6 +280,15 @@ class FirestoreFreezmeRepository implements FreezmeRepository {
     String? location,
     List<String>? interests,
     bool? isPremium,
+    bool? allowBlindReveal,
+    String? intent,
+    List<String>? personalityTraits,
+    List<String>? lifestyleFactors,
+    String? archetype,
+    String? energyType,
+    String? paceSignal,
+    Map<String, dynamic>? promptAnswer,
+    List<Map<String, dynamic>>? presenceWindows,
   }) async {
     try {
       final updates = <String, dynamic>{};

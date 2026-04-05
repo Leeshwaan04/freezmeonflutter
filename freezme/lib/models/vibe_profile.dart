@@ -12,6 +12,7 @@ class VibeProfile {
     required this.compatibility,
     this.dna,
     this.interests = const <String>[],
+    this.sharedInterests = const <String>[],
     required this.bio,
     this.gender = '',
     required this.distance,
@@ -22,6 +23,13 @@ class VibeProfile {
     this.timezone,
     this.isPremium = false,
     this.archetypes = const <LifestyleArchetype>[],
+    // Calibration fields
+    this.energyType,
+    this.paceSignal,
+    this.promptAnswer,
+    this.presenceLabel,
+    this.presenceScore = 50,
+    this.intent,
   });
 
   final String uid;
@@ -33,6 +41,7 @@ class VibeProfile {
   final int compatibility;
   final CompatibilityDNA? dna;
   final List<String> interests;
+  final List<String> sharedInterests;
   final String bio;
   final String gender;
   final String distance;
@@ -40,10 +49,16 @@ class VibeProfile {
   final double? lng;
   final String? geohash;
   final DateTime? lastActive;
-
   final String? timezone;
   final bool isPremium;
   final List<LifestyleArchetype> archetypes;
+  // Calibration fields from algorithm
+  final EnergyType? energyType;
+  final PaceSignal? paceSignal;
+  final PromptAnswer? promptAnswer;
+  final PresenceLabel? presenceLabel;
+  final int presenceScore;
+  final String? intent;
 
   factory VibeProfile.fromJson(
     Map<String, dynamic> json, {
@@ -99,6 +114,7 @@ class VibeProfile {
       compatibility: (json['compatibility'] as num?)?.toInt() ?? 0,
       dna: json['dna'] != null ? CompatibilityDNA.fromJson(json['dna']) : null,
       interests: (json['interests'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      sharedInterests: (json['sharedInterests'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
       bio: json['bio'] as String? ?? '',
       gender: json['gender'] as String? ?? '',
       distance: json['distance'] as String? ?? '',
@@ -106,9 +122,16 @@ class VibeProfile {
       lng: (json['lng'] as num?)?.toDouble(),
       geohash: json['geohash'] as String?,
       lastActive: lastActive,
-
       timezone: json['timezone'] as String?,
       isPremium: json['isPremium'] as bool? ?? false,
+      energyType: EnergyType.fromString(json['energyType'] as String?),
+      paceSignal: PaceSignal.fromString(json['paceSignal'] as String?),
+      promptAnswer: json['promptAnswer'] != null
+          ? PromptAnswer.fromJson(json['promptAnswer'] as Map<String, dynamic>)
+          : null,
+      presenceLabel: PresenceLabel.fromString(json['presenceLabel'] as String?),
+      presenceScore: (json['presenceScore'] as num?)?.toInt() ?? 50,
+      intent: json['intent'] as String?,
     );
   }
 
@@ -122,6 +145,7 @@ class VibeProfile {
     'compatibility': compatibility,
     if (dna != null) 'dna': dna!.toJson(),
     'interests': interests,
+    'sharedInterests': sharedInterests,
     'bio': bio,
     'gender': gender,
     'distance': distance,
@@ -129,9 +153,14 @@ class VibeProfile {
     if (lng != null) 'lng': lng,
     if (geohash != null) 'geohash': geohash,
     if (lastActive != null) 'lastActive': lastActive!.toIso8601String(),
-
     if (timezone != null) 'timezone': timezone,
     'isPremium': isPremium,
+    if (energyType != null) 'energyType': energyType!.name,
+    if (paceSignal != null) 'paceSignal': paceSignal!.name,
+    if (promptAnswer != null) 'promptAnswer': promptAnswer!.toJson(),
+    if (presenceLabel != null) 'presenceLabel': presenceLabel!.name,
+    'presenceScore': presenceScore,
+    if (intent != null) 'intent': intent,
   };
 
   VibeProfile copyWith({
@@ -144,6 +173,7 @@ class VibeProfile {
     int? compatibility,
     CompatibilityDNA? dna,
     List<String>? interests,
+    List<String>? sharedInterests,
     String? bio,
     String? gender,
     String? distance,
@@ -154,6 +184,12 @@ class VibeProfile {
     String? timezone,
     bool? isPremium,
     List<LifestyleArchetype>? archetypes,
+    EnergyType? energyType,
+    PaceSignal? paceSignal,
+    PromptAnswer? promptAnswer,
+    PresenceLabel? presenceLabel,
+    int? presenceScore,
+    String? intent,
   }) {
     return VibeProfile(
       uid: uid ?? this.uid,
@@ -165,6 +201,7 @@ class VibeProfile {
       compatibility: compatibility ?? this.compatibility,
       dna: dna ?? this.dna,
       interests: interests ?? this.interests,
+      sharedInterests: sharedInterests ?? this.sharedInterests,
       bio: bio ?? this.bio,
       gender: gender ?? this.gender,
       distance: distance ?? this.distance,
@@ -175,6 +212,12 @@ class VibeProfile {
       timezone: timezone ?? this.timezone,
       isPremium: isPremium ?? this.isPremium,
       archetypes: archetypes ?? this.archetypes,
+      energyType: energyType ?? this.energyType,
+      paceSignal: paceSignal ?? this.paceSignal,
+      promptAnswer: promptAnswer ?? this.promptAnswer,
+      presenceLabel: presenceLabel ?? this.presenceLabel,
+      presenceScore: presenceScore ?? this.presenceScore,
+      intent: intent ?? this.intent,
     );
   }
 }

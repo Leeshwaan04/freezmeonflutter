@@ -154,6 +154,52 @@ class ProfileDetailPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
+                  // Energy + Presence row
+                  if (profile.energyType != null || profile.presenceLabel != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (profile.energyType != null)
+                          _InfoChip(
+                            emoji: profile.energyType!.emoji,
+                            label: profile.energyType!.label,
+                          ),
+                        if (profile.energyType != null && profile.presenceLabel != null)
+                          const SizedBox(width: 8),
+                        if (profile.presenceLabel != null)
+                          _InfoChip(
+                            emoji: profile.presenceLabel!.emoji,
+                            label: profile.presenceLabel!.label,
+                          ),
+                      ],
+                    ),
+                    if (profile.energyType != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          profile.energyType!.description,
+                          style: FreezmeDesignSystem.body.copyWith(
+                              color: FreezmeDesignSystem.textSecondary,
+                              fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // Shared interests
+                  if (profile.sharedInterests.isNotEmpty) ...[
+                    const Text('In common', style: FreezmeDesignSystem.h3),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: profile.sharedInterests
+                          .map((i) => PremiumChip(label: i, selected: true))
+                          .toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
                   // Interests
                   if (profile.interests.isNotEmpty) ...[
                     const Text('Interests', style: FreezmeDesignSystem.h3),
@@ -198,6 +244,36 @@ class ProfileDetailPage extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.emoji, required this.label});
+  final String emoji;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: FreezmeDesignSystem.primaryLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: FreezmeDesignSystem.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 13)),
+          const SizedBox(width: 4),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: FreezmeDesignSystem.primary)),
         ],
       ),
     );

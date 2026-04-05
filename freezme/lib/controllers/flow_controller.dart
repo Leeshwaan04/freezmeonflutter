@@ -559,6 +559,8 @@ class AppFlowController extends ChangeNotifier {
 
   void openFreezeScreen() => pushIfMissing(AppStage.freeze);
 
+  void openFreezeRoom() => push(AppStage.freezeRoom);
+
   Future<void> toggleFreeze(bool value, {int days = 1}) async {
     _isFreezed = value;
     if (_isFreezed) {
@@ -667,6 +669,10 @@ class AppFlowController extends ChangeNotifier {
     DatingIntent? intent,
     List<PersonalityTrait>? personalityTraits,
     List<LifestyleFactor>? lifestyleFactors,
+    EnergyType? energyType,
+    PaceSignal? paceSignal,
+    PromptAnswer? promptAnswer,
+    List<Map<String, dynamic>>? presenceWindows,
   }) async {
     final uid = AuthService.instance.currentUser?.uid;
     // We update local blueprint first
@@ -674,6 +680,10 @@ class AppFlowController extends ChangeNotifier {
       intent: intent ?? userBlueprint?.intent ?? DatingIntent.meaningful,
       personalityTraits: personalityTraits ?? userBlueprint?.personalityTraits ?? [],
       lifestyleFactors: lifestyleFactors ?? userBlueprint?.lifestyleFactors ?? [],
+      energyType: energyType ?? userBlueprint?.energyType,
+      paceSignal: paceSignal ?? userBlueprint?.paceSignal,
+      promptAnswer: promptAnswer ?? userBlueprint?.promptAnswer,
+      presenceWindows: presenceWindows ?? userBlueprint?.presenceWindows ?? [],
       trustScore: userBlueprint?.trustScore ?? 100,
     );
 
@@ -695,6 +705,14 @@ class AppFlowController extends ChangeNotifier {
       bio: bio,
       age: age,
       interests: interests,
+      intent: intent?.name,
+      personalityTraits: personalityTraits?.map((e) => e.name).toList(),
+      lifestyleFactors: lifestyleFactors?.map((e) => e.name).toList(),
+      archetype: archetype?.name,
+      energyType: energyType?.name,
+      paceSignal: paceSignal?.name,
+      promptAnswer: promptAnswer?.toJson(),
+      presenceWindows: presenceWindows,
     );
 
     if (archetype != null) {

@@ -23,6 +23,7 @@ import iapRouter from './routes/iap';
 import storageRouter from './routes/storage';
 import feedRouter from './routes/feed';
 import usersRouter from './routes/users';
+import freezeRoomRouter from './routes/freezeroom';
 
 import { setupSocket, applyRedisAdapter } from './realtime/socket';
 import { scheduleRecurringJobs } from './jobs/queues';
@@ -64,6 +65,7 @@ app.use('/iap', iapRouter);
 app.use('/storage', storageRouter);
 app.use('/feed', feedRouter);
 app.use('/users', usersRouter);
+app.use('/freeze-room', freezeRoomRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString(), v: '2026-04-04' }));
 app.use('/public', express.static(path.join(__dirname, '../../public')));

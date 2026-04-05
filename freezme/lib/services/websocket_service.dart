@@ -29,6 +29,9 @@ class WebSocketService {
   final _blindSessionCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _blindPhaseCtrl = StreamController<Map<String, dynamic>>.broadcast();
   final _pathsInviteCtrl = StreamController<Map<String, dynamic>>.broadcast();
+  final _freezeRoomAnswerCtrl = StreamController<Map<String, dynamic>>.broadcast();
+  final _freezeRoomRevealCtrl = StreamController<Map<String, dynamic>>.broadcast();
+  final _freezeRoomClosedCtrl = StreamController<Map<String, dynamic>>.broadcast();
 
   // ── Exposed streams ──────────────────────────────────────────────────────────
   Stream<Map<String, dynamic>> get onChatMessage => _chatMessageCtrl.stream;
@@ -39,6 +42,9 @@ class WebSocketService {
   Stream<Map<String, dynamic>> get onBlindSession => _blindSessionCtrl.stream;
   Stream<Map<String, dynamic>> get onBlindPhase => _blindPhaseCtrl.stream;
   Stream<Map<String, dynamic>> get onPathsInvite => _pathsInviteCtrl.stream;
+  Stream<Map<String, dynamic>> get onFreezeRoomAnswer => _freezeRoomAnswerCtrl.stream;
+  Stream<Map<String, dynamic>> get onFreezeRoomReveal => _freezeRoomRevealCtrl.stream;
+  Stream<Map<String, dynamic>> get onFreezeRoomClosed => _freezeRoomClosedCtrl.stream;
 
   bool get isConnected => _connected;
 
@@ -78,7 +84,10 @@ class WebSocketService {
       ..on('melt:status', (data) => _meltStatusCtrl.add(_cast(data)))
       ..on('blind:session_created', (data) => _blindSessionCtrl.add(_cast(data)))
       ..on('blind:phase_change', (data) => _blindPhaseCtrl.add(_cast(data)))
-      ..on('paths:invite', (data) => _pathsInviteCtrl.add(_cast(data)));
+      ..on('paths:invite', (data) => _pathsInviteCtrl.add(_cast(data)))
+      ..on('freeze_room:answer_in', (data) => _freezeRoomAnswerCtrl.add(_cast(data)))
+      ..on('freeze_room:reveal', (data) => _freezeRoomRevealCtrl.add(_cast(data)))
+      ..on('freeze_room:closed', (data) => _freezeRoomClosedCtrl.add(_cast(data)));
   }
 
   // ── Disconnect ───────────────────────────────────────────────────────────────
@@ -104,6 +113,14 @@ class WebSocketService {
 
   void revealBlind({required String sessionId}) {
     _emit('blind:reveal', {'sessionId': sessionId});
+  }
+
+  void joinFreezeRoom(String roomId) {
+    _emit('freeze_room:join', {'roomId': roomId});
+  }
+
+  void leaveFreezeRoom(String roomId) {
+    _emit('freeze_room:leave', {'roomId': roomId});
   }
 
   // ── Chat message stream for a specific chat ───────────────────────────────────
@@ -137,5 +154,8 @@ class WebSocketService {
     _blindSessionCtrl.close();
     _blindPhaseCtrl.close();
     _pathsInviteCtrl.close();
+    _freezeRoomAnswerCtrl.close();
+    _freezeRoomRevealCtrl.close();
+    _freezeRoomClosedCtrl.close();
   }
 }
