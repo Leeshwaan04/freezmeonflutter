@@ -67,7 +67,7 @@ app.use('/feed', feedRouter);
 app.use('/users', usersRouter);
 app.use('/freeze-room', freezeRoomRouter);
 
-app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString(), v: '2026-04-04' }));
+app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString(), v: '2026-04-05' }));
 app.use('/public', express.static(path.join(__dirname, '../../public')));
 
 // ── Static legal pages ───────────────────────────────────────────────────────
