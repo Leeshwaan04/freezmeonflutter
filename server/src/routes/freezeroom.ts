@@ -222,6 +222,9 @@ router.post('/reveal', async (req: Request, res: Response) => {
         res.json({ mutual: true, matchId: match.id });
         return;
       }
+      // Match already existed between these users
+      res.json({ mutual: true, matchId: existing.id });
+      return;
     }
 
     // Not mutual yet — notify target that someone revealed (anonymously)
