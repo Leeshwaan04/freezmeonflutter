@@ -214,11 +214,17 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
           }
 
           final traits = _derivedTraits;
+          // Resolve gender prefs: if nothing explicitly selected, use default for gender
+          final resolvedGenderPrefs = _selectedGenderPrefs.isNotEmpty
+              ? _selectedGenderPrefs
+              : _prefToGenderPrefs(
+                  (_genderPrefOptions[_gender] ?? ['Everyone']).first);
           await flow.updateOnboardingData(
             name: _nameController.text.trim(),
             bio: _promptAnswerController.text.trim(),
             age: int.tryParse(_ageController.text),
             gender: _gender,
+            genderPrefs: resolvedGenderPrefs,
             interests: _selectedInterests.toList(),
             intent: _selectedIntent,
             personalityTraits: traits,
@@ -899,6 +905,8 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   // ── Moment 5: Your Details ────────────────────────────────────────────────
 
   Widget _buildMoment5() {
+    final nameOk = _nameController.text.trim().length >= 2;
+    final ageOk = _validAge != null;
     return SingleChildScrollView(
       key: const ValueKey(5),
       child: Column(
@@ -907,61 +915,148 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
           const SizedBox(height: 24),
           const Text('The Basics.', style: FreezmeTypography.h1),
           const SizedBox(height: 8),
-          const Text('Let\'s start with what people call you and your age.', style: FreezmeTypography.body),
-          const SizedBox(height: 48),
-          TextField(
-            controller: _nameController,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              labelText: 'First name',
-              hintText: 'What do people call you?',
-              labelStyle: const TextStyle(fontWeight: FontWeight.w500),
-              floatingLabelBehavior: FloatingLabelBehavior.always,
-              filled: true,
-              fillColor: Colors.transparent,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-              border: const UnderlineInputBorder(
-                borderSide: BorderSide(color: FreezmeColors.border),
-              ),
-              enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: FreezmeColors.border),
-              ),
-              focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: FreezmeColors.primary, width: 2),
-              ),
-              errorText: _hasAttemptedNext && _nameController.text.trim().length < 2
-                  ? 'Enter at least 2 characters'
-                  : null,
-            ),
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: FreezmeColors.neutral),
+          const Text(
+            'Just your first name and age — nothing else is shown without your permission.',
+            style: FreezmeTypography.body,
           ),
           const SizedBox(height: 32),
-          TextField(
-            controller: _ageController,
-            keyboardType: TextInputType.number,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              labelText: 'Age',
-              hintText: 'How old are you?',
-              labelStyle: const TextStyle(fontWeight: FontWeight.w500),
-              floatingLabelBehavior: FloatingLabelBehavior.always,
-              filled: true,
-              fillColor: Colors.transparent,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-              border: const UnderlineInputBorder(
-                borderSide: BorderSide(color: FreezmeColors.border),
+
+          // Name field — card style
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: nameOk ? FreezmeColors.primary.withValues(alpha: 0.5) : FreezmeColors.border,
+                width: nameOk ? 1.5 : 1,
               ),
-              enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: FreezmeColors.border),
-              ),
-              focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: FreezmeColors.primary, width: 2),
-              ),
-              errorText: _hasAttemptedNext && _validAge == null
-                  ? 'Must be between 18 and 80'
-                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8, offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: FreezmeColors.neutral),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('First name',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: nameOk ? FreezmeColors.primary : FreezmeColors.muted,
+                      letterSpacing: 0.8,
+                    )),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _nameController,
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: FreezmeColors.neutral,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'What do people call you?',
+                    hintStyle: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w400,
+                      color: FreezmeColors.muted,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                if (_hasAttemptedNext && !nameOk) ...[
+                  const SizedBox(height: 6),
+                  const Text('Enter at least 2 characters',
+                      style: TextStyle(fontSize: 12, color: Colors.red)),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Age field — card style
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: ageOk ? FreezmeColors.primary.withValues(alpha: 0.5) : FreezmeColors.border,
+                width: ageOk ? 1.5 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8, offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Age',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: ageOk ? FreezmeColors.primary : FreezmeColors.muted,
+                      letterSpacing: 0.8,
+                    )),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _ageController,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: FreezmeColors.neutral,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'How old are you?',
+                    hintStyle: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w400,
+                      color: FreezmeColors.muted,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                if (_hasAttemptedNext && !ageOk) ...[
+                  const SizedBox(height: 6),
+                  const Text('Must be between 18 and 80',
+                      style: TextStyle(fontSize: 12, color: Colors.red)),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Warm reassurance note
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: FreezmeColors.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Row(
+              children: [
+                Text('🔒', style: TextStyle(fontSize: 18)),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Your last name is never shared. Age is shown as a range, not exact.',
+                    style: TextStyle(fontSize: 12, color: FreezmeColors.neutral, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -970,27 +1065,65 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
 
   // ── Moment 6: Identity ────────────────────────────────────────────────────
 
+  // Who does this gender want to meet — drives the matching engine
+  static const _genderPrefOptions = {
+    'Man':              ['Woman', 'Man', 'Everyone'],
+    'Woman':            ['Man', 'Woman', 'Everyone'],
+    'Non-binary':       ['Everyone', 'Man', 'Woman', 'Non-binary'],
+    'Prefer not to say':['Everyone'],
+  };
+
+  List<String> _selectedGenderPrefs = [];
+
+  static const _genderEmoji = {
+    'Man': '👨',
+    'Woman': '👩',
+    'Non-binary': '🌈',
+    'Prefer not to say': '✨',
+  };
+
+  List<String> _prefToGenderPrefs(String pref) {
+    if (pref == 'Everyone') return [];
+    return [pref.toLowerCase()];
+  }
+
   Widget _buildMoment6() {
+    final prefOptions = _gender != null ? (_genderPrefOptions[_gender] ?? ['Everyone']) : <String>[];
     return SingleChildScrollView(
       key: const ValueKey(6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 24),
-          const Text('How do you identify?', style: FreezmeTypography.h1),
-          const SizedBox(height: 4),
-          const Text('Shown on your profile.', style: FreezmeTypography.bodyMuted),
-          const SizedBox(height: 48),
+          const Text('Tell us about you.', style: FreezmeTypography.h1),
+          const SizedBox(height: 8),
+          const Text(
+            'This shapes who you see and who sees you.',
+            style: FreezmeTypography.body,
+          ),
+          const SizedBox(height: 28),
+
+          // Gender identity
+          const Text('I identify as',
+              style: TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700,
+                color: FreezmeColors.muted, letterSpacing: 0.5,
+              )),
+          const SizedBox(height: 12),
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: 10,
+            runSpacing: 10,
             children: ['Man', 'Woman', 'Non-binary', 'Prefer not to say'].map((g) {
               final selected = _gender == g;
+              final emoji = _genderEmoji[g] ?? '✨';
               return GestureDetector(
-                onTap: () => setState(() => _gender = g),
+                onTap: () => setState(() {
+                  _gender = g;
+                  _selectedGenderPrefs = []; // reset pref when gender changes
+                }),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   decoration: BoxDecoration(
                     color: selected ? FreezmeColors.primary : Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -998,14 +1131,31 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                       color: selected ? FreezmeColors.primary : FreezmeColors.border,
                       width: selected ? 2 : 1,
                     ),
+                    boxShadow: selected ? [
+                      BoxShadow(
+                        color: FreezmeColors.primary.withValues(alpha: 0.2),
+                        blurRadius: 8, offset: const Offset(0, 3),
+                      ),
+                    ] : [],
                   ),
-                  child: Text(
-                    g,
-                    style: TextStyle(
-                      color: selected ? Colors.white : FreezmeColors.neutral,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(emoji, style: const TextStyle(fontSize: 18)),
+                      const SizedBox(width: 8),
+                      Text(
+                        g,
+                        style: TextStyle(
+                          color: selected ? Colors.white : FreezmeColors.neutral,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                      if (selected) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.check_circle, color: Colors.white, size: 16),
+                      ],
+                    ],
                   ),
                 ),
               );
@@ -1013,9 +1163,75 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
           ),
           if (_hasAttemptedNext && _gender == null)
             const Padding(
-              padding: EdgeInsets.only(top: 16),
+              padding: EdgeInsets.only(top: 12),
               child: _ValidationHint(text: 'Select how you identify to continue'),
             ),
+
+          // Who they want to meet — only show once gender is selected
+          if (_gender != null) ...[
+            const SizedBox(height: 28),
+            const Text('I want to meet',
+                style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w700,
+                  color: FreezmeColors.muted, letterSpacing: 0.5,
+                )),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: prefOptions.map((pref) {
+                final selected = _selectedGenderPrefs.isEmpty
+                    ? pref == prefOptions.first  // auto-select first
+                    : (_selectedGenderPrefs == _prefToGenderPrefs(pref) ||
+                       (pref == 'Everyone' && _selectedGenderPrefs.isEmpty));
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    _selectedGenderPrefs = _prefToGenderPrefs(pref);
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: selected ? FreezmeColors.primary.withValues(alpha: 0.1) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: selected ? FreezmeColors.primary : FreezmeColors.border,
+                        width: selected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      pref,
+                      style: TextStyle(
+                        color: selected ? FreezmeColors.primary : FreezmeColors.neutral,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: FreezmeColors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Text('💡', style: TextStyle(fontSize: 16)),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'We only show you people who match your preference — and who prefer someone like you.',
+                      style: TextStyle(fontSize: 12, color: FreezmeColors.neutral, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1030,84 +1246,140 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 24),
-          const Text('Almost there.', style: FreezmeTypography.h1),
+          const Text('Your photo.', style: FreezmeTypography.h1),
           const SizedBox(height: 8),
           const Text(
-            'Add one photo of you doing something — not a posed selfie. Show your world.',
+            'One photo of you doing something real — not a posed selfie.',
             style: FreezmeTypography.body,
           ),
-          const SizedBox(height: 40),
-          Center(
-            child: GestureDetector(
-              onTap: _pickPhoto,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 240,
-                height: 300,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(32),
-                  border: Border.all(
-                    color: _photo != null ? FreezmeColors.primary.withValues(alpha: 0.5) : Colors.transparent,
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _photo != null 
-                          ? FreezmeColors.primary.withValues(alpha: 0.2)
-                          : Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 32,
-                      offset: const Offset(0, 12),
-                    )
-                  ],
+          const SizedBox(height: 24),
+
+          // Photo picker — full width card
+          GestureDetector(
+            onTap: _pickPhoto,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: double.infinity,
+              height: 320,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: _photo != null
+                      ? FreezmeColors.primary
+                      : FreezmeColors.border,
+                  width: _photo != null ? 2 : 1,
                 ),
-                child: _photo != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(30),
-                        child: Image.file(_photo!, fit: BoxFit.cover),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: FreezmeColors.primary.withValues(alpha: 0.05),
-                            ),
-                            child: const Icon(Icons.add_a_photo_rounded,
-                                size: 48, color: FreezmeColors.primary),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text('Add a photo',
-                              style: TextStyle(
-                                color: FreezmeColors.neutral, 
-                                fontSize: 18, 
-                                fontWeight: FontWeight.w600
-                              )),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              'You doing something you love',
-                              style: TextStyle(
-                                color: FreezmeColors.neutral.withValues(alpha: 0.5), 
-                                fontSize: 13,
-                                height: 1.3,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _photo != null
+                        ? FreezmeColors.primary.withValues(alpha: 0.15)
+                        : Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
+              child: _photo != null
+                  ? Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(22),
+                          child: Image.file(_photo!, fit: BoxFit.cover,
+                              width: double.infinity, height: double.infinity),
+                        ),
+                        Positioned(
+                          bottom: 16, right: 16,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.edit_rounded, color: Colors.white, size: 14),
+                                SizedBox(width: 6),
+                                Text('Change', style: TextStyle(color: Colors.white, fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(22),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: FreezmeColors.primary.withValues(alpha: 0.08),
+                          ),
+                          child: const Icon(Icons.add_a_photo_rounded,
+                              size: 44, color: FreezmeColors.primary),
+                        ),
+                        const SizedBox(height: 18),
+                        const Text('Tap to add a photo',
+                            style: TextStyle(
+                              color: FreezmeColors.neutral,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            )),
+                        const SizedBox(height: 6),
+                        const Text('From your camera roll',
+                            style: TextStyle(color: FreezmeColors.muted, fontSize: 13)),
+                      ],
+                    ),
             ),
           ),
+
           if (_hasAttemptedNext && _photo == null)
             const Padding(
-              padding: EdgeInsets.only(top: 24),
+              padding: EdgeInsets.only(top: 12),
               child: Center(child: _ValidationHint(text: 'Add a photo to continue')),
             ),
+
+          const SizedBox(height: 20),
+
+          // Photo tips
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: FreezmeColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('What works best',
+                    style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700,
+                      color: FreezmeColors.neutral,
+                    )),
+                const SizedBox(height: 10),
+                ...[
+                  ('✅', 'You doing something you love'),
+                  ('✅', 'Clear face, good lighting'),
+                  ('❌', 'Group photos or sunglasses'),
+                  ('❌', 'Heavy filters or old photos'),
+                ].map((tip) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Text(tip.$1, style: const TextStyle(fontSize: 14)),
+                      const SizedBox(width: 10),
+                      Text(tip.$2,
+                          style: const TextStyle(
+                            fontSize: 13, color: FreezmeColors.neutral)),
+                    ],
+                  ),
+                )),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1215,45 +1487,69 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   // ── Moment 9: IPV — Identity / Photo Verification ─────────────────────────
 
   Widget _buildMoment9() {
+    final verified = !_ipvSkipped;
     return SingleChildScrollView(
       key: const ValueKey(9),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 24),
-          const Text('One last thing.', style: FreezmeTypography.h1),
+          const Text('Almost done.', style: FreezmeTypography.h1),
           const SizedBox(height: 8),
           const Text(
-            'Freezme is a real-people space. A quick selfie check keeps it that way.',
+            'Freezme is a real-people space. A quick selfie keeps it safe for everyone.',
             style: FreezmeTypography.body,
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+
+          // Main verification card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: FreezmeColors.border),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: verified
+                    ? FreezmeColors.primary
+                    : FreezmeColors.border,
+                width: verified ? 2 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: FreezmeColors.primary.withValues(alpha: 0.06),
+                  blurRadius: 16, offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               children: [
+                // Icon
                 Container(
-                  width: 72, height: 72,
+                  width: 80, height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: FreezmeColors.primary.withValues(alpha: 0.1),
+                    gradient: LinearGradient(
+                      colors: [
+                        FreezmeColors.primary.withValues(alpha: 0.15),
+                        FreezmeColors.primary.withValues(alpha: 0.05),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                   ),
                   child: const Icon(Icons.face_retouching_natural,
-                      size: 36, color: FreezmeColors.primary),
+                      size: 38, color: FreezmeColors.primary),
                 ),
                 const SizedBox(height: 16),
-                const Text('Photo Verification',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-                        color: FreezmeColors.neutral)),
+                const Text('Selfie Verification',
+                    style: TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w700,
+                      color: FreezmeColors.neutral,
+                    )),
                 const SizedBox(height: 8),
                 const Text(
-                  'Take a selfie to confirm you\'re a real person. Your selfie is never stored or shown to others.',
+                  'A one-time selfie to confirm you\'re a real person.\nNever stored. Never shown to anyone.',
                   style: TextStyle(fontSize: 13, color: FreezmeColors.muted, height: 1.5),
                   textAlign: TextAlign.center,
                 ),
@@ -1261,42 +1557,90 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 FilledButton.icon(
                   onPressed: _startIPV,
                   icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                  label: const Text('Take selfie'),
+                  label: const Text('Take selfie now',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                   style: FilledButton.styleFrom(
                     backgroundColor: FreezmeColors.primary,
-                    minimumSize: const Size(double.infinity, 48),
+                    minimumSize: const Size(double.infinity, 52),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          // Benefits
-          ...[
-            ('✅', 'Verified badge on your profile'),
-            ('🔒', 'Only matched with other verified users'),
-            ('🚀', 'Higher visibility in the daily pool'),
-          ].map((item) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Row(
+
+          const SizedBox(height: 20),
+
+          // Benefits — styled as a proper card, not a flat list
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: FreezmeColors.primary.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: FreezmeColors.primary.withValues(alpha: 0.12)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(item.$1, style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 12),
-                Text(item.$2,
-                    style: const TextStyle(fontSize: 13, color: FreezmeColors.neutral)),
+                const Text('What you get',
+                    style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700,
+                      color: FreezmeColors.primary, letterSpacing: 0.3,
+                    )),
+                const SizedBox(height: 14),
+                ...[
+                  (Icons.verified_rounded,       'Verified badge on your profile'),
+                  (Icons.shield_outlined,         'Higher trust — more matches respond'),
+                  (Icons.trending_up_rounded,     '2× more visibility in the daily pool'),
+                  (Icons.lock_outline_rounded,    'Only see other verified users'),
+                ].map((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          color: FreezmeColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(item.$1, color: FreezmeColors.primary, size: 18),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(item.$2,
+                            style: const TextStyle(
+                              fontSize: 13, color: FreezmeColors.neutral, height: 1.3,
+                            )),
+                      ),
+                    ],
+                  ),
+                )),
               ],
             ),
-          )),
-          const SizedBox(height: 8),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Skip — more visible, not hidden
           GestureDetector(
             onTap: () => setState(() => _ipvSkipped = true),
-            child: const Text(
-              'Skip for now — I\'ll verify later',
-              style: TextStyle(fontSize: 12, color: FreezmeColors.muted,
-                  decoration: TextDecoration.underline),
-              textAlign: TextAlign.center,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: FreezmeColors.border),
+              ),
+              child: const Text(
+                'Skip for now — I\'ll verify later in settings',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13, color: FreezmeColors.muted,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 8),
