@@ -21,12 +21,45 @@ import '../../models/blueprint.dart';
 // At the end: Archetype reveal screen → home
 // ─────────────────────────────────────────────────────────────────────────────
 
-const _kPrompts = [
-  'The last time you genuinely helped someone — what did you do?',
-  'The most spontaneous thing you\'ve ever done.',
-  'I\'ll know it\'s going well if...',
-  'My friends would describe me as...',
-  'The thing I\'m most proud of that nobody gave me an award for.',
+// Prompts organised by category — shown as labelled tabs
+class _PromptCategory {
+  const _PromptCategory({required this.label, required this.emoji, required this.prompts});
+  final String label;
+  final String emoji;
+  final List<String> prompts;
+}
+
+const _kPromptCategories = [
+  _PromptCategory(
+    label: 'Real',
+    emoji: '💬',
+    prompts: [
+      'The last time you genuinely helped someone — what did you do?',
+      'The thing I\'m most proud of that nobody gave me an award for.',
+      'A belief I hold that most people around me don\'t.',
+      'What I\'m still figuring out about myself.',
+    ],
+  ),
+  _PromptCategory(
+    label: 'Fun',
+    emoji: '✨',
+    prompts: [
+      'The most spontaneous thing I\'ve ever done.',
+      'My friends would describe me as...',
+      'I\'ll know it\'s going well if...',
+      'The random skill I have that nobody expects.',
+    ],
+  ),
+  _PromptCategory(
+    label: 'Weird',
+    emoji: '🌀',
+    prompts: [
+      'My most controversial food opinion.',
+      'A hill I will absolutely die on.',
+      'The thing I do that makes total sense to me and zero sense to others.',
+      'Ideal Sunday, but make it oddly specific.',
+    ],
+  ),
 ];
 
 class OnboardingFlowPage extends StatefulWidget {
@@ -50,7 +83,8 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   bool _ageConfirmed = false;
 
   // ── Moment 2: Value — prompt answer ─────────────────────────────────────────
-  String _selectedPrompt = _kPrompts[0];
+  int _selectedCategoryIndex = 0;
+  String _selectedPrompt = _kPromptCategories[0].prompts[0];
   final TextEditingController _promptAnswerController = TextEditingController();
 
   // ── Moment 3: Pace — scenario choice ────────────────────────────────────────
@@ -479,6 +513,10 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   // ── Moment 2: The Value ───────────────────────────────────────────────────
 
   Widget _buildMoment2() {
+    final category = _kPromptCategories[_selectedCategoryIndex];
+    final answerLen = _promptAnswerController.text.trim().length;
+    final hasEnough = answerLen >= 10;
+
     return SingleChildScrollView(
       key: const ValueKey(2),
       child: Column(
@@ -488,45 +526,101 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
           const Text('One thing about you.', style: FreezmeTypography.h1),
           const SizedBox(height: 8),
           const Text(
-            'Pick a prompt. Answer honestly in 60 words or less.\nThis will be the first thing people see.',
+            'Pick a prompt. Answer honestly — this is the first thing people see.',
             style: FreezmeTypography.body,
           ),
           const SizedBox(height: 24),
-          // Prompt selector
+
+          // ── Category tabs (Real / Fun / Weird) ──────────────────────────────
           SizedBox(
-            height: 44,
+            height: 40,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _kPrompts.length,
+              itemCount: _kPromptCategories.length,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, i) {
-                final selected = _kPrompts[i] == _selectedPrompt;
-                return ChoiceChip(
-                  label: Text(
-                    'Prompt ${i + 1}',
-                    style: TextStyle(
-                      color: selected ? Colors.white : FreezmeColors.neutral,
-                      fontSize: 12,
-                    ),
-                  ),
-                  selected: selected,
-                  selectedColor: FreezmeColors.primary,
-                  backgroundColor: Colors.white,
-                  onSelected: (_) => setState(() {
-                    _selectedPrompt = _kPrompts[i];
+                final cat = _kPromptCategories[i];
+                final selected = i == _selectedCategoryIndex;
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    _selectedCategoryIndex = i;
+                    // Auto-select first prompt in category, clear answer
+                    _selectedPrompt = _kPromptCategories[i].prompts[0];
                     _promptAnswerController.clear();
                   }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected ? FreezmeColors.primary : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: selected ? FreezmeColors.primary : FreezmeColors.border,
+                      ),
+                    ),
+                    child: Text(
+                      '${cat.emoji}  ${cat.label}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: selected ? Colors.white : FreezmeColors.neutral,
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
           ),
+          const SizedBox(height: 14),
+
+          // ── Individual prompt chips within selected category ─────────────────
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: category.prompts.map((prompt) {
+              final selected = prompt == _selectedPrompt;
+              // Truncate label to ~32 chars so chips stay readable
+              final label = prompt.length > 32 ? '${prompt.substring(0, 30)}…' : prompt;
+              return GestureDetector(
+                onTap: () => setState(() {
+                  _selectedPrompt = prompt;
+                  _promptAnswerController.clear();
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? FreezmeColors.primary.withValues(alpha: 0.1)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: selected ? FreezmeColors.primary : FreezmeColors.border,
+                      width: selected ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: selected ? FreezmeColors.primary : FreezmeColors.neutral,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
           const SizedBox(height: 16),
-          Container(
+
+          // ── Full prompt display ──────────────────────────────────────────────
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: FreezmeColors.primary.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: FreezmeColors.primary.withValues(alpha: 0.2)),
+              border: Border.all(color: FreezmeColors.primary.withValues(alpha: 0.25)),
             ),
             child: Text(
               '"$_selectedPrompt"',
@@ -538,11 +632,25 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+
+          // ── Answer field with countdown counter ──────────────────────────────
           TextField(
             controller: _promptAnswerController,
             maxLines: 4,
             maxLength: 280,
+            buildCounter: (_, {required currentLength, required isFocused, maxLength}) {
+              final remaining = (maxLength ?? 280) - currentLength;
+              return Text(
+                '$remaining left',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: remaining < 30
+                      ? Colors.orange
+                      : FreezmeColors.muted,
+                ),
+              );
+            },
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: 'Your answer...',
@@ -553,27 +661,90 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: FreezmeColors.border),
               ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: hasEnough ? FreezmeColors.primary.withValues(alpha: 0.4) : FreezmeColors.border,
+                ),
+              ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(color: FreezmeColors.primary, width: 2),
               ),
             ),
           ),
-          if (_promptAnswerController.text.trim().length >= 10)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: _InsightBanner(
-                text: 'This will show on your profile exactly as written.',
-                icon: Icons.visibility_outlined,
+
+          // ── Profile card preview ─────────────────────────────────────────────
+          if (hasEnough) ...[
+            const SizedBox(height: 16),
+            const Text('How it looks on your profile:', style: FreezmeTypography.bodyMuted),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: FreezmeColors.primary.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: FreezmeColors.border),
               ),
-            )
-          else if (_hasAttemptedNext && _promptAnswerController.text.trim().length < 10)
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: FreezmeColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.format_quote_rounded,
+                            color: FreezmeColors.primary, size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _selectedPrompt,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: FreezmeColors.muted,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _promptAnswerController.text.trim(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: FreezmeColors.neutral,
+                      height: 1.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if (_hasAttemptedNext && !hasEnough)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: _ValidationHint(
-                text: '${_promptAnswerController.text.trim().length}/10 characters minimum',
+                text: 'Write at least 10 characters to continue',
               ),
             ),
+          const SizedBox(height: 16),
         ],
       ),
     );
