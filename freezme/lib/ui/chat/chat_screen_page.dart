@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../main.dart';
 import '../../models/chat_message.dart';
 import '../../services/auth_service.dart';
+import '../../services/websocket_service.dart';
 import '../../models/conversation_energy.dart';
 import '../design_system.dart';
 import 'freeze_modal.dart' as modal;
@@ -12,18 +14,24 @@ import 'typing_indicator.dart';
 
 enum MessageStatus { pending, sent, delivered, read, failed }
 
+const _uuid = Uuid();
+
 class ChatMessageItem {
   ChatMessageItem({
     required this.text,
     required this.isMe,
     required this.timestamp,
     this.status = MessageStatus.sent,
+    this.clientMsgId,
+    this.serverId,
   });
 
   final String text;
   final bool isMe;
   final String timestamp;
   MessageStatus status;
+  final String? clientMsgId; // local UUID for dedup before server ack
+  String? serverId;          // server-assigned message ID after ack
 }
 
 IconData _statusIcon(MessageStatus status) {
@@ -53,10 +61,15 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessageItem> _messages = <ChatMessageItem>[];
   StreamSubscription<List<ChatMessage>>? _msgSub;
+  StreamSubscription<Map<String, dynamic>>? _ackSub;
+  StreamSubscription<Map<String, dynamic>>? _statusSub;
   Stream<List<ChatMessage>>? _messagesStream;
   String? _messagesStreamChatId;
   bool _sending = false;
   final bool _simulatedTyping = false;
+
+  // Dedup: track server IDs already shown to avoid double-display from HTTP + WS
+  final Set<String> _shownServerIds = {};
 
   // Milestone tracking — celebrate first message and 10-message mark once each.
   final Set<int> _celebratedMilestones = {};
@@ -68,11 +81,61 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   };
 
   @override
+  void initState() {
+    super.initState();
+    // Listen for server ACKs to update local message status
+    _ackSub = WebSocketService.instance.onChatAck.listen(_handleAck);
+    _statusSub = WebSocketService.instance.onChatStatus.listen(_handleStatusUpdate);
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
     _msgSub?.cancel();
+    _ackSub?.cancel();
+    _statusSub?.cancel();
     super.dispose();
+  }
+
+  void _handleAck(Map<String, dynamic> event) {
+    final clientMsgId = event['clientMsgId'] as String?;
+    final serverId = event['messageId'] as String?;
+    final status = event['status'] as String?;
+    if (clientMsgId == null || !mounted) return;
+    setState(() {
+      for (final msg in _messages) {
+        if (msg.clientMsgId == clientMsgId) {
+          msg.serverId = serverId;
+          if (serverId != null) _shownServerIds.add(serverId);
+          msg.status = _parseStatus(status ?? 'sent');
+          break;
+        }
+      }
+    });
+  }
+
+  void _handleStatusUpdate(Map<String, dynamic> event) {
+    final messageId = event['messageId'] as String?;
+    final status = event['status'] as String?;
+    if (messageId == null || !mounted) return;
+    setState(() {
+      for (final msg in _messages) {
+        if (msg.serverId == messageId) {
+          msg.status = _parseStatus(status ?? 'sent');
+          break;
+        }
+      }
+    });
+  }
+
+  MessageStatus _parseStatus(String s) {
+    switch (s) {
+      case 'delivered': return MessageStatus.delivered;
+      case 'read':      return MessageStatus.read;
+      case 'failed':    return MessageStatus.failed;
+      default:          return MessageStatus.sent;
+    }
   }
 
   Future<void> _handleSend() async {
@@ -82,6 +145,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
     final uid = flow.currentUserId;
     if (text.isEmpty || chatId == null || uid == null || _sending) return;
     _sending = true;
+    final clientMsgId = _uuid.v4();
     final now = TimeOfDay.now();
     final message = ChatMessageItem(
       text: text,
@@ -89,11 +153,12 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
       timestamp:
           '${now.hourOfPeriod == 0 ? 12 : now.hourOfPeriod}:${now.minute.toString().padLeft(2, '0')} ${now.period == DayPeriod.am ? 'AM' : 'PM'}',
       status: MessageStatus.pending,
+      clientMsgId: clientMsgId,
     );
-    setState(() {
-      _messages.add(message);
-    });
+    setState(() { _messages.add(message); });
     _controller.clear();
+    _scrollToBottom();
+
     try {
       await flow.repository.sendMessage(
         ChatMessage(
@@ -102,29 +167,33 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
           text: text,
           sentAt: DateTime.now(),
           status: 'sent',
+          clientMsgId: clientMsgId,
         ),
       );
       if (!mounted) return;
-      setState(() {
-        message.status = MessageStatus.sent;
-      });
-
-
-
+      // Status will be updated by _handleAck when server confirms
+      setState(() { message.status = MessageStatus.sent; });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        message.status = MessageStatus.failed;
-      });
-      if (!mounted) return;
+      setState(() { message.status = MessageStatus.failed; });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not send. Please retry.'),
+        SnackBar(
+          content: const Text('Could not send. Tap to retry.'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () {
+              setState(() { _messages.remove(message); });
+              _controller.text = text;
+            },
+          ),
         ),
       );
     } finally {
       _sending = false;
     }
+  }
+
+  void _scrollToBottom() {
     Future<void>.delayed(const Duration(milliseconds: 100), () {
       if (mounted && _scrollController.hasClients) {
         _scrollController.animateTo(

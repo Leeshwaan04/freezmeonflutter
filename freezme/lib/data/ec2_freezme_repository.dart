@@ -216,7 +216,11 @@ class Ec2FreezmeRepository implements FreezmeRepository {
   @override
   Future<void> sendMessage(ChatMessage message) async {
     // Sending via WebSocket for real-time delivery
-    _ws.sendChatMessage(chatId: message.chatId, text: message.text);
+    _ws.sendChatMessage(
+      chatId: message.chatId,
+      text: message.text,
+      clientMsgId: message.clientMsgId ?? '',
+    );
   }
 
   @override

@@ -92,6 +92,21 @@ new Worker(
       logger.info({ msg: 'old_messages_pruned', count: deleted.count });
     }
 
+    if (type === 'expired_path_invites') {
+      const deleted = await prisma.pathInvite.deleteMany({
+        where: { status: 'pending', expiresAt: { lt: new Date() } },
+      });
+      logger.info({ msg: 'expired_path_invites_pruned', count: deleted.count });
+    }
+
+    if (type === 'old_blind_sessions') {
+      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const deleted = await prisma.blindsSession.deleteMany({
+        where: { phase: 'ended', expiresAt: { lt: cutoff } },
+      });
+      logger.info({ msg: 'old_blind_sessions_pruned', count: deleted.count });
+    }
+
     // Open a new Freeze Room (rolls every 2 hours)
     if (type === 'freeze_room_open') {
       const types: Array<'reflective' | 'playful' | 'values'> = ['reflective', 'playful', 'values'];
@@ -223,6 +238,20 @@ export async function scheduleRecurringJobs(): Promise<void> {
     'presence_score_update',
     { type: 'presence_score_update' },
     { repeat: { every: 6 * 60 * 60 * 1000 }, jobId: 'presence_score_update' }
+  );
+
+  // Clean up expired PathInvites — every hour
+  await cleanupQueue.add(
+    'expired_path_invites',
+    { type: 'expired_path_invites' },
+    { repeat: { every: 60 * 60 * 1000 }, jobId: 'expired_path_invites_hourly' }
+  );
+
+  // Clean up ended BlindSessions older than 7 days — daily
+  await cleanupQueue.add(
+    'old_blind_sessions',
+    { type: 'old_blind_sessions' },
+    { repeat: { every: 24 * 60 * 60 * 1000 }, jobId: 'old_blind_sessions_daily' }
   );
 
   // Open first room immediately on startup

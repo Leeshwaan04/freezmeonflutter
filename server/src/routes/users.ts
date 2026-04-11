@@ -35,13 +35,50 @@ router.delete('/fcm-token', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /users/me — delete account
+// DELETE /users/me — delete account (full cascade cleanup)
 router.delete('/me', async (req: Request, res: Response) => {
   try {
-    await prisma.user.delete({ where: { id: req.uid } });
+    await prisma.$transaction(async (tx) => {
+      const uid = req.uid;
+
+      // Delete all records that don't cascade automatically
+      await tx.like.deleteMany({ where: { OR: [{ senderUid: uid }, { targetUid: uid }] } });
+      await tx.skip.deleteMany({ where: { OR: [{ senderUid: uid }, { targetUid: uid }] } });
+      await tx.pathInvite.deleteMany({ where: { OR: [{ senderUid: uid }, { receiverUid: uid }] } });
+      await tx.blindsQueue.deleteMany({ where: { uid } });
+      await tx.blindsSession.updateMany({
+        where: { OR: [{ userA: uid }, { userB: uid }] },
+        data: { phase: 'ended', reportReason: 'account_deleted' },
+      });
+      await tx.meltSession.deleteMany({ where: { OR: [{ hostUid: uid }, { targetUid: uid }] } });
+      await tx.pathsPresence.deleteMany({ where: { uid } });
+      await tx.presenceEvent.deleteMany({ where: { uid } });
+      await tx.feedPost.deleteMany({ where: { authorUid: uid } });
+      await tx.postLike.deleteMany({ where: { uid } });
+      await tx.postComment.deleteMany({ where: { authorUid: uid } });
+      await tx.refreshToken.deleteMany({ where: { userId: uid } });
+      await tx.freezeMatch.deleteMany({ where: { OR: [{ userA: uid }, { userB: uid }] } });
+      await tx.freezeRoomParticipant.deleteMany({ where: { uid } });
+
+      // Remove user from any active Match members arrays — mark match as inactive
+      const matches = await tx.match.findMany({ where: { members: { has: uid } } });
+      for (const m of matches) {
+        const remaining = m.members.filter((id) => id !== uid);
+        if (remaining.length === 0) {
+          await tx.match.delete({ where: { id: m.id } });
+        } else {
+          await tx.match.update({ where: { id: m.id }, data: { members: remaining, status: 'inactive' } });
+        }
+      }
+
+      // Profile and Membership cascade from User (onDelete: Cascade in schema)
+      await tx.user.delete({ where: { id: uid } });
+    });
+
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete account' });
+    console.error('[users/delete]', err);
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to delete account' });
   }
 });
 

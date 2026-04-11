@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../main.dart';
@@ -41,28 +40,11 @@ class _PathInvitesPageState extends State<PathInvitesPage> {
     setState(() => _processing.add(invite.id));
     try {
       final flow = AppFlowScope.of(context, listen: false);
-      final response = await flow.repository.cancelPathsInvite(invite.id); // reuse cancel slot
-      // Actually call the respond endpoint
-      await flow.repository.cancelPathsInvite(''); // placeholder — use real respond below
-    } catch (_) {}
-
-    // Use ApiClient directly for respond
-    try {
-      final flow = AppFlowScope.of(context, listen: false);
-      await flow.repository.cancelPathsInvite(invite.id); // stub fallback
-    } catch (_) {}
-
-    // Call real endpoint via EC2 repo
-    try {
-      final flow = AppFlowScope.of(context, listen: false);
-      // cancelPathsInvite is the only exposed method, use it for 'cancelled'
-      // For accepted/declined we call via repo directly
       if (status == 'cancelled') {
         await flow.repository.cancelPathsInvite(invite.id);
       } else {
-        // Use the repo's underlying dio via ApiClient
-        final repo = flow.repository;
-        await (repo as dynamic).respondPathsInvite(invite.id, status);
+        // Use dynamic dispatch to call respondPathsInvite on the EC2 repo
+        await (flow.repository as dynamic).respondPathsInvite(invite.id, status);
       }
     } catch (_) {}
 
@@ -124,7 +106,7 @@ class _PathInvitesPageState extends State<PathInvitesPage> {
                         children: [
                           const Icon(Icons.route_outlined, size: 64, color: FreezmeDesignSystem.textTertiary),
                           const SizedBox(height: 16),
-                          const Text('No pending invites', style: FreezmeDesignSystem.bodyMuted),
+                          Text('No pending invites', style: FreezmeDesignSystem.body.copyWith(color: FreezmeDesignSystem.textSecondary)),
                           const SizedBox(height: 8),
                           const Text(
                             'When someone crosses your path and sends\nan invite, it will appear here.',

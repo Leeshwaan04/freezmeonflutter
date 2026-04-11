@@ -110,6 +110,7 @@ model Chat {
   match     Match?    @relation(fields: [matchId], references: [id])
 
   @@index([members])
+  @@index([updatedAt])
 }
 
 model Message {
@@ -125,6 +126,7 @@ model Message {
   chat          Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@index([chatId, createdAt])
+  @@index([senderUid])
 }
 
 model MeltSession {
@@ -159,11 +161,13 @@ model PathInvite {
   receiverUid String
   intent      String
   status      String    @default("pending")
+  expiresAt   DateTime  // auto-set to createdAt + 24h; cleaned up by cron
   createdAt   DateTime  @default(now())
   respondedAt DateTime?
 
   @@index([receiverUid, status])
   @@index([senderUid])
+  @@index([expiresAt]) // for cron cleanup query
 }
 
 model BlindsQueue {

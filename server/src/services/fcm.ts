@@ -1,6 +1,7 @@
 import admin from 'firebase-admin';
-import path from 'path';
 import fs from 'fs';
+import { prisma } from '../db/client';
+import { logger } from './logger';
 
 let initialized = false;
 
@@ -20,6 +21,13 @@ function initFirebaseAdmin(): void {
 }
 
 initFirebaseAdmin();
+
+// FCM error codes that mean the token is permanently invalid and should be removed
+const STALE_TOKEN_CODES = new Set([
+  'messaging/invalid-registration-token',
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-argument',
+]);
 
 export async function sendPushNotification(
   fcmToken: string,
@@ -42,8 +50,18 @@ export async function sendPushNotification(
         notification: { sound: 'default' },
       },
     });
-  } catch (err) {
-    console.error('[FCM] Failed to send push notification:', err);
+  } catch (err: any) {
+    const code: string = err?.errorInfo?.code ?? err?.code ?? '';
+    if (STALE_TOKEN_CODES.has(code)) {
+      // Token is permanently invalid — clear it so we don't keep trying
+      logger.warn({ msg: 'fcm_stale_token', code, token: fcmToken.slice(-8) });
+      await prisma.user.updateMany({
+        where: { fcmToken },
+        data: { fcmToken: null },
+      }).catch(() => {});
+    } else {
+      logger.error({ msg: 'fcm_send_failed', code, error: err?.message });
+    }
   }
 }
 

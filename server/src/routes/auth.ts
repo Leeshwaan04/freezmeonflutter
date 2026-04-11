@@ -16,7 +16,7 @@ const router = Router();
 router.post('/google', async (req: Request, res: Response) => {
   try {
     const { idToken, displayName, photoUrl } = req.body;
-    if (!idToken) { res.status(400).json({ error: 'idToken required' }); return; }
+    if (!idToken) { res.status(400).json({ code: 'MISSING_FIELD', error: 'idToken required' }); return; }
 
     const googleUser = await verifyGoogleToken(idToken);
 
@@ -51,7 +51,7 @@ router.post('/google', async (req: Request, res: Response) => {
     res.json({ ...tokens, user: safeUser({ ...user, displayName: name, photoUrl: photoUrl || googleUser.picture }), hasProfile: !!profile });
   } catch (err) {
     console.error('[auth/google]', err);
-    res.status(401).json({ error: 'Google authentication failed' });
+    res.status(401).json({ code: 'AUTH_FAILED', error: 'Google authentication failed' });
   }
 });
 
@@ -59,7 +59,7 @@ router.post('/google', async (req: Request, res: Response) => {
 router.post('/apple', async (req: Request, res: Response) => {
   try {
     const { identityToken } = req.body;
-    if (!identityToken) { res.status(400).json({ error: 'identityToken required' }); return; }
+    if (!identityToken) { res.status(400).json({ code: 'MISSING_FIELD', error: 'identityToken required' }); return; }
 
     const appleUser = await verifyAppleToken(identityToken);
 
@@ -75,7 +75,7 @@ router.post('/apple', async (req: Request, res: Response) => {
     res.json({ ...tokens, user: safeUser(user), hasProfile: !!profile });
   } catch (err) {
     console.error('[auth/apple]', err);
-    res.status(401).json({ error: 'Apple authentication failed' });
+    res.status(401).json({ code: 'AUTH_FAILED', error: 'Apple authentication failed' });
   }
 });
 
@@ -84,12 +84,12 @@ router.post('/email', async (req: Request, res: Response) => {
   try {
     const { email, password, action } = req.body;
     if (!email || !password || !action) {
-      res.status(400).json({ error: 'email, password, action required' }); return;
+      res.status(400).json({ code: 'MISSING_FIELD', error: 'email, password, action required' }); return;
     }
 
     if (action === 'signup') {
       const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) { res.status(409).json({ error: 'Email already registered' }); return; }
+      if (existing) { res.status(409).json({ code: 'EMAIL_EXISTS', error: 'Email already registered' }); return; }
 
       const passwordHash = await bcrypt.hash(password, 12);
       const user = await prisma.user.create({ data: { email, passwordHash } });
@@ -97,10 +97,10 @@ router.post('/email', async (req: Request, res: Response) => {
       res.status(201).json({ ...tokens, user: safeUser(user), hasProfile: false });
     } else {
       const user = await prisma.user.findUnique({ where: { email } });
-      if (!user?.passwordHash) { res.status(401).json({ error: 'Invalid credentials' }); return; }
+      if (!user?.passwordHash) { res.status(401).json({ code: 'INVALID_CREDENTIALS', error: 'Invalid credentials' }); return; }
 
       const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid) { res.status(401).json({ error: 'Invalid credentials' }); return; }
+      if (!valid) { res.status(401).json({ code: 'INVALID_CREDENTIALS', error: 'Invalid credentials' }); return; }
 
       await prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
       const tokens = await issueTokenPair(user.id, user.email ?? undefined);
@@ -109,7 +109,7 @@ router.post('/email', async (req: Request, res: Response) => {
     }
   } catch (err) {
     console.error('[auth/email]', err);
-    res.status(500).json({ error: 'Authentication failed' });
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Authentication failed' });
   }
 });
 
@@ -117,19 +117,19 @@ router.post('/email', async (req: Request, res: Response) => {
 router.post('/refresh', async (req: Request, res: Response) => {
   try {
     const { refreshToken } = req.body;
-    if (!refreshToken) { res.status(400).json({ error: 'refreshToken required' }); return; }
+    if (!refreshToken) { res.status(400).json({ code: 'MISSING_FIELD', error: 'refreshToken required' }); return; }
 
     const payload = verifyRefreshToken(refreshToken);
     const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
     if (!stored || stored.expiresAt < new Date()) {
-      res.status(401).json({ error: 'Invalid or expired refresh token' }); return;
+      res.status(401).json({ code: 'TOKEN_EXPIRED', error: 'Invalid or expired refresh token' }); return;
     }
 
     await revokeRefreshToken(refreshToken);
     const tokens = await issueTokenPair(payload.uid, payload.email);
     res.json(tokens);
   } catch {
-    res.status(401).json({ error: 'Invalid refresh token' });
+    res.status(401).json({ code: 'INVALID_TOKEN', error: 'Invalid refresh token' });
   }
 });
 

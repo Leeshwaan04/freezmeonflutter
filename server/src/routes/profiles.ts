@@ -62,6 +62,18 @@ function lifestyleOverlap(a: string[], b: string[]): number {
   return overlap / Math.min(a.length, b.length);
 }
 
+// GET /profiles/me — fetch own profile (used by IAP and post-login refresh)
+router.get('/me', async (req: Request, res: Response) => {
+  try {
+    const profile = await prisma.profile.findUnique({ where: { userId: req.uid } });
+    if (!profile) { res.status(404).json({ code: 'NOT_FOUND', error: 'Profile not found' }); return; }
+    const membership = await prisma.membership.findUnique({ where: { userId: req.uid } });
+    res.json({ ...profile, isPremium: profile.isPremium || (membership?.active ?? false) });
+  } catch (err) {
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to fetch profile' });
+  }
+});
+
 // POST /profiles — create or update profile
 router.post('/', async (req: Request, res: Response) => {
   try {

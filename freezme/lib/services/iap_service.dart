@@ -157,18 +157,23 @@ class IAPService extends ChangeNotifier {
       );
 
       if (response.data?['active'] == true) {
+        // Refresh profile so isPremium syncs immediately across the app
+        await _refreshProfilePremiumStatus();
         _onSuccess?.call();
       } else {
         _error = 'Verification failed: receipt is invalid or expired.';
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[IAP] verification error: $e');
-        // In debug, fall back to local flag
-        final uid = await _client.getAccessToken();
-        if (uid != null) {
-          await _repository.updateProfile(uid: uid, isPremium: true);
-        }
+        debugPrint('[IAP] verification error: $e — using debug bypass');
+        // In debug, mark premium locally via profile endpoint (not access token)
+        try {
+          final meResp = await _client.dio.get<Map<String, dynamic>>('/profiles/me');
+          final uid = meResp.data?['userId'] as String? ?? meResp.data?['id'] as String?;
+          if (uid != null) {
+            await _repository.updateProfile(uid: uid, isPremium: true);
+          }
+        } catch (_) {}
         _onSuccess?.call();
       } else {
         _error = 'Failed to verify purchase. Please contact support.';
@@ -176,6 +181,20 @@ class IAPService extends ChangeNotifier {
     } finally {
       _purchasePending = false;
       notifyListeners();
+    }
+  }
+
+  /// Fetches the current user's profile from the server to sync isPremium.
+  Future<void> _refreshProfilePremiumStatus() async {
+    try {
+      final resp = await _client.dio.get<Map<String, dynamic>>('/profiles/me');
+      final uid = resp.data?['userId'] as String? ?? resp.data?['id'] as String?;
+      final isPremium = resp.data?['isPremium'] as bool? ?? false;
+      if (uid != null && isPremium) {
+        await _repository.updateProfile(uid: uid, isPremium: true);
+      }
+    } catch (e) {
+      debugPrint('[IAP] failed to refresh profile premium status: $e');
     }
   }
 

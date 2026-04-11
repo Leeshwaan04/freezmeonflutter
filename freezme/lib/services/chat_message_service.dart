@@ -80,7 +80,7 @@ class ChatMessageService {
     required String senderUid,
     required String text,
   }) async {
-    WebSocketService.instance.sendChatMessage(chatId: sessionId, text: text);
+    WebSocketService.instance.sendChatMessage(chatId: sessionId, text: text, clientMsgId: '');
   }
 
   /// Update message status — no-op stub (WebSocket handles read receipts).

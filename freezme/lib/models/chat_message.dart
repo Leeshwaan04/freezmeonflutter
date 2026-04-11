@@ -6,6 +6,9 @@ class ChatMessage {
     required this.sentAt,
     this.documentId,
     this.status,
+    this.clientMsgId,
+    this.deliveredAt,
+    this.readAt,
   });
 
   final String chatId;
@@ -13,7 +16,10 @@ class ChatMessage {
   final String text;
   final DateTime sentAt;
   final String? documentId;
-  final String? status; // sent/delivered/read
+  final String? status;      // sent/delivered/read
+  final String? clientMsgId; // local UUID for dedup
+  final DateTime? deliveredAt;
+  final DateTime? readAt;
 
   Map<String, dynamic> toJson() {
     return {
@@ -22,6 +28,7 @@ class ChatMessage {
       'text': text,
       'sentAt': sentAt.toIso8601String(),
       if (status != null) 'status': status,
+      if (clientMsgId != null) 'clientMsgId': clientMsgId,
     };
   }
 
@@ -35,6 +42,9 @@ class ChatMessage {
       sentAt: _parseDateTime(json['createdAt'] ?? json['sentAt']),
       documentId: documentId ?? json['id'] as String?,
       status: json['status'] as String?,
+      clientMsgId: json['clientMsgId'] as String?,
+      deliveredAt: _parseDateTimeNullable(json['deliveredAt']),
+      readAt: _parseDateTimeNullable(json['readAt']),
     );
   }
 
@@ -42,5 +52,12 @@ class ChatMessage {
     if (value is String) return DateTime.parse(value);
     if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
     return DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  static DateTime? _parseDateTimeNullable(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return DateTime.tryParse(value);
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return null;
   }
 }

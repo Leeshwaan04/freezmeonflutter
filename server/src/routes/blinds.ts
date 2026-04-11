@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
-import { scheduleBlindExpiry } from '../jobs/queues';
+import { scheduleBlindExpiry, enqueuePush } from '../jobs/queues';
+import { io } from '../index';
 
 const router = Router();
 router.use(requireAuth);
@@ -12,7 +13,9 @@ const BLIND_SESSION_MINUTES = 12;
 router.post('/enqueue', async (req: Request, res: Response) => {
   try {
     const { intent, distanceBucket, interests } = req.body;
-    if (!intent || !distanceBucket) { res.status(400).json({ error: 'intent and distanceBucket required' }); return; }
+    if (!intent || !distanceBucket) {
+      res.status(400).json({ code: 'MISSING_FIELD', error: 'intent and distanceBucket required' }); return;
+    }
 
     const availableUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 min
 
@@ -22,10 +25,28 @@ router.post('/enqueue', async (req: Request, res: Response) => {
       create: { uid: req.uid, intent, distanceBucket, interests: interests ?? [], availableUntil },
     });
 
-    // Try to find a match immediately
+    // Find UIDs the current user has already had a blind session with (avoid re-matching)
+    const priorSessions = await prisma.blindsSession.findMany({
+      where: { OR: [{ userA: req.uid }, { userB: req.uid }] },
+      select: { userA: true, userB: true },
+    });
+    const priorMatchedUids = new Set<string>(
+      priorSessions.flatMap((s) => [s.userA, s.userB]).filter((u) => u !== req.uid)
+    );
+
+    // Also exclude existing Match partners (already connected via regular matching)
+    const existingMatches = await prisma.match.findMany({
+      where: { members: { has: req.uid }, status: 'active' },
+      select: { members: true },
+    });
+    for (const m of existingMatches) {
+      m.members.filter((u) => u !== req.uid).forEach((u) => priorMatchedUids.add(u));
+    }
+
+    // Try to find a match — exclude self + prior sessions + existing matches
     const match = await prisma.blindsQueue.findFirst({
       where: {
-        uid: { not: req.uid },
+        uid: { not: req.uid, notIn: [...priorMatchedUids] },
         intent,
         distanceBucket,
         availableUntil: { gt: new Date() },
@@ -33,15 +54,54 @@ router.post('/enqueue', async (req: Request, res: Response) => {
     });
 
     if (match) {
-      // Remove both from queue and create session
-      await prisma.blindsQueue.deleteMany({ where: { uid: { in: [req.uid, match.uid] } } });
+      // Remove both from queue and create session atomically
+      const session = await prisma.$transaction(async (tx) => {
+        // Double-check the match candidate is still in queue
+        const candidate = await tx.blindsQueue.findUnique({ where: { uid: match.uid } });
+        if (!candidate) return null;
 
-      const expiresAt = new Date(Date.now() + BLIND_SESSION_MINUTES * 60 * 1000);
-      const session = await prisma.blindsSession.create({
-        data: { userA: req.uid, userB: match.uid, expiresAt },
+        await tx.blindsQueue.deleteMany({ where: { uid: { in: [req.uid, match.uid] } } });
+
+        const expiresAt = new Date(Date.now() + BLIND_SESSION_MINUTES * 60 * 1000);
+        return tx.blindsSession.create({
+          data: { userA: req.uid, userB: match.uid, expiresAt },
+        });
       });
 
-      await scheduleBlindExpiry(session.id, expiresAt);
+      if (!session) {
+        // Candidate was taken by another concurrent request — stay queued
+        res.json({ queued: true, entry });
+        return;
+      }
+
+      // Schedule expiry job
+      await scheduleBlindExpiry(session.id, session.expiresAt).catch(() => {});
+
+      // Notify both users via WebSocket
+      io.to(`user:${req.uid}`).emit('blind:session_created', { session });
+      io.to(`user:${match.uid}`).emit('blind:session_created', { session });
+
+      // Push notifications
+      const [myUser, theirUser] = await Promise.all([
+        prisma.user.findUnique({ where: { id: req.uid } }),
+        prisma.user.findUnique({ where: { id: match.uid } }),
+      ]);
+      if (theirUser?.fcmToken) {
+        await enqueuePush(
+          theirUser.fcmToken,
+          'Blind Session Started',
+          'Someone nearby wants to connect anonymously!',
+          { type: 'blind_session', sessionId: session.id }
+        ).catch(() => {});
+      }
+      if (myUser?.fcmToken) {
+        await enqueuePush(
+          myUser.fcmToken,
+          'Blind Session Started',
+          'You\'ve been matched anonymously — say hello!',
+          { type: 'blind_session', sessionId: session.id }
+        ).catch(() => {});
+      }
 
       res.json({ queued: false, session });
     } else {
@@ -49,7 +109,7 @@ router.post('/enqueue', async (req: Request, res: Response) => {
     }
   } catch (err) {
     console.error('[blinds/enqueue]', err);
-    res.status(500).json({ error: 'Failed to enqueue' });
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to enqueue' });
   }
 });
 
@@ -59,7 +119,7 @@ router.delete('/enqueue', async (req: Request, res: Response) => {
     await prisma.blindsQueue.deleteMany({ where: { uid: req.uid } });
     res.json({ dequeued: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to dequeue' });
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to dequeue' });
   }
 });
 
@@ -76,7 +136,7 @@ router.get('/session', async (req: Request, res: Response) => {
     });
     res.json(session);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch blind session' });
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to fetch blind session' });
   }
 });
 
@@ -84,9 +144,9 @@ router.get('/session', async (req: Request, res: Response) => {
 router.post('/session/:id/reveal', async (req: Request, res: Response) => {
   try {
     const session = await prisma.blindsSession.findUnique({ where: { id: req.params.id } });
-    if (!session) { res.status(404).json({ error: 'Session not found' }); return; }
+    if (!session) { res.status(404).json({ code: 'NOT_FOUND', error: 'Session not found' }); return; }
     if (session.userA !== req.uid && session.userB !== req.uid) {
-      res.status(403).json({ error: 'Access denied' }); return;
+      res.status(403).json({ code: 'FORBIDDEN', error: 'Access denied' }); return;
     }
 
     const isUserA = session.userA === req.uid;
@@ -95,9 +155,13 @@ router.post('/session/:id/reveal', async (req: Request, res: Response) => {
       data: isUserA ? { revealA: true } : { revealB: true },
     });
 
+    // Emit real-time phase change to both parties
+    io.to(`user:${session.userA}`).emit('blind:phase_change', { sessionId: session.id, session: updated });
+    io.to(`user:${session.userB}`).emit('blind:phase_change', { sessionId: session.id, session: updated });
+
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to reveal' });
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to reveal' });
   }
 });
 
@@ -106,9 +170,9 @@ router.post('/session/:id/report', async (req: Request, res: Response) => {
   try {
     const { reason } = req.body;
     const session = await prisma.blindsSession.findUnique({ where: { id: req.params.id } });
-    if (!session) { res.status(404).json({ error: 'Session not found' }); return; }
+    if (!session) { res.status(404).json({ code: 'NOT_FOUND', error: 'Session not found' }); return; }
     if (session.userA !== req.uid && session.userB !== req.uid) {
-      res.status(403).json({ error: 'Access denied' }); return;
+      res.status(403).json({ code: 'FORBIDDEN', error: 'Access denied' }); return;
     }
 
     await prisma.blindsSession.update({
@@ -118,7 +182,7 @@ router.post('/session/:id/report', async (req: Request, res: Response) => {
 
     res.json({ reported: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to report session' });
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to report session' });
   }
 });
 

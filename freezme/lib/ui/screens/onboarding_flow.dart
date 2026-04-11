@@ -166,7 +166,16 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
               );
             } catch (e) {
               debugPrint('[Onboarding] photo upload failed: $e');
-              // Non-blocking — profile saves without imageUrl, user can add later
+              // Photo upload failed — show error and block progression
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Photo upload failed. Please check your connection and try again.'),
+                    duration: Duration(seconds: 4),
+                  ),
+                );
+              }
+              return; // do not proceed without a photo
             }
           }
 

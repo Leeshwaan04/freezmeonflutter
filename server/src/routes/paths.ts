@@ -83,10 +83,11 @@ router.get('/nearby', async (req: Request, res: Response) => {
 router.post('/invite', async (req: Request, res: Response) => {
   try {
     const { receiverUid, intent } = req.body;
-    if (!receiverUid || !intent) { res.status(400).json({ error: 'receiverUid and intent required' }); return; }
+    if (!receiverUid || !intent) { res.status(400).json({ code: 'MISSING_FIELD', error: 'receiverUid and intent required' }); return; }
 
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h expiry
     const invite = await prisma.pathInvite.create({
-      data: { senderUid: req.uid, receiverUid, intent },
+      data: { senderUid: req.uid, receiverUid, intent, expiresAt },
     });
 
     // Push to receiver
@@ -153,16 +154,20 @@ router.post('/invite/:id/respond', async (req: Request, res: Response) => {
   }
 });
 
-// GET /paths/invites — list pending invites for user
+// GET /paths/invites — list pending invites for user (exclude expired)
 router.get('/invites', async (req: Request, res: Response) => {
   try {
     const invites = await prisma.pathInvite.findMany({
-      where: { receiverUid: req.uid, status: 'pending' },
+      where: {
+        receiverUid: req.uid,
+        status: 'pending',
+        expiresAt: { gt: new Date() }, // exclude expired
+      },
       orderBy: { createdAt: 'desc' },
     });
     res.json(invites);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch path invites' });
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to fetch path invites' });
   }
 });
 

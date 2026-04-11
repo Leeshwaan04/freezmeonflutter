@@ -60,7 +60,7 @@ app.use('/profiles', profilesRouter);
 app.use('/matching', actionLimiter, idempotent, matchingRouter);
 app.use('/chats', chatRouter);
 app.use('/melt', actionLimiter, idempotent, meltRouter);
-app.use('/paths', pathsRouter);
+app.use('/paths', actionLimiter, pathsRouter);
 app.use('/blinds', actionLimiter, blindsRouter);
 app.use('/iap', iapRouter);
 app.use('/storage', storageRouter);

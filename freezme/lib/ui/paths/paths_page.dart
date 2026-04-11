@@ -96,13 +96,52 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
       if (perm == LocationPermission.denied) {
         perm = await Geolocator.requestPermission();
       }
-      if (perm == LocationPermission.deniedForever) return null;
+      if (perm == LocationPermission.deniedForever) {
+        _showLocationDeniedDialog(permanent: true);
+        return null;
+      }
+      if (perm == LocationPermission.denied) {
+        _showLocationDeniedDialog(permanent: false);
+        return null;
+      }
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.balanced),
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
       ).timeout(const Duration(seconds: 8));
     } catch (_) {
       return null;
     }
+  }
+
+  void _showLocationDeniedDialog({required bool permanent}) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Location Required'),
+        content: Text(permanent
+            ? 'Location is permanently denied. Please enable it in Settings to use Paths.'
+            : 'Paths needs your location to show nearby people.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              if (permanent) {
+                await Geolocator.openAppSettings();
+              } else {
+                // Re-trigger broadcast after dismissing — user may have changed mind
+                final flow = AppFlowScope.of(context, listen: false);
+                await _broadcastPresence(flow);
+              }
+            },
+            child: Text(permanent ? 'Open Settings' : 'Try Again'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _broadcastPresence(AppFlowController flow) async {
@@ -113,16 +152,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
       return;
     }
     final pos = await _getLocation();
-    if (pos == null) {
-      if (mounted) {
-        PremiumSnackBar.show(
-          context,
-          'Location permission needed to show you on Paths.',
-          type: SnackBarType.error,
-        );
-      }
-      return;
-    }
+    if (pos == null) return; // dialog already shown inside _getLocation
     _lastPosition = pos;
     try {
       await flow.repository.upsertPathsPresence(PathsPresence(
