@@ -35,10 +35,7 @@ router.post('/selfie-submit', async (req: Request, res: Response) => {
     // Store selfie key in user record for async review
     await prisma.user.update({
       where: { id: req.uid },
-      data: {
-        status: 'verification_pending',
-        updatedAt: new Date(),
-      },
+      data: { status: 'verification_pending' },
     });
 
     res.json({ success: true, status: 'pending' });
