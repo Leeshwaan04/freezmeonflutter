@@ -82,10 +82,12 @@ class _FreezeRoomPageState extends State<FreezeRoomPage>
         setState(() { _loading = false; _room = null; });
         return;
       }
+      final room = data['room'] as Map<String, dynamic>;
       setState(() {
-        _room = data['room'] as Map<String, dynamic>;
-        _myAnswer = data['myAnswer'] as String?;
-        _myReveals = (data['myReveals'] as List<dynamic>?)
+        _room = room;
+        // myAnswer and myReveals live inside the room object
+        _myAnswer = room['myAnswer'] as String?;
+        _myReveals = (room['myReveals'] as List<dynamic>?)
                 ?.cast<String>() ??
             [];
         _loading = false;

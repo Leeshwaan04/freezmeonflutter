@@ -27,6 +27,7 @@ class PushNotificationService {
         await _saveFcmToken();
         _setupTokenRefresh();
         _setupForegroundHandler();
+        await _sendLevelUpNudge();
       }
     } catch (e) {
       debugPrint('[Push] initialization failed: $e');
@@ -74,6 +75,15 @@ class PushNotificationService {
 
   Future<void> unsubscribeFromTopic(String topic) =>
       _messaging.unsubscribeFromTopic(topic);
+
+  Future<void> _sendLevelUpNudge() async {
+    try {
+      await _client.dio.post('/users/levelup-nudge');
+      debugPrint('[Push] level-up nudge requested');
+    } catch (e) {
+      debugPrint('[Push] level-up nudge failed: $e');
+    }
+  }
 
   Future<void> clearToken() async {
     try {

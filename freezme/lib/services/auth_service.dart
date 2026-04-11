@@ -16,7 +16,9 @@ class AuthUser {
     this.photoUrls = const [],
     this.age,
     this.bio,
+    this.gender,
     this.interests = const [],
+    this.intent,
   });
 
   final String uid;
@@ -28,7 +30,9 @@ class AuthUser {
   final List<String> photoUrls;
   final int? age;
   final String? bio;
+  final String? gender;
   final List<String> interests;
+  final String? intent;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     // The server may return photoUrls as an array or imageUrl as a single string.
@@ -56,7 +60,9 @@ class AuthUser {
       photoUrls: photoUrls,
       age: (json['age'] as num?)?.toInt(),
       bio: json['bio'] as String?,
+      gender: json['gender'] as String?,
       interests: interests,
+      intent: json['intent'] as String?,
     );
   }
 
@@ -68,7 +74,9 @@ class AuthUser {
     List<String>? photoUrls,
     int? age,
     String? bio,
+    String? gender,
     List<String>? interests,
+    String? intent,
   }) {
     return AuthUser(
       uid: uid ?? this.uid,
@@ -78,7 +86,9 @@ class AuthUser {
       photoUrls: photoUrls ?? this.photoUrls,
       age: age ?? this.age,
       bio: bio ?? this.bio,
+      gender: gender ?? this.gender,
       interests: interests ?? this.interests,
+      intent: intent ?? this.intent,
     );
   }
 }

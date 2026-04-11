@@ -149,6 +149,15 @@ router.post('/reveal', async (req: Request, res: Response) => {
       res.status(429).json({ error: 'Maximum 3 reveals per room session' }); return;
     }
     if (myPart.reveals.includes(targetUid)) {
+      // Already revealed — check if it's already mutual and return the match
+      const theirPart = await prisma.freezeRoomParticipant.findUnique({
+        where: { roomId_uid: { roomId, uid: targetUid } },
+      });
+      if (theirPart?.reveals.includes(req.uid)) {
+        const [userA, userB] = [req.uid, targetUid].sort();
+        const existing = await prisma.freezeMatch.findUnique({ where: { userA_userB: { userA, userB } } });
+        if (existing) { res.json({ mutual: true, matchId: existing.id }); return; }
+      }
       res.status(400).json({ error: 'Already revealed to this person' }); return;
     }
 

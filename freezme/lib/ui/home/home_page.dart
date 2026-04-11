@@ -162,9 +162,10 @@ class _HomePageState extends State<HomePage> {
     await Future.delayed(const Duration(milliseconds: 700));
     if (!mounted) return;
     final matches = await flow.repository.fetchMatches();
-    final isMatch = matches.any((m) =>
-        m['id']?.toString() == profile.uid ||
-        m['otherUserUid']?.toString() == profile.uid);
+    final isMatch = matches.any((m) {
+      final members = m['members'] as List<dynamic>?;
+      return members != null && members.contains(profile.uid);
+    });
     if (isMatch && mounted) {
       flow.activeProfile = profile;
       flow.push(AppStage.matchSuccess);
@@ -236,7 +237,13 @@ class _HomePageState extends State<HomePage> {
             // Key removed to prevent Duplicate GlobalKey collision during transitions
             slivers: [
               _buildHeader(),
-              // Profile completion prompt moved to Profile page - no longer a blocker here
+              if (!flow.levelUpCompleted)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: _LevelUpNudgeCard(onTap: flow.openLevelUp),
+                  ),
+                ),
               if (_isLoading) ...[
                  _buildLivePathsSkeleton(key: const ValueKey('live_paths_skeleton')),
                  _buildTonightPoolSkeleton(key: const ValueKey('tonight_pool_skeleton')),
@@ -277,10 +284,10 @@ class _HomePageState extends State<HomePage> {
                   ),
                 )
               ] else ...[
-                _buildFreezeRoomBanner(key: const ValueKey('freeze_room_banner')),
                 _buildLivePathsSection(key: const ValueKey('live_paths_section')),
                 _buildTonightPoolSection(key: const ValueKey('tonight_pool_section')),
                 _buildTrendingFeedSection(key: const ValueKey('trending_feed_section')),
+                _buildFreezeRoomBanner(key: const ValueKey('freeze_room_banner')),
               ],
               const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
             ],
@@ -2020,6 +2027,65 @@ class _TonightProfileCardState extends State<_TonightProfileCard>
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Level-Up nudge card — shown on feed until user completes the level-up flow
+// ─────────────────────────────────────────────────────────────────────────────
+class _LevelUpNudgeCard extends StatelessWidget {
+  const _LevelUpNudgeCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4D2C91), Color(0xFF9D174D)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            const Text('✨', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Level up your profile',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Set your preferences, safety controls & get verified',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.arrow_forward_ios,
+                size: 14, color: Colors.white70),
           ],
         ),
       ),

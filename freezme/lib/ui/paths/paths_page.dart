@@ -90,6 +90,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
     setState(() => wavesLeft = newCount);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_wavesKey, newCount);
+    if (!mounted) return;
     PremiumSnackBar.show(context, 'Wave sent. $newCount left today.', type: SnackBarType.success);
   }
 

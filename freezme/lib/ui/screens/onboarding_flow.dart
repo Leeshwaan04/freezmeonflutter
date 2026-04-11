@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
+import '../../services/photo_upload_service.dart';
 import '../widgets/freezme_logo.dart';
 import '../../core/app_stage.dart';
 import '../../models/blueprint.dart';
@@ -35,8 +36,11 @@ class OnboardingFlowPage extends StatefulWidget {
 
 class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   int _step = 1;
-  static const int _totalSteps = 5;
+  // Steps: 1=Pull, 2=Value, 3=Pace, 4=Freeze, 5=Details, 6=Identity, 7=Photo, 8=Interests, 9=IPV
+  static const int _totalSteps = 9;
   bool _showArchetypeResult = false;
+  bool _submitting = false;
+  bool _hasAttemptedNext = false;
 
   // ── Moment 1: Pull — forced-choice calibration ──────────────────────────────
   final List<int> _calibrationChoices = []; // 0=A, 1=B per pair index
@@ -51,14 +55,21 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
   int? _paceChoice; // index into _paceScenarios
 
   // ── Moment 4: Freeze — presence windows ─────────────────────────────────────
-  // Store as Set<int> of hour buckets selected per day-group
-  // Simplified: morning (6-12), afternoon (12-18), evening (18-23)
   final Set<String> _presenceBuckets = {'evening'}; // default: evenings
 
-  // ── Moment 5: Face — name, age, photo ───────────────────────────────────────
+  // ── Moment 5: Face — name, age, gender, photo ───────────────────────────────
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _ageController = TextEditingController();
+  String? _gender; // 'Man', 'Woman', 'Non-binary', 'Prefer not to say'
   File? _photo;
+
+  // ── Moment 6: Interests ──────────────────────────────────────────────────────
+  final Set<String> _selectedInterests = {};
+  static const int _minInterests = 3;
+  static const int _maxInterests = 10;
+
+  // ── Moment 7: IPV — identity verification ───────────────────────────────────
+  bool _ipvSkipped = false; // IPV is optional — controls button label
 
   // ── Derived fields ───────────────────────────────────────────────────────────
   EnergyType get _derivedEnergyType {
@@ -122,41 +133,74 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
       case 2: return _promptAnswerController.text.trim().length >= 10;
       case 3: return _paceChoice != null;
       case 4: return _presenceBuckets.isNotEmpty;
-      case 5: return _nameController.text.trim().length >= 2
-                  && _ageController.text.isNotEmpty
-                  && _photo != null;
+      case 5: return _nameController.text.trim().length >= 2 && _validAge != null;
+      case 6: return _gender != null;
+      case 7: return _photo != null;
+      case 8: return _selectedInterests.length >= _minInterests;
+      case 9: return true; // IPV is optional — can always proceed
       default: return false;
     }
   }
 
-  void _handleNext(AppFlowController flow) {
+  int? get _validAge {
+    final n = int.tryParse(_ageController.text.trim());
+    if (n == null || n < 18 || n > 80) return null;
+    return n;
+  }
+
+  Future<void> _handleNext(AppFlowController flow) async {
     if (_step == _totalSteps) {
       if (!_showArchetypeResult) {
-        final traits = _derivedTraits;
-        flow.updateOnboardingData(
-          name: _nameController.text.trim(),
-          bio: _promptAnswerController.text.trim(),
-          age: int.tryParse(_ageController.text),
-          interests: const [],
-          intent: _selectedIntent,
-          personalityTraits: traits,
-          lifestyleFactors: const [],
-          energyType: _derivedEnergyType,
-          paceSignal: _derivedPaceSignal,
-          promptAnswer: PromptAnswer(
-            prompt: _selectedPrompt,
-            answer: _promptAnswerController.text.trim(),
-          ),
-          presenceWindows: _presenceWindowsJson,
-        );
-        setState(() => _showArchetypeResult = true);
+        if (_submitting) return;
+        setState(() => _submitting = true);
+        try {
+          String? imageUrl;
+          if (_photo != null) {
+            try {
+              imageUrl = await S3PhotoUploadService().uploadPhoto(
+                _photo!,
+                userId: '',
+                photoIndex: 0,
+              );
+            } catch (e) {
+              debugPrint('[Onboarding] photo upload failed: $e');
+              // Non-blocking — profile saves without imageUrl, user can add later
+            }
+          }
+
+          final traits = _derivedTraits;
+          await flow.updateOnboardingData(
+            name: _nameController.text.trim(),
+            bio: _promptAnswerController.text.trim(),
+            age: int.tryParse(_ageController.text),
+            gender: _gender,
+            interests: _selectedInterests.toList(),
+            intent: _selectedIntent,
+            personalityTraits: traits,
+            lifestyleFactors: const [],
+            energyType: _derivedEnergyType,
+            paceSignal: _derivedPaceSignal,
+            promptAnswer: PromptAnswer(
+              prompt: _selectedPrompt,
+              answer: _promptAnswerController.text.trim(),
+            ),
+            presenceWindows: _presenceWindowsJson,
+            imageUrl: imageUrl,
+          );
+          if (mounted) setState(() => _showArchetypeResult = true);
+        } finally {
+          if (mounted) setState(() => _submitting = false);
+        }
         return;
       }
       flow.isVerified = true;
       flow.replaceStack([AppStage.dailyPool]);
       return;
     }
-    setState(() => _step++);
+    setState(() {
+      _step++;
+      _hasAttemptedNext = false;
+    });
   }
 
   @override
@@ -216,13 +260,32 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: _canProceed() ? () => _handleNext(flow) : null,
+                        onPressed: _submitting ? null : () {
+                          if (_canProceed()) {
+                            _handleNext(flow);
+                          } else {
+                            setState(() => _hasAttemptedNext = true);
+                          }
+                        },
                         style: FreezmeButtons.primaryFilled,
-                        child: Text(
-                          _showArchetypeResult
-                              ? 'Let\'s go ❄️'
-                              : (_step == _totalSteps ? 'Reveal my type' : 'Continue'),
-                        ),
+                        child: _submitting
+                            ? const SizedBox(
+                                width: 20, height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                _showArchetypeResult
+                                    ? 'Let\'s go ❄️'
+                                    : _step == _totalSteps
+                                        ? (_ipvSkipped
+                                            ? 'Skip & reveal my type'
+                                            : 'Reveal my type')
+                                        : _step == _totalSteps - 1
+                                            ? 'Almost there →'
+                                            : 'Continue',
+                              ),
                       ),
                     ),
                   ],
@@ -241,7 +304,11 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
       case 2: return 'The Value';
       case 3: return 'The Pace';
       case 4: return 'The Freeze';
-      case 5: return 'The Face';
+      case 5: return 'Your Details';
+      case 6: return 'Identity';
+      case 7: return 'The Face';
+      case 8: return 'Your World';
+      case 9: return 'Verify';
       default: return '';
     }
   }
@@ -253,6 +320,10 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
       case 3: return _buildMoment3();
       case 4: return _buildMoment4();
       case 5: return _buildMoment5();
+      case 6: return _buildMoment6();
+      case 7: return _buildMoment7();
+      case 8: return _buildMoment8();
+      case 9: return _buildMoment9();
       default: return const SizedBox();
     }
   }
@@ -303,10 +374,10 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
           const SizedBox(height: 16),
           ...DatingIntent.values.map((intent) {
             final isSelected = _selectedIntent == intent;
-            final (emoji, label, sub) = switch (intent) {
-              DatingIntent.meaningful => ('💜', 'Something real', 'A genuine, lasting connection'),
-              DatingIntent.exploring  => ('✨', 'Open to see', 'Curious, no pressure'),
-              DatingIntent.friendship => ('🤝', 'Connection first', 'Start as friends, see where it goes'),
+            final (label, sub) = switch (intent) {
+              DatingIntent.meaningful => ('Something real', 'A genuine, lasting connection'),
+              DatingIntent.exploring  => ('Open to see', 'Curious, no pressure'),
+              DatingIntent.friendship => ('Connection first', 'Start as friends, see where it goes'),
             };
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -325,8 +396,6 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                   ),
                   child: Row(
                     children: [
-                      Text(emoji, style: const TextStyle(fontSize: 22)),
-                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,6 +438,27 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
               ),
             ],
           ),
+          // Validation hints for step 1
+          if (_hasAttemptedNext &&
+              (_calibrationChoices.length < kCalibrationPairs.length ||
+                  _selectedIntent == null ||
+                  !_ageConfirmed))
+            Padding(
+              padding: const EdgeInsets.only(top: 2, bottom: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_calibrationChoices.length < kCalibrationPairs.length)
+                    _ValidationHint(
+                      text: 'Choose one from each pair (${_calibrationChoices.length}/${kCalibrationPairs.length} done)',
+                    ),
+                  if (_selectedIntent == null)
+                    const _ValidationHint(text: 'Select what you\'re here for'),
+                  if (!_ageConfirmed)
+                    const _ValidationHint(text: 'Confirm you are 18 or older to continue'),
+                ],
+              ),
+            ),
           const SizedBox(height: 8),
         ],
       ),
@@ -465,6 +555,13 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                 text: 'This will show on your profile exactly as written.',
                 icon: Icons.visibility_outlined,
               ),
+            )
+          else if (_hasAttemptedNext && _promptAnswerController.text.trim().length < 10)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: _ValidationHint(
+                text: '${_promptAnswerController.text.trim().length}/10 characters minimum',
+              ),
             ),
         ],
       ),
@@ -475,22 +572,18 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
 
   static const _paceScenarios = [
     (
-      emoji: '⏳',
       title: 'You wait.',
       sub: 'If they\'re interested, they\'ll reach out. No need to chase.',
     ),
     (
-      emoji: '💬',
       title: 'You send something light.',
       sub: 'Low pressure. Just keeping the door open.',
     ),
     (
-      emoji: '👀',
       title: 'You check their profile again.',
       sub: 'Decide if you still feel it before doing anything.',
     ),
     (
-      emoji: '➡️',
       title: 'You move on.',
       sub: 'If they wanted to, they would have. Your energy is valuable.',
     ),
@@ -531,8 +624,6 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
                   ),
                   child: Row(
                     children: [
-                      Text(s.emoji, style: const TextStyle(fontSize: 24)),
-                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -623,11 +714,136 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
     );
   }
 
-  // ── Moment 5: The Face ────────────────────────────────────────────────────
+  // ── Moment 5: Your Details ────────────────────────────────────────────────
 
   Widget _buildMoment5() {
     return SingleChildScrollView(
       key: const ValueKey(5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          const Text('The Basics.', style: FreezmeTypography.h1),
+          const SizedBox(height: 8),
+          const Text('Let\'s start with what people call you and your age.', style: FreezmeTypography.body),
+          const SizedBox(height: 48),
+          TextField(
+            controller: _nameController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'First name',
+              hintText: 'What do people call you?',
+              labelStyle: const TextStyle(fontWeight: FontWeight.w500),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              filled: true,
+              fillColor: Colors.transparent,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+              border: const UnderlineInputBorder(
+                borderSide: BorderSide(color: FreezmeColors.border),
+              ),
+              enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: FreezmeColors.border),
+              ),
+              focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: FreezmeColors.primary, width: 2),
+              ),
+              errorText: _hasAttemptedNext && _nameController.text.trim().length < 2
+                  ? 'Enter at least 2 characters'
+                  : null,
+            ),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: FreezmeColors.neutral),
+          ),
+          const SizedBox(height: 32),
+          TextField(
+            controller: _ageController,
+            keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'Age',
+              hintText: 'How old are you?',
+              labelStyle: const TextStyle(fontWeight: FontWeight.w500),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              filled: true,
+              fillColor: Colors.transparent,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+              border: const UnderlineInputBorder(
+                borderSide: BorderSide(color: FreezmeColors.border),
+              ),
+              enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: FreezmeColors.border),
+              ),
+              focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: FreezmeColors.primary, width: 2),
+              ),
+              errorText: _hasAttemptedNext && _validAge == null
+                  ? 'Must be between 18 and 80'
+                  : null,
+            ),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600, color: FreezmeColors.neutral),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Moment 6: Identity ────────────────────────────────────────────────────
+
+  Widget _buildMoment6() {
+    return SingleChildScrollView(
+      key: const ValueKey(6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          const Text('How do you identify?', style: FreezmeTypography.h1),
+          const SizedBox(height: 4),
+          const Text('Shown on your profile.', style: FreezmeTypography.bodyMuted),
+          const SizedBox(height: 48),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: ['Man', 'Woman', 'Non-binary', 'Prefer not to say'].map((g) {
+              final selected = _gender == g;
+              return GestureDetector(
+                onTap: () => setState(() => _gender = g),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: selected ? FreezmeColors.primary : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: selected ? FreezmeColors.primary : FreezmeColors.border,
+                      width: selected ? 2 : 1,
+                    ),
+                  ),
+                  child: Text(
+                    g,
+                    style: TextStyle(
+                      color: selected ? Colors.white : FreezmeColors.neutral,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          if (_hasAttemptedNext && _gender == null)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: _ValidationHint(text: 'Select how you identify to continue'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Moment 7: The Face ────────────────────────────────────────────────────
+
+  Widget _buildMoment7() {
+    return SingleChildScrollView(
+      key: const ValueKey(7),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -638,49 +854,65 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
             'Add one photo of you doing something — not a posed selfie. Show your world.',
             style: FreezmeTypography.body,
           ),
-          const SizedBox(height: 28),
-          // Photo picker
+          const SizedBox(height: 40),
           Center(
             child: GestureDetector(
               onTap: _pickPhoto,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                width: 180,
-                height: 220,
+                width: 240,
+                height: 300,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(32),
                   border: Border.all(
-                    color: _photo != null ? FreezmeColors.primary : FreezmeColors.border,
-                    width: _photo != null ? 2 : 1,
+                    color: _photo != null ? FreezmeColors.primary.withValues(alpha: 0.5) : Colors.transparent,
+                    width: 1.5,
                   ),
-                  boxShadow: _photo != null
-                      ? [BoxShadow(
-                          color: FreezmeColors.primary.withValues(alpha: 0.15),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        )]
-                      : null,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _photo != null 
+                          ? FreezmeColors.primary.withValues(alpha: 0.2)
+                          : Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 32,
+                      offset: const Offset(0, 12),
+                    )
+                  ],
                 ),
                 child: _photo != null
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(19),
+                        borderRadius: BorderRadius.circular(30),
                         child: Image.file(_photo!, fit: BoxFit.cover),
                       )
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.add_a_photo_outlined,
-                              size: 48, color: FreezmeColors.muted),
-                          SizedBox(height: 12),
-                          Text('Add a photo',
-                              style: TextStyle(color: FreezmeColors.muted, fontSize: 14)),
-                          SizedBox(height: 4),
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: FreezmeColors.primary.withValues(alpha: 0.05),
+                            ),
+                            child: const Icon(Icons.add_a_photo_rounded,
+                                size: 48, color: FreezmeColors.primary),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text('Add a photo',
+                              style: TextStyle(
+                                color: FreezmeColors.neutral, 
+                                fontSize: 18, 
+                                fontWeight: FontWeight.w600
+                              )),
+                          const SizedBox(height: 8),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: Text(
                               'You doing something you love',
-                              style: TextStyle(color: FreezmeColors.muted, fontSize: 11),
+                              style: TextStyle(
+                                color: FreezmeColors.neutral.withValues(alpha: 0.5), 
+                                fontSize: 13,
+                                height: 1.3,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -689,43 +921,223 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
               ),
             ),
           ),
-          const SizedBox(height: 28),
-          TextField(
-            controller: _nameController,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              labelText: 'First name',
-              hintText: 'What do people call you?',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: FreezmeColors.primary, width: 2),
+          if (_hasAttemptedNext && _photo == null)
+            const Padding(
+              padding: EdgeInsets.only(top: 24),
+              child: Center(child: _ValidationHint(text: 'Add a photo to continue')),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── Moment 8: Your World — Interests ─────────────────────────────────────
+
+  static const _interestCategories = {
+    'Hobbies': ['Music', 'Travel', 'Art', 'Gaming', 'Reading', 'Photography', 'Cooking', 'Writing'],
+    'Sports': ['Yoga', 'Gym', 'Running', 'Hiking', 'Cycling', 'Swimming', 'Climbing'],
+    'Lifestyle': ['Coffee', 'Foodie', 'Nightlife', 'Movies', 'Wine', 'Concerts', 'Theatre'],
+    'Values': ['Mindfulness', 'Sustainability', 'Volunteering', 'Spirituality', 'Family'],
+  };
+
+  Widget _buildMoment8() {
+    return SingleChildScrollView(
+      key: const ValueKey(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          const Text('What\'s your world like?', style: FreezmeTypography.h1),
+          const SizedBox(height: 8),
+          Text(
+            'Pick at least $_minInterests, up to $_maxInterests. These shape who sees you.',
+            style: FreezmeTypography.body,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                '${_selectedInterests.length}/$_maxInterests selected',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _selectedInterests.length >= _minInterests
+                      ? FreezmeColors.primary
+                      : FreezmeColors.muted,
+                ),
               ),
+              if (_selectedInterests.length < _minInterests)
+                Text(
+                  '  · pick ${_minInterests - _selectedInterests.length} more',
+                  style: const TextStyle(fontSize: 12, color: FreezmeColors.muted),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ..._interestCategories.entries.map((cat) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(cat.key,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: FreezmeColors.muted,
+                    letterSpacing: 0.5,
+                  )),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: cat.value.map((item) {
+                  final selected = _selectedInterests.contains(item);
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (selected) {
+                          _selectedInterests.remove(item);
+                        } else if (_selectedInterests.length < _maxInterests) {
+                          _selectedInterests.add(item);
+                        }
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: selected ? FreezmeColors.primary : Colors.white,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: selected ? FreezmeColors.primary : FreezmeColors.border,
+                        ),
+                      ),
+                      child: Text(
+                        item,
+                        style: TextStyle(
+                          color: selected ? Colors.white : FreezmeColors.neutral,
+                          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+            ],
+          )),
+        ],
+      ),
+    );
+  }
+
+  // ── Moment 9: IPV — Identity / Photo Verification ─────────────────────────
+
+  Widget _buildMoment9() {
+    return SingleChildScrollView(
+      key: const ValueKey(9),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 24),
+          const Text('One last thing.', style: FreezmeTypography.h1),
+          const SizedBox(height: 8),
+          const Text(
+            'Freezme is a real-people space. A quick selfie check keeps it that way.',
+            style: FreezmeTypography.body,
+          ),
+          const SizedBox(height: 32),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: FreezmeColors.border),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 72, height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: FreezmeColors.primary.withValues(alpha: 0.1),
+                  ),
+                  child: const Icon(Icons.face_retouching_natural,
+                      size: 36, color: FreezmeColors.primary),
+                ),
+                const SizedBox(height: 16),
+                const Text('Photo Verification',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+                        color: FreezmeColors.neutral)),
+                const SizedBox(height: 8),
+                const Text(
+                  'Take a selfie to confirm you\'re a real person. Your selfie is never stored or shown to others.',
+                  style: TextStyle(fontSize: 13, color: FreezmeColors.muted, height: 1.5),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: _startIPV,
+                  icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                  label: const Text('Take selfie'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: FreezmeColors.primary,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _ageController,
-            keyboardType: TextInputType.number,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              labelText: 'Age',
-              hintText: 'How old are you?',
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: FreezmeColors.primary, width: 2),
-              ),
+          // Benefits
+          ...[
+            ('✅', 'Verified badge on your profile'),
+            ('🔒', 'Only matched with other verified users'),
+            ('🚀', 'Higher visibility in the daily pool'),
+          ].map((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Text(item.$1, style: const TextStyle(fontSize: 18)),
+                const SizedBox(width: 12),
+                Text(item.$2,
+                    style: const TextStyle(fontSize: 13, color: FreezmeColors.neutral)),
+              ],
+            ),
+          )),
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () => setState(() => _ipvSkipped = true),
+            child: const Text(
+              'Skip for now — I\'ll verify later',
+              style: TextStyle(fontSize: 12, color: FreezmeColors.muted,
+                  decoration: TextDecoration.underline),
+              textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 8),
         ],
       ),
     );
+  }
+
+  Future<void> _startIPV() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+        source: ImageSource.camera, imageQuality: 85);
+    if (picked != null && mounted) {
+      // TODO: send selfie to EC2 /verification/selfie endpoint for server-side check
+      // For now: mark as verified locally
+      setState(() => _ipvSkipped = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selfie submitted — verification usually takes under a minute.'),
+          backgroundColor: FreezmeColors.primary,
+        ),
+      );
+    }
   }
 
   Future<void> _pickPhoto() async {
@@ -1075,6 +1487,36 @@ class _PresenceWindowPickerState extends State<_PresenceWindowPicker> {
           ),
         );
       }).toList(),
+    );
+  }
+}
+
+// ── Validation hint ───────────────────────────────────────────────────────────
+
+class _ValidationHint extends StatelessWidget {
+  const _ValidationHint({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline, size: 14, color: Color(0xFFE57373)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFFE57373),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

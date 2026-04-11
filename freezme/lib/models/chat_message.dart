@@ -27,11 +27,13 @@ class ChatMessage {
 
   static ChatMessage fromJson(Map<String, dynamic> json, {String? documentId}) {
     return ChatMessage(
-      chatId: json['chatId'] as String,
-      senderId: json['senderId'] as String,
-      text: json['text'] as String,
-      sentAt: _parseDateTime(json['sentAt']),
-      documentId: documentId,
+      chatId: json['chatId'] as String? ?? '',
+      // Server sends 'senderUid'; older paths may send 'senderId'
+      senderId: (json['senderUid'] ?? json['senderId']) as String? ?? '',
+      text: json['text'] as String? ?? '',
+      // Server sends 'createdAt'; older paths may send 'sentAt'
+      sentAt: _parseDateTime(json['createdAt'] ?? json['sentAt']),
+      documentId: documentId ?? json['id'] as String?,
       status: json['status'] as String?,
     );
   }

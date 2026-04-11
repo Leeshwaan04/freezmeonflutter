@@ -24,6 +24,7 @@ import '../services/photo_upload_service.dart';
 
 class AppFlowController extends ChangeNotifier {
   static const _kOnboardingCompleteKey = 'onboarding_complete';
+  static const _kLevelUpCompleteKey = 'level_up_complete';
 
   AppFlowController._(
     this._prefs,
@@ -561,6 +562,16 @@ class AppFlowController extends ChangeNotifier {
 
   void openFreezeRoom() => push(AppStage.freezeRoom);
 
+  bool get levelUpCompleted => _prefs?.getBool(_kLevelUpCompleteKey) ?? false;
+
+  void openLevelUp() => pushIfMissing(AppStage.levelUp);
+
+  Future<void> completeLevelUp() async {
+    await _prefs?.setBool(_kLevelUpCompleteKey, true);
+    pop();
+    notifyListeners();
+  }
+
   Future<void> toggleFreeze(bool value, {int days = 1}) async {
     _isFreezed = value;
     if (_isFreezed) {
@@ -664,6 +675,8 @@ class AppFlowController extends ChangeNotifier {
     String? name,
     int? age,
     String? bio,
+    String? imageUrl,
+    String? gender,
     LifestyleArchetype? archetype,
     List<String>? interests,
     DatingIntent? intent,
@@ -704,6 +717,8 @@ class AppFlowController extends ChangeNotifier {
       displayName: name,
       bio: bio,
       age: age,
+      imageUrl: imageUrl,
+      gender: gender,
       interests: interests,
       intent: intent?.name,
       personalityTraits: personalityTraits?.map((e) => e.name).toList(),

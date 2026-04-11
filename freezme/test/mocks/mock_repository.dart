@@ -67,7 +67,7 @@ class MockFreezmeRepository implements FreezmeRepository {
   Future<VibeProfile?> fetchProfile(String uid) async => null;
 
   @override
-  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? gender, String? location, List<String>? interests, bool? isPremium, bool? allowBlindReveal, String? intent, List<String>? personalityTraits, List<String>? lifestyleFactors, String? archetype, String? energyType, String? paceSignal, Map<String, dynamic>? promptAnswer, List<Map<String, dynamic>>? presenceWindows}) async {}
+  Future<void> updateProfile({required String uid, String? displayName, String? bio, int? age, String? imageUrl, String? gender, String? location, List<String>? interests, bool? isPremium, bool? allowBlindReveal, String? intent, List<String>? personalityTraits, List<String>? lifestyleFactors, String? archetype, String? energyType, String? paceSignal, Map<String, dynamic>? promptAnswer, List<Map<String, dynamic>>? presenceWindows, List<String>? genderPrefs, int? ageMin, int? ageMax, int? distanceKm, String? messagingPref, bool? showExactDistance, bool? hideLastActive, bool? verifiedOnly, bool? appearInMenPool, bool? appearInWomenPool, bool? nbOnlyPool}) async {}
 
   @override
   Future<void> sendMessage(ChatMessage message) async {}

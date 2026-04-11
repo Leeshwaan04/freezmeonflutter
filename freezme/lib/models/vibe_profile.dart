@@ -71,12 +71,15 @@ class VibeProfile {
               int.tryParse(documentId ?? '') ??
               0;
     final normalizedId = parsedId.clamp(0, 1 << 32).toInt();
-    final rawUid = json['uid'];
+    
+    // Prisma uses 'userId', older Firestore used 'uid'
+    final rawUid = json['uid'] ?? json['userId'];
     final uid = (rawUid is String && rawUid.isNotEmpty)
         ? rawUid
         : (documentId?.isNotEmpty == true
               ? documentId!
               : 'profile_$normalizedId');
+              
     final List<dynamic>? rawPhotos = json['photoUrls'] as List<dynamic>?;
     final List<String> normalizedPhotos = rawPhotos != null
         ? rawPhotos
@@ -85,17 +88,24 @@ class VibeProfile {
               .map((url) => url.trim())
               .toList()
         : <String>[];
-    final String fallbackImageUrl = json['imageUrl'] as String? ?? '';
-    if (normalizedPhotos.isEmpty && fallbackImageUrl.isNotEmpty) {
+        
+    // Server uses 'imageUrl' as primary
+    final String serverImageUrl = json['imageUrl'] as String? ?? '';
+    final String fallbackImageUrl = json['photoUrl'] as String? ?? '';
+    
+    if (normalizedPhotos.isEmpty && serverImageUrl.isNotEmpty) {
+      normalizedPhotos.add(serverImageUrl);
+    } else if (normalizedPhotos.isEmpty && fallbackImageUrl.isNotEmpty) {
       normalizedPhotos.add(fallbackImageUrl);
     }
+    
     final String primaryImage = normalizedPhotos.isNotEmpty
         ? normalizedPhotos.first
-        : fallbackImageUrl;
+        : (serverImageUrl.isNotEmpty ? serverImageUrl : fallbackImageUrl);
 
     // Parse lastActive as DateTime
     DateTime? lastActive;
-    final rawLastActive = json['lastActive'];
+    final rawLastActive = json['lastActive'] ?? json['lastActiveAt'] ?? json['updatedAt'];
     if (rawLastActive is String) {
       try {
         lastActive = DateTime.parse(rawLastActive);
@@ -107,7 +117,7 @@ class VibeProfile {
     return VibeProfile(
       uid: uid,
       id: normalizedId == 0 ? null : normalizedId,
-      name: json['name'] as String? ?? 'Unknown',
+      name: json['name'] as String? ?? json['displayName'] as String? ?? 'Unknown',
       age: (json['age'] as num?)?.toInt() ?? 0,
       imageUrl: primaryImage,
       photoUrls: List<String>.unmodifiable(normalizedPhotos),

@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/flow_controller.dart';
+import '../../core/app_stage.dart';
 import '../../services/auth_service.dart';
 import '../theme.dart';
 import '../widgets/freezme_logo.dart';
@@ -147,6 +148,7 @@ class _AuthGatePageState extends State<AuthGatePage>
                 FloatingOrbs(progress: t),
                 SafeArea(
                   child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 28),
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
@@ -235,6 +237,36 @@ class _AuthGatePageState extends State<AuthGatePage>
                                 foreground: Colors.white,
                                 onTap: () => _signInWithEmail(flow),
                               ),
+                              // Dev-only skip button — simulator only
+                              if (!const bool.fromEnvironment('dart.vm.product')) ...[
+                                const SizedBox(height: 16),
+                                GestureDetector(
+                                  onTap: () => flow.replaceStack([AppStage.onboarding]),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.developer_mode, size: 16, color: Colors.grey),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Skip (Dev only)',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
 
                             const SizedBox(height: 24),
@@ -776,20 +808,14 @@ class _AuthButton extends StatefulWidget {
     required this.icon,
     required this.onTap,
     required this.variant,
-    this.background,
     this.foreground,
-    this.gradient,
-    this.border,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
   final _AuthButtonVariant variant;
-  final Color? background;
   final Color? foreground;
-  final Gradient? gradient;
-  final BorderSide? border;
 
   @override
   State<_AuthButton> createState() => _AuthButtonState();
@@ -817,8 +843,9 @@ class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderState
     final textColor = widget.foreground ?? Colors.white;
 
     return GestureDetector(
+      onTap: widget.onTap,
       onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
         scale: _pressed ? 0.96 : 1.0,

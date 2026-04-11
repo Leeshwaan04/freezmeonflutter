@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../../main.dart';
 import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
@@ -13,6 +14,7 @@ import '../../models/vibe_profile.dart';
 class Conversation {
   Conversation({
     required this.chatId,
+    required this.otherUid, // Added
     required this.displayName,
     required this.photoUrl,
     required this.lastMessage,
@@ -30,6 +32,7 @@ class Conversation {
   });
 
   final String chatId;
+  final String otherUid; // Added
   final String displayName;
   final String photoUrl;
   String lastMessage;
@@ -116,8 +119,7 @@ class _ChatListPageState extends State<ChatListPage> {
               return GestureDetector(
                 onTap: () => AppFlowScope.of(context, listen: false).openChatDetail(
                   VibeProfile(
-                    uid: c.chatId,
-                    id: 0,
+                    uid: c.otherUid,
                     name: c.displayName,
                     age: 0,
                     imageUrl: c.photoUrl,
@@ -253,17 +255,35 @@ class _ChatListPageState extends State<ChatListPage> {
                 final matches = snapshot.data ?? [];
                 final mapped = matches.map((m) {
                   final id = m['id']?.toString() ?? '';
-                  final displayName = m['name']?.toString() ??
+                  final otherProfile = m['otherProfile'] as Map<String, dynamic>?;
+                  
+                  // For chats, we want the other person's name/photo
+                  final displayName = otherProfile?['name']?.toString() ?? 
+                      m['name']?.toString() ??
                       (m['otherUserName']?.toString() ?? 'Freezme Match');
-                  final photo = m['photoUrl']?.toString() ?? '';
-                  final lastMsg = m['lastMessage']?.toString() ?? 'Tap to open chat';
-                  final timeLabel = m['timeLabel']?.toString() ?? '';
+                      
+                  final photo = otherProfile?['imageUrl']?.toString() ?? 
+                      m['photoUrl']?.toString() ?? 
+                      '';
+                      
+                  final lastMsg = m['messages'] != null && (m['messages'] as List).isNotEmpty
+                      ? (m['messages'] as List).first['text']?.toString() ?? 'Tap to open chat'
+                      : m['lastMessage']?.toString() ?? 'Tap to open chat';
+                      
+                  final timeLabel = m['updatedAt'] != null 
+                      ? _formatRelativeTime(m['updatedAt'].toString())
+                      : m['timeLabel']?.toString() ?? '';
+                      
                   final unread = (m['unread'] as num?)?.toInt() ?? 0;
                   final statusString = m['status']?.toString();
                   final status = parseMessageStatus(statusString);
                   
+                  final otherUid = otherProfile?['userId']?.toString() ?? 
+                                  otherProfile?['uid']?.toString() ?? '';
+                                  
                   return Conversation(
                     chatId: id,
+                    otherUid: otherUid,
                     displayName: displayName,
                     photoUrl: photo,
                     lastMessage: lastMsg,
@@ -274,7 +294,7 @@ class _ChatListPageState extends State<ChatListPage> {
                     isPinned: (m['isPinned'] as bool?) ?? false,
                     isMuted: (m['isMuted'] as bool?) ?? false,
                     isArchived: (m['isArchived'] as bool?) ?? false,
-                    isOnline: (m['isOnline'] as bool?) ?? false,
+                    isOnline: (m['isOnline'] as bool?) ?? (otherProfile?['isOnline'] as bool?) ?? false,
                     isTyping: (m['isTyping'] as bool?) ?? false,
                     expiresAt: m['expiresAt'] != null ? DateTime.tryParse(m['expiresAt'].toString()) : null,
                     hasConversationStarted: (m['hasConversationStarted'] as bool?) ?? false,
@@ -347,8 +367,7 @@ class _ChatListPageState extends State<ChatListPage> {
                                 HapticFeedback.mediumImpact();
                                 flow.openChatDetail(
                                   VibeProfile(
-                                    uid: convo.chatId,
-                                    id: 0,
+                                    uid: convo.otherUid,
                                     name: convo.displayName,
                                     age: 0,
                                     imageUrl: convo.photoUrl,
@@ -641,6 +660,20 @@ class _ChatListPageState extends State<ChatListPage> {
         ),
       ],
     );
+  }
+
+  String _formatRelativeTime(String isoString) {
+    try {
+      final date = DateTime.parse(isoString);
+      final diff = DateTime.now().difference(date);
+      if (diff.inDays > 7) return DateFormat('dd/MM').format(date);
+      if (diff.inDays > 0) return '${diff.inDays}d';
+      if (diff.inHours > 0) return '${diff.inHours}h';
+      if (diff.inMinutes > 0) return '${diff.inMinutes}m';
+      return 'now';
+    } catch (_) {
+      return '';
+    }
   }
 }
 

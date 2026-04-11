@@ -20,6 +20,7 @@ enum AppStage {
   profileCompletion,
   editProfile,
   freezeRoom,
+  levelUp,
 }
 
 enum LifestyleArchetype {

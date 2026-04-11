@@ -47,9 +47,11 @@ class ApiMeltChatService implements MeltChatService {
     required String action,
   }) async {
     try {
+      // Server expects 'accepted'/'declined', UI passes 'accept'/'decline'
+      final status = action == 'accept' ? 'accepted' : 'declined';
       await _client.dio.patch<void>(
         '/melt/invite/$inviteId',
-        data: {'status': action},
+        data: {'status': status},
       );
     } catch (e) {
       throw MeltChatException('respondInvite failed: $e');

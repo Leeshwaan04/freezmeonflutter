@@ -79,6 +79,7 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     String? displayName,
     String? bio,
     int? age,
+    String? imageUrl,
     String? gender,
     String? location,
     List<String>? interests,
@@ -92,11 +93,25 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     String? paceSignal,
     Map<String, dynamic>? promptAnswer,
     List<Map<String, dynamic>>? presenceWindows,
+    List<String>? genderPrefs,
+    int? ageMin,
+    int? ageMax,
+    int? distanceKm,
+    String? messagingPref,
+    bool? showExactDistance,
+    bool? hideLastActive,
+    bool? verifiedOnly,
+    bool? appearInMenPool,
+    bool? appearInWomenPool,
+    bool? nbOnlyPool,
   }) async {
     await _client.dio.post<void>('/profiles', data: {
       if (displayName != null) 'name': displayName,
       if (bio != null) 'bio': bio,
       if (age != null) 'age': age,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (gender != null) 'gender': gender,
+      if (location != null) 'location': location,
       if (interests != null) 'interests': interests,
       if (allowBlindReveal != null) 'allowBlindReveal': allowBlindReveal,
       if (intent != null) 'intent': intent,
@@ -107,6 +122,18 @@ class Ec2FreezmeRepository implements FreezmeRepository {
       if (paceSignal != null) 'paceSignal': paceSignal,
       if (promptAnswer != null) 'promptAnswer': promptAnswer,
       if (presenceWindows != null) 'presenceWindows': presenceWindows,
+      // Level-Up prefs
+      if (genderPrefs != null) 'genderPrefs': genderPrefs,
+      if (ageMin != null) 'ageMin': ageMin,
+      if (ageMax != null) 'ageMax': ageMax,
+      if (distanceKm != null) 'distanceKm': distanceKm,
+      if (messagingPref != null) 'messagingPref': messagingPref,
+      if (showExactDistance != null) 'showExactDistance': showExactDistance,
+      if (hideLastActive != null) 'hideLastActive': hideLastActive,
+      if (verifiedOnly != null) 'verifiedOnly': verifiedOnly,
+      if (appearInMenPool != null) 'appearInMenPool': appearInMenPool,
+      if (appearInWomenPool != null) 'appearInWomenPool': appearInWomenPool,
+      if (nbOnlyPool != null) 'nbOnlyPool': nbOnlyPool,
     });
   }
 
@@ -150,8 +177,10 @@ class Ec2FreezmeRepository implements FreezmeRepository {
   @override
   Future<List<Map<String, dynamic>>> fetchMatches() async {
     try {
+      // Use /chats so the returned `id` is the Chat id (needed to load messages)
+      // Each chat includes otherProfile with name/imageUrl, and messages[0] for preview
       final response =
-          await _client.dio.get<List<dynamic>>('/matching/matches');
+          await _client.dio.get<List<dynamic>>('/chats');
       return (response.data ?? [])
           .cast<Map<String, dynamic>>();
     } catch (e) {
@@ -162,17 +191,22 @@ class Ec2FreezmeRepository implements FreezmeRepository {
 
   @override
   Stream<List<Map<String, dynamic>>> watchMatches() {
-    // Emit initial + update on each new match event
+    // Emit initial + update on each new match/message event
     final controller = StreamController<List<Map<String, dynamic>>>();
 
     Future<void> fetch() async {
-      final matches = await fetchMatches();
-      if (!controller.isClosed) controller.add(matches);
+      final chats = await fetchMatches();
+      if (!controller.isClosed) controller.add(chats);
     }
 
     fetch();
-    final sub = _ws.onMatchNew.listen((_) => fetch());
-    controller.onCancel = sub.cancel;
+    // Refresh chat list when a new match or message arrives
+    final sub1 = _ws.onMatchNew.listen((_) => fetch());
+    final sub2 = _ws.onChatMessage.listen((_) => fetch());
+    controller.onCancel = () {
+      sub1.cancel();
+      sub2.cancel();
+    };
 
     return controller.stream;
   }
