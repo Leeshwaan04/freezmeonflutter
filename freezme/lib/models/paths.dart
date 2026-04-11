@@ -45,21 +45,29 @@ class PathsPresence {
   }
 
   static PathsPresence fromJson(Map<String, dynamic> json, {String? documentId}) {
+    // Server returns camelCase: uid, radiusKm, visibleUntil, lastActiveAt
+    // Legacy Firestore used snake_case: userId, radius_km, visible_until, last_active_at
+    final profile = json['profile'] as Map<String, dynamic>?;
     return PathsPresence(
-      uid: json['userId'] as String? ?? documentId ?? '',
+      uid: json['uid'] as String? ?? json['userId'] as String? ?? documentId ?? '',
       intents: (json['intents'] as List<dynamic>? ?? []).cast<String>(),
-      radiusKm: (json['radius_km'] as num?)?.toDouble() ?? 0,
-      visibleUntil: _parseDateTime(json['visible_until']),
+      radiusKm: (json['radiusKm'] as num?)?.toDouble()
+          ?? (json['radius_km'] as num?)?.toDouble()
+          ?? 0,
+      visibleUntil: _parseDateTime(json['visibleUntil'] ?? json['visible_until']),
       lat: (json['lat'] as num?)?.toDouble(),
       lng: (json['lng'] as num?)?.toDouble(),
       geohash: json['geohash'] as String?,
-      lastActiveAt: json['last_active_at'] != null
-          ? _parseDateTimeNullable(json['last_active_at'])
-          : null,
+      lastActiveAt: _parseDateTimeNullable(json['lastActiveAt'] ?? json['last_active_at']),
       availability: json['availability'] as String?,
-      interestsSummary: json['interests'] as String?,
-      displayName: json['display_name'] as String?,
-      imageUrl: json['image_url'] as String?,
+      interestsSummary: json['interestsSummary'] as String? ?? json['interests'] as String?,
+      // Prefer enriched profile data from /paths/nearby response
+      displayName: profile?['name'] as String?
+          ?? json['displayName'] as String?
+          ?? json['display_name'] as String?,
+      imageUrl: profile?['imageUrl'] as String?
+          ?? json['imageUrl'] as String?
+          ?? json['image_url'] as String?,
     );
   }
 
@@ -108,16 +116,16 @@ class PathsInvite {
   }
 
   static PathsInvite fromJson(Map<String, dynamic> json, {String? documentId}) {
+    // Server returns camelCase: senderUid, receiverUid, createdAt, respondedAt
+    // Legacy Firestore used snake_case: sender_uid, receiver_uid, created_at, responded_at
     return PathsInvite(
       id: documentId ?? json['id'] as String? ?? '',
-      senderUid: json['sender_uid'] as String,
-      receiverUid: json['receiver_uid'] as String,
-      intent: json['intent'] as String,
-      status: json['status'] as String,
-      createdAt: _parseDateTime(json['created_at']),
-      respondedAt: json['responded_at'] != null
-          ? _parseDateTimeNullable(json['responded_at'])
-          : null,
+      senderUid: json['senderUid'] as String? ?? json['sender_uid'] as String? ?? '',
+      receiverUid: json['receiverUid'] as String? ?? json['receiver_uid'] as String? ?? '',
+      intent: json['intent'] as String? ?? '',
+      status: json['status'] as String? ?? 'pending',
+      createdAt: _parseDateTime(json['createdAt'] ?? json['created_at']),
+      respondedAt: _parseDateTimeNullable(json['respondedAt'] ?? json['responded_at']),
     );
   }
 

@@ -29,6 +29,17 @@ router.post('/presence', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /paths/presence — remove user's presence (go hidden)
+router.delete('/presence', async (req: Request, res: Response) => {
+  try {
+    await prisma.pathsPresence.deleteMany({ where: { uid: req.uid } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[paths/presence DELETE]', err);
+    res.status(500).json({ error: 'Failed to delete paths presence' });
+  }
+});
+
 // GET /paths/nearby — replaces getNearbyPaths Cloud Function
 router.get('/nearby', async (req: Request, res: Response) => {
   try {
@@ -54,13 +65,12 @@ router.get('/nearby', async (req: Request, res: Response) => {
     // Filter by exact distance
     const filtered = nearby.filter((p) => kmBetween(lat, lng, p.lat, p.lng) <= radiusKm);
 
-    // Enrich with profile
-    const enriched = await Promise.all(
-      filtered.map(async (p) => {
-        const profile = await prisma.profile.findUnique({ where: { userId: p.uid } });
-        return { ...p, profile };
-      })
-    );
+    // Batch-fetch all profiles in one query (avoids N+1)
+    const uids = filtered.map((p) => p.uid);
+    const profiles = await prisma.profile.findMany({ where: { userId: { in: uids } } });
+    const profileByUid = Object.fromEntries(profiles.map((pr) => [pr.userId, pr]));
+
+    const enriched = filtered.map((p) => ({ ...p, profile: profileByUid[p.uid] ?? null }));
 
     res.json(enriched);
   } catch (err) {

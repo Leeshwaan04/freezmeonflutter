@@ -96,6 +96,8 @@ abstract class FreezmeRepository {
   });
   Stream<PathsInvite> inviteStatus(String inviteId);
   Future<void> cancelPathsInvite(String inviteId);
+  Future<void> deletePathsPresence();
+  Future<List<PathsInvite>> fetchPendingPathsInvites();
 
   // Blinds (Anonymous)
   Future<void> enqueueBlind(BlindQueueEntry entry);

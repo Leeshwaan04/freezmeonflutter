@@ -381,6 +381,28 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     );
   }
 
+  @override
+  Future<void> deletePathsPresence() async {
+    try {
+      await _client.dio.delete<void>('/paths/presence');
+    } catch (_) {}
+  }
+
+  @override
+  Future<List<PathsInvite>> fetchPendingPathsInvites() async {
+    try {
+      final response = await _client.dio.get<List<dynamic>>(
+        '/paths/invites',
+        queryParameters: {'status': 'pending'},
+      );
+      return (response.data ?? [])
+          .map((e) => PathsInvite.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   // ── Blinds ─────────────────────────────────────────────────────────────────
 
   @override

@@ -95,6 +95,10 @@ class FakeFreezmeRepository implements FreezmeRepository {
 
   @override
   Future<void> cancelPathsInvite(String inviteId) async {}
+  @override
+  Future<void> deletePathsPresence() async {}
+  @override
+  Future<List<PathsInvite>> fetchPendingPathsInvites() async => [];
 
   @override
   Future<void> enqueueBlind(BlindQueueEntry entry) async {}

@@ -175,6 +175,10 @@ class MockFreezmeRepository implements FreezmeRepository {
   Stream<PathsInvite> inviteStatus(String inviteId) => const Stream.empty();
   @override
   Future<void> cancelPathsInvite(String inviteId) async {}
+  @override
+  Future<void> deletePathsPresence() async {}
+  @override
+  Future<List<PathsInvite>> fetchPendingPathsInvites() async => [];
 
   @override
   Future<void> enqueueBlind(BlindQueueEntry entry) async {}
