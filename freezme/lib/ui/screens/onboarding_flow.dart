@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
+import '../../services/api_client.dart';
 import '../../services/photo_upload_service.dart';
 import '../widgets/freezme_logo.dart';
 import '../../core/app_stage.dart';
@@ -1125,18 +1127,65 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage> {
 
   Future<void> _startIPV() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-        source: ImageSource.camera, imageQuality: 85);
-    if (picked != null && mounted) {
-      // TODO: send selfie to EC2 /verification/selfie endpoint for server-side check
-      // For now: mark as verified locally
-      setState(() => _ipvSkipped = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selfie submitted — verification usually takes under a minute.'),
-          backgroundColor: FreezmeColors.primary,
+    final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    if (picked == null || !mounted) return;
+
+    // Show uploading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Uploading selfie…'), duration: Duration(seconds: 30)),
+    );
+
+    try {
+      final client = ApiClient.instance;
+
+      // 1. Get presigned selfie upload URL
+      final urlResp = await client.dio.post<Map<String, dynamic>>('/verification/selfie-url');
+      final uploadUrl = urlResp.data?['uploadUrl'] as String?;
+      final selfieKey = urlResp.data?['selfieKey'] as String?;
+      if (uploadUrl == null || selfieKey == null) throw Exception('No upload URL returned');
+
+      // 2. Upload selfie directly to S3
+      final bytes = await picked.readAsBytes();
+      await Dio().put(
+        uploadUrl,
+        data: Stream.fromIterable([bytes]),
+        options: Options(
+          headers: {
+            'Content-Type': 'image/jpeg',
+            'Content-Length': bytes.length,
+          },
+          sendTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 30),
         ),
       );
+
+      // 3. Notify backend to verify the selfie
+      await client.dio.post<void>(
+        '/verification/selfie-submit',
+        data: {'selfieKey': selfieKey},
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        setState(() => _ipvSkipped = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Selfie submitted — verification usually takes under a minute.'),
+            backgroundColor: FreezmeColors.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        // Selfie verification is non-blocking — allow user to continue
+        setState(() => _ipvSkipped = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not upload selfie. You can verify later in your profile.'),
+          ),
+        );
+      }
     }
   }
 

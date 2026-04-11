@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -106,6 +107,23 @@ class AuthService {
   Stream<AuthUser?> get authStateChanges => _authStateController.stream;
   AuthUser? get currentUser => _currentUser;
 
+  // ── One-time Google Sign-In initialisation ──────────────────────────────────
+
+  static bool _googleInitialized = false;
+
+  static Future<void> initGoogleSignIn() async {
+    if (_googleInitialized) return;
+    _googleInitialized = true;
+    try {
+      await GoogleSignIn.instance.initialize(
+        serverClientId: '542457497074-a16d48099255920f1e576b.apps.googleusercontent.com',
+      );
+    } catch (e) {
+      debugPrint('[AuthService] GoogleSignIn.initialize error: $e');
+      _googleInitialized = false; // allow retry
+    }
+  }
+
   // ── Initialise on app start ─────────────────────────────────────────────────
 
   Future<void> init() async {
@@ -129,11 +147,8 @@ class AuthService {
   // ── Google Sign-In ──────────────────────────────────────────────────────────
 
   Future<AuthUser> signInWithGoogle() async {
-    final google = GoogleSignIn.instance;
-    await google.initialize(
-      serverClientId: '542457497074-a16d48099255920f1e576b.apps.googleusercontent.com',
-    );
-    final googleUser = await google.authenticate();
+    await initGoogleSignIn();
+    final googleUser = await GoogleSignIn.instance.authenticate();
     final idToken = googleUser.authentication.idToken;
     if (idToken == null) throw Exception('Google auth: no idToken');
 
@@ -141,8 +156,8 @@ class AuthService {
       '/auth/google',
       data: {
         'idToken': idToken,
-        'displayName': googleUser.displayName,
-        'photoUrl': googleUser.photoUrl,
+        'displayName': googleUser.displayName ?? '',
+        'photoUrl': googleUser.photoUrl ?? '',
       },
     );
 
@@ -156,12 +171,42 @@ class AuthService {
       scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
     );
 
+    final identityToken = credential.identityToken;
+    if (identityToken == null || identityToken.isEmpty) {
+      throw const SignInWithAppleAuthorizationException(
+        code: AuthorizationErrorCode.unknown,
+        message: 'Apple credential missing identityToken',
+      );
+    }
+
     final response = await _client.dio.post(
       '/auth/apple',
-      data: {'identityToken': credential.identityToken},
+      data: {'identityToken': identityToken},
     );
 
     return _handleAuthResponse(response.data as Map<String, dynamic>);
+  }
+
+  /// Returns true if [e] represents a user-initiated cancel (not an error to show).
+  static bool isAppleCancelError(Object e) {
+    if (e is SignInWithAppleAuthorizationException) {
+      return e.code == AuthorizationErrorCode.canceled ||
+          e.code == AuthorizationErrorCode.unknown;
+    }
+    if (e is PlatformException) {
+      final code = e.code.toLowerCase();
+      return code.contains('cancel') || code.contains('1001');
+    }
+    return false;
+  }
+
+  /// Returns true if [e] represents a user-initiated Google cancel.
+  static bool isGoogleCancelError(Object e) {
+    if (e is PlatformException) {
+      return e.code == 'sign_in_canceled' || e.code == 'sign_in_failed';
+    }
+    final msg = e.toString().toLowerCase();
+    return msg.contains('canceled') || msg.contains('cancelled') || msg.contains('cancel');
   }
 
   // ── Email Sign-In / Sign-Up ─────────────────────────────────────────────────

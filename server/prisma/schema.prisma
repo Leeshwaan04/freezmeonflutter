@@ -49,6 +49,13 @@ model Profile {
 
   // ── Presence system ─────────────────────────────────────────────────────────
   presenceWindows   Json?      // [{ day: 0-6, startHour: 9, endHour: 22 }]
+  genderPrefs       String[]   // man | woman | nonbinary
+  ageMin            Int        @default(18)
+  ageMax            Int        @default(99)
+  messagingPref     String     @default("anyone") // anyone | matches_only
+  distanceKm        Float      @default(50)
+  gender            String?
+
   presenceScore     Int        @default(50)   // 0-100, computed by cron
   presenceLabel     String     @default("in_the_flow") // in_the_fire | in_the_flow | in_the_quiet | frozen
 

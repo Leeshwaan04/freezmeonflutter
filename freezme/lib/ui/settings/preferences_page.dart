@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
+import '../../services/auth_service.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';
 
@@ -14,7 +15,15 @@ class _PreferencesPageState extends State<PreferencesPage> {
   bool _isLoading = true;
   RangeValues _ageRange = const RangeValues(18, 35);
   double _distance = 10;
-  // TODO: Add gender preference if supported by backend
+  // 'everyone' | 'men' | 'women' | 'nonbinary'
+  String _showMe = 'everyone';
+
+  static const _showMeOptions = [
+    ('everyone', 'Everyone'),
+    ('women',    'Women'),
+    ('men',      'Men'),
+    ('nonbinary','Non-binary'),
+  ];
 
   @override
   void initState() {
@@ -27,26 +36,49 @@ class _PreferencesPageState extends State<PreferencesPage> {
     try {
       final prefs = await flow.repository.fetchUserPreferences();
       if (mounted) {
+        // genderPrefs is stored as a list; derive a single showMe value
+        final raw = prefs['genderPrefs'];
+        final List<String> gp = raw is List
+            ? raw.whereType<String>().toList()
+            : const [];
+
+        String showMe = 'everyone';
+        if (gp.length == 1) {
+          if (gp.contains('woman')) {
+            showMe = 'women';
+          } else if (gp.contains('man')) {
+            showMe = 'men';
+          } else if (gp.contains('nonbinary')) {
+            showMe = 'nonbinary';
+          }
+        }
+
         setState(() {
-          double min = (prefs['ageMin'] as num? ?? 18).toDouble();
-          double max = (prefs['ageMax'] as num? ?? 35).toDouble();
-          _ageRange = RangeValues(min, max);
+          _ageRange = RangeValues(
+            (prefs['ageMin'] as num? ?? 18).toDouble(),
+            (prefs['ageMax'] as num? ?? 35).toDouble(),
+          );
           _distance = (prefs['distanceKm'] as num? ?? 10).toDouble();
+          _showMe = showMe;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
-      // Fallback defaults are already set
     }
   }
 
-
+  List<String> get _genderPrefsPayload {
+    switch (_showMe) {
+      case 'women':    return ['woman'];
+      case 'men':      return ['man'];
+      case 'nonbinary':return ['nonbinary'];
+      default:         return ['man', 'woman', 'nonbinary'];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Determine if we can save (bio issue logic handled later, for now we assume optional)
-    
     return Scaffold(
       backgroundColor: FreezmeDesignSystem.background,
       appBar: AppBar(
@@ -57,7 +89,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
           Padding(
             padding: const EdgeInsets.only(right: 8.0),
             child: TextButton(
-              onPressed: _isLoading ? null : _saveWithBioHandling,
+              onPressed: _isLoading ? null : _save,
               child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
@@ -70,6 +102,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Age range
                   const Text('Age Range', style: FreezmeDesignSystem.h3),
                   const SizedBox(height: FreezmeDesignSystem.spaceSm),
                   Row(
@@ -89,13 +122,12 @@ class _PreferencesPageState extends State<PreferencesPage> {
                       _ageRange.start.round().toString(),
                       _ageRange.end.round().toString(),
                     ),
-                    onChanged: (values) {
-                      setState(() => _ageRange = values);
-                    },
+                    onChanged: (values) => setState(() => _ageRange = values),
                   ),
-                  
+
                   const SizedBox(height: FreezmeDesignSystem.spaceXl),
-                  
+
+                  // Distance
                   const Text('Maximum Distance', style: FreezmeDesignSystem.h3),
                   const SizedBox(height: FreezmeDesignSystem.spaceSm),
                   Row(
@@ -112,33 +144,28 @@ class _PreferencesPageState extends State<PreferencesPage> {
                     divisions: 99,
                     activeColor: FreezmeDesignSystem.primary,
                     label: '${_distance.round()} km',
-                    onChanged: (value) {
-                      setState(() => _distance = value);
-                    },
+                    onChanged: (value) => setState(() => _distance = value),
                   ),
-                  
+
                   const SizedBox(height: FreezmeDesignSystem.spaceXl),
-                  
-                  // Gender Preference Placeholder
+
+                  // Gender preference
                   const Text('Show Me', style: FreezmeDesignSystem.h3),
                   const SizedBox(height: FreezmeDesignSystem.spaceMd),
                   PremiumCard(
                     padding: const EdgeInsets.all(FreezmeDesignSystem.spaceMd),
                     child: Column(
                       children: [
-                        _buildRadioOption('Everyone', true), // Hardcoded for now
-                        const Divider(color: FreezmeDesignSystem.border),
-                        _buildRadioOption('Men', false),
-                        const Divider(color: FreezmeDesignSystem.border),
-                        _buildRadioOption('Women', false),
+                        for (int i = 0; i < _showMeOptions.length; i++) ...[
+                          if (i > 0) const Divider(color: FreezmeDesignSystem.border),
+                          _buildRadioOption(
+                            _showMeOptions[i].$2,
+                            _showMe == _showMeOptions[i].$1,
+                            () => setState(() => _showMe = _showMeOptions[i].$1),
+                          ),
+                        ],
                       ],
                     ),
-                  ),
-                  
-                  const SizedBox(height: FreezmeDesignSystem.spaceMd),
-                   const Text(
-                    'Gender filtering will be enabled in the next update.',
-                    style: FreezmeDesignSystem.caption,
                   ),
                 ],
               ),
@@ -146,41 +173,57 @@ class _PreferencesPageState extends State<PreferencesPage> {
     );
   }
 
-  Widget _buildRadioOption(String label, bool selected) {
-    return Row(
-      children: [
-        Text(label, style: FreezmeDesignSystem.bodyMedium),
-        const Spacer(),
-        if (selected)
-          const Icon(Icons.check, color: FreezmeDesignSystem.primary),
-      ],
+  Widget _buildRadioOption(String label, bool selected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Text(label, style: FreezmeDesignSystem.bodyMedium),
+            const Spacer(),
+            if (selected)
+              const Icon(Icons.check, color: FreezmeDesignSystem.primary),
+          ],
+        ),
+      ),
     );
   }
 
-  Future<void> _saveWithBioHandling() async {
-    // Need to fetch bio first to avoid overwriting it with empty string
+  Future<void> _save() async {
     setState(() => _isLoading = true);
     final flow = AppFlowScope.of(context, listen: false);
+
+    // Fetch existing bio so we don't wipe it
     String currentBio = '';
     try {
       final prefs = await flow.repository.fetchUserPreferences();
       currentBio = prefs['bio'] as String? ?? '';
-    } catch (_) {
-      // ignore
-    }
+    } catch (_) {}
 
     try {
+      // Save age/distance/bio via updateUserPreferences
       await flow.repository.updateUserPreferences(
         ageMin: _ageRange.start.round(),
         ageMax: _ageRange.end.round(),
         distanceKm: _distance,
-        bio: currentBio, // Pass back existing bio
+        bio: currentBio,
       );
+
+      // Save genderPrefs via updateProfile
+      final uid = AuthService.instance.currentUser?.uid;
+      if (uid != null) {
+        await flow.repository.updateProfile(
+          uid: uid,
+          genderPrefs: _genderPrefsPayload,
+        );
+      }
+
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-         PremiumSnackBar.show(context, 'Error saving preferences', type: SnackBarType.error);
-         setState(() => _isLoading = false);
+        PremiumSnackBar.show(context, 'Error saving preferences', type: SnackBarType.error);
+        setState(() => _isLoading = false);
       }
     }
   }

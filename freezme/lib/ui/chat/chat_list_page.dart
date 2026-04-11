@@ -121,8 +121,8 @@ class _ChatListPageState extends State<ChatListPage> {
                   VibeProfile(
                     uid: c.otherUid,
                     name: c.displayName,
-                    age: 0,
                     imageUrl: c.photoUrl,
+                    age: 0,
                     compatibility: 0,
                     bio: '',
                     distance: '',
@@ -555,8 +555,11 @@ class _ChatListPageState extends State<ChatListPage> {
             children: [
               const Text('Chats', style: FreezmeDesignSystem.h1),
               IconButton(
-                icon: const Icon(Icons.edit_square, color: FreezmeDesignSystem.primary),
-                onPressed: () {},
+                icon: const Icon(Icons.tune, color: FreezmeDesignSystem.primary),
+                tooltip: 'Preferences',
+                onPressed: () {
+                  AppFlowScope.of(context, listen: false).push(AppStage.profileSettings);
+                },
               ),
             ],
           ),

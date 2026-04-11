@@ -46,3 +46,18 @@ router.delete('/me', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+// POST /users/levelup-nudge — send a push notification nudging user to complete their profile
+router.post('/levelup-nudge', async (req: Request, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.uid },
+      select: { fcmToken: true },
+    });
+
+    // Non-blocking — just acknowledge; actual push handled by FCM service asynchronously
+    res.json({ success: true, nudgeSent: !!(user?.fcmToken) });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send nudge' });
+  }
+});

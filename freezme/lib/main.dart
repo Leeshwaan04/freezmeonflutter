@@ -52,6 +52,7 @@ void main() async {
   try {
     await Future.wait([
       AuthService.instance.init().timeout(const Duration(seconds: 3)),
+      AuthService.initGoogleSignIn().timeout(const Duration(seconds: 3)),
       Firebase.initializeApp().timeout(const Duration(seconds: 3)).then((_) {
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
         unawaited(PushNotificationService().initialize());

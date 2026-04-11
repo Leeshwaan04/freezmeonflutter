@@ -69,6 +69,8 @@ router.post('/', async (req: Request, res: Response) => {
       name, age, bio, imageUrl, interests,
       intent, personalityTraits, lifestyleFactors, archetype, promptAnswer,
       energyType, paceSignal, presenceWindows,
+      genderPrefs, ageMin, ageMax, messagingPref,
+      lat, lng,
     } = req.body;
 
     if (!name || !age) { res.status(400).json({ error: 'name and age required' }); return; }
@@ -86,6 +88,12 @@ router.post('/', async (req: Request, res: Response) => {
         ...(energyType !== undefined && { energyType }),
         ...(paceSignal !== undefined && { paceSignal }),
         ...(presenceWindows !== undefined && { presenceWindows }),
+        ...(genderPrefs !== undefined && { genderPrefs }),
+        ...(ageMin !== undefined && { ageMin }),
+        ...(ageMax !== undefined && { ageMax }),
+        ...(messagingPref !== undefined && { messagingPref }),
+        ...(lat !== undefined && { lat }),
+        ...(lng !== undefined && { lng }),
       },
       create: {
         userId: req.uid,
@@ -99,6 +107,12 @@ router.post('/', async (req: Request, res: Response) => {
         energyType: energyType ?? null,
         paceSignal: paceSignal ?? null,
         presenceWindows: presenceWindows ?? null,
+        genderPrefs: genderPrefs ?? [],
+        ageMin: ageMin ?? 18,
+        ageMax: ageMax ?? 99,
+        messagingPref: messagingPref ?? 'anyone',
+        lat: lat ?? null,
+        lng: lng ?? null,
       },
     });
 

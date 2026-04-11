@@ -24,6 +24,7 @@ import storageRouter from './routes/storage';
 import feedRouter from './routes/feed';
 import usersRouter from './routes/users';
 import freezeRoomRouter from './routes/freezeroom';
+import verificationRouter from './routes/verification';
 
 import { setupSocket, applyRedisAdapter } from './realtime/socket';
 import { scheduleRecurringJobs } from './jobs/queues';
@@ -66,6 +67,7 @@ app.use('/storage', storageRouter);
 app.use('/feed', feedRouter);
 app.use('/users', usersRouter);
 app.use('/freeze-room', freezeRoomRouter);
+app.use('/verification', verificationRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString(), v: '2026-04-05' }));
 app.use('/public', express.static(path.join(__dirname, '../../public')));

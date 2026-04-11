@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -52,11 +53,10 @@ class _AuthGatePageState extends State<AuthGatePage>
       await AuthService.instance.signInWithGoogle();
       if (mounted) flow.startOnboarding();
     } catch (e) {
-      final msg = e.toString();
-      if (msg.contains('canceled') || msg.contains('cancelled') || msg.contains('cancel')) return;
+      if (AuthService.isGoogleCancelError(e)) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google sign-in failed. Please try again.')),
+          const SnackBar(content: Text('Google sign-in failed. Please try again.')),
         );
       }
     } finally {
@@ -70,11 +70,10 @@ class _AuthGatePageState extends State<AuthGatePage>
       await AuthService.instance.signInWithApple();
       if (mounted) flow.startOnboarding();
     } catch (e) {
-      final msg = e.toString();
-      if (msg.contains('canceled') || msg.contains('cancelled') || msg.contains('cancel') || msg.contains('1001') || msg.contains('not supported') || msg.contains('AuthorizationErrorCode.unknown')) return;
+      if (AuthService.isAppleCancelError(e)) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Apple sign-in failed. Please try again.')),
+          const SnackBar(content: Text('Apple sign-in failed. Please try again.')),
         );
       }
     } finally {
@@ -237,8 +236,8 @@ class _AuthGatePageState extends State<AuthGatePage>
                                 foreground: Colors.white,
                                 onTap: () => _signInWithEmail(flow),
                               ),
-                              // Dev-only skip button — simulator only
-                              if (!const bool.fromEnvironment('dart.vm.product')) ...[
+                              // Dev-only skip button — debug/profile builds only
+                              if (!kReleaseMode) ...[
                                 const SizedBox(height: 16),
                                 GestureDetector(
                                   onTap: () => flow.replaceStack([AppStage.onboarding]),
