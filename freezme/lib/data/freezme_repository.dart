@@ -135,4 +135,7 @@ abstract class FreezmeRepository {
 
   // Safety & Trust
   Future<void> reportUser(String targetUid);
+
+  // Pool Session
+  Future<Map<String, dynamic>> fetchPoolSession();
 }

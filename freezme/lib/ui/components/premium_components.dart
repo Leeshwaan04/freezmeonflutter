@@ -854,6 +854,21 @@ class UserAvatar extends StatelessWidget {
       }
     }
 
+    // Deterministic background color from initials
+    const avatarBgColors = [
+      Color(0xFF6B21A8), Color(0xFF0F766E), Color(0xFFBE185D),
+      Color(0xFF1D4ED8), Color(0xFF92400E), Color(0xFF065F46),
+      Color(0xFF7C3AED), Color(0xFFB45309), Color(0xFF1E40AF),
+      Color(0xFF9D174D),
+    ];
+    Color avatarBg = FreezmeDesignSystem.primaryLight;
+    Color avatarFg = FreezmeDesignSystem.primary;
+    if (imageProvider == null && initials != null && initials!.isNotEmpty) {
+      final code = initials!.codeUnitAt(0);
+      avatarBg = avatarBgColors[code % avatarBgColors.length];
+      avatarFg = Colors.white;
+    }
+
     return Stack(
       children: [
         // Avatar
@@ -862,7 +877,7 @@ class UserAvatar extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: FreezmeDesignSystem.primaryLight,
+            color: avatarBg,
             image: imageProvider != null
                 ? DecorationImage(
                     image: imageProvider,
@@ -875,7 +890,7 @@ class UserAvatar extends StatelessWidget {
                   child: Text(
                     initials ?? '?',
                     style: TextStyle(
-                      color: FreezmeDesignSystem.primary,
+                      color: avatarFg,
                       fontSize: size * 0.4,
                       fontWeight: FontWeight.bold,
                     ),

@@ -53,6 +53,39 @@ new Worker(
       });
       logger.info({ msg: 'blinds_queue cleaned', count: deleted.count });
     }
+
+    if (type === 'pool_reset') {
+      // Close any open sessions whose closesAt has passed
+      await prisma.poolSession.updateMany({
+        where: { isOpen: true, closesAt: { lte: new Date() } },
+        data: { isOpen: false },
+      });
+
+      // Open the session whose opensAt is now or in the past but closesAt is future
+      const now = new Date();
+      await prisma.poolSession.updateMany({
+        where: { isOpen: false, opensAt: { lte: now }, closesAt: { gt: now } },
+        data: { isOpen: true },
+      });
+
+      // Create tomorrow's session if it doesn't exist yet
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+      const tomorrowIST = new Date(Date.UTC(
+        nowIST.getUTCFullYear(), nowIST.getUTCMonth(), nowIST.getUTCDate() + 1,
+      ));
+      const nextOpens = new Date(tomorrowIST.getTime() + (18 * 60 - 330) * 60 * 1000);
+      const nextCloses = new Date(nextOpens.getTime() + 6 * 60 * 60 * 1000);
+      const existing = await prisma.poolSession.findFirst({
+        where: { opensAt: nextOpens },
+      });
+      if (!existing) {
+        await prisma.poolSession.create({
+          data: { opensAt: nextOpens, closesAt: nextCloses, isOpen: false },
+        });
+      }
+      logger.info({ msg: 'pool_reset complete', isNowOpen: true });
+    }
   },
   { connection, concurrency: 5 }
 );
@@ -256,6 +289,16 @@ export async function scheduleRecurringJobs(): Promise<void> {
 
   // Open first room immediately on startup
   await cleanupQueue.add('freeze_room_open', { type: 'freeze_room_open' }, { jobId: 'freeze_room_open_boot' });
+
+  // Pool reset — runs every 30 minutes to open/close sessions and pre-create next day's
+  await expiryQueue.add(
+    'pool_reset',
+    { type: 'pool_reset' },
+    { repeat: { every: 30 * 60 * 1000 }, jobId: 'pool_reset_30min' }
+  );
+
+  // Run pool reset immediately on startup
+  await expiryQueue.add('pool_reset', { type: 'pool_reset' }, { jobId: 'pool_reset_boot' });
 
   logger.info('[Jobs] recurring jobs scheduled');
 }

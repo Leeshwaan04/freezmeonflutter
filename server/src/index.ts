@@ -25,6 +25,7 @@ import feedRouter from './routes/feed';
 import usersRouter from './routes/users';
 import freezeRoomRouter from './routes/freezeroom';
 import verificationRouter from './routes/verification';
+import poolRouter from './routes/pool';
 
 import { setupSocket, applyRedisAdapter } from './realtime/socket';
 import { scheduleRecurringJobs } from './jobs/queues';
@@ -32,9 +33,15 @@ import { scheduleRecurringJobs } from './jobs/queues';
 const app = express();
 const httpServer = http.createServer(app);
 
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : process.env.NODE_ENV === 'production'
+    ? ['https://api.freezme.in', 'https://freezme.in']
+    : ['http://localhost:3000', 'http://localhost:8080'];
+
 const io = new SocketIOServer(httpServer, {
   cors: {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -48,7 +55,7 @@ applyRedisAdapter(io);
 
 app.set('trust proxy', 1); // behind nginx
 app.use(helmet());
-app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*', credentials: true }));
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(requestLogger);
 app.use(globalLimiter);
@@ -68,6 +75,7 @@ app.use('/feed', feedRouter);
 app.use('/users', usersRouter);
 app.use('/freeze-room', freezeRoomRouter);
 app.use('/verification', verificationRouter);
+app.use('/pool', poolRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString(), v: '2026-04-05' }));
 app.use('/public', express.static(path.join(__dirname, '../../public')));

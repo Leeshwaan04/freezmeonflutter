@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/vibe_profile.dart';
 import '../models/chat_message.dart';
@@ -215,7 +217,11 @@ class Ec2FreezmeRepository implements FreezmeRepository {
 
   @override
   Future<void> sendMessage(ChatMessage message) async {
-    // Sending via WebSocket for real-time delivery
+    if (!_ws.isConnected) {
+      // Socket is offline — throw so the UI can show the failed/retry state.
+      // The WebSocketService will reconnect automatically in the background.
+      throw Exception('No connection. Please try again.');
+    }
     _ws.sendChatMessage(
       chatId: message.chatId,
       text: message.text,
@@ -223,13 +229,46 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     );
   }
 
+  static String _chatCacheKey(String chatId) => 'chat_cache_$chatId';
+  static const int _maxCachedMessages = 100;
+
+  Future<List<ChatMessage>> _loadCachedMessages(String chatId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_chatCacheKey(chatId));
+      if (raw == null) return [];
+      final list = jsonDecode(raw) as List<dynamic>;
+      return list.map((e) => ChatMessage.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _persistMessages(String chatId, List<ChatMessage> messages) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Keep only the most recent N messages to limit storage
+      final toSave = messages.length > _maxCachedMessages
+          ? messages.sublist(messages.length - _maxCachedMessages)
+          : messages;
+      await prefs.setString(_chatCacheKey(chatId), jsonEncode(toSave.map((m) => m.toJson()).toList()));
+    } catch (_) {}
+  }
+
   @override
   Stream<List<ChatMessage>> messagesForChat(String chatId, {int limit = 50}) {
     final controller = StreamController<List<ChatMessage>>();
     final List<ChatMessage> buffer = [];
 
-    // Load initial history
     Future<void> loadHistory() async {
+      // 1. Serve cached messages immediately so chat isn't blank on restart
+      final cached = await _loadCachedMessages(chatId);
+      if (cached.isNotEmpty && !controller.isClosed) {
+        buffer.addAll(cached);
+        controller.add(List.from(buffer));
+      }
+
+      // 2. Fetch fresh from server
       try {
         final response = await _client.dio.get<List<dynamic>>(
           '/chats/$chatId/messages',
@@ -242,8 +281,11 @@ class Ec2FreezmeRepository implements FreezmeRepository {
           ..clear()
           ..addAll(msgs);
         if (!controller.isClosed) controller.add(List.from(buffer));
+        // Persist fresh messages to cache
+        unawaited(_persistMessages(chatId, buffer));
       } catch (e) {
         debugPrint('[Ec2Repo] loadHistory error: $e');
+        // Cache already emitted above — no action needed
       }
     }
 
@@ -254,6 +296,8 @@ class Ec2FreezmeRepository implements FreezmeRepository {
           event['message'] as Map<String, dynamic>);
       buffer.add(msg);
       if (!controller.isClosed) controller.add(List.from(buffer));
+      // Persist incrementally on every new message
+      unawaited(_persistMessages(chatId, buffer));
     });
 
     controller.onCancel = sub.cancel;
@@ -603,6 +647,19 @@ class Ec2FreezmeRepository implements FreezmeRepository {
       );
     } catch (e) {
       debugPrint('[Ec2Repo] reportUser error: $e');
+    }
+  }
+
+  // ── Pool Session ────────────────────────────────────────────────────────────
+
+  @override
+  Future<Map<String, dynamic>> fetchPoolSession() async {
+    try {
+      final response = await _client.dio.get<Map<String, dynamic>>('/pool/session');
+      return response.data ?? {};
+    } catch (e) {
+      debugPrint('[Ec2Repo] fetchPoolSession error: $e');
+      return {};
     }
   }
 }

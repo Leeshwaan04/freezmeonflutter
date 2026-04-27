@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async'; // Added
 import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
@@ -17,6 +18,7 @@ import '../chat/chat_list_page.dart';
 import '../paths/paths_page.dart';
 import '../blinds/blinds_page.dart';
 import '../components/aurora_background.dart';
+import '../settings/freezme_plus_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,17 +34,26 @@ class _HomePageState extends State<HomePage> {
   final Set<String> _likedUids = {};
   Timer? _timer;
   String _countdown = '00:00:00';
+  bool _poolIsOpen = false;
+  DateTime? _poolOpensAt;
+  DateTime? _poolClosesAt;
   String _locationName = 'Your Area';
+  double? _locationLat;
+  double? _locationLng;
+  bool _disposed = false;
 
   @override
   void initState() {
     super.initState();
     _startTimer();
     _loadData();
+    // Fetch pool session after first frame so context is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshPoolSession());
   }
 
   @override
   void dispose() {
+    _disposed = true;
     _timer?.cancel();
     super.dispose();
   }
@@ -54,13 +65,28 @@ class _HomePageState extends State<HomePage> {
 
   void _updateCountdown() {
     final now = DateTime.now();
-    // Target: Today 6 PM or Tomorrow 6 PM
-    var target = DateTime(now.year, now.month, now.day, 18, 0, 0);
-    if (now.isAfter(target)) {
-      target = target.add(const Duration(days: 1));
+    DateTime target;
+
+    if (_poolIsOpen && _poolClosesAt != null) {
+      // Pool is open → count down to close
+      target = _poolClosesAt!;
+    } else if (!_poolIsOpen && _poolOpensAt != null && _poolOpensAt!.isAfter(now)) {
+      // Pool not yet open → count down to open
+      target = _poolOpensAt!;
+    } else {
+      // Fallback: next 18:00 local
+      target = DateTime(now.year, now.month, now.day, 18, 0, 0);
+      if (now.isAfter(target)) target = target.add(const Duration(days: 1));
     }
-    
+
     final diff = target.difference(now);
+    if (diff.isNegative) {
+      // Times have crossed — re-fetch session on next tick after a short delay
+      Future.delayed(const Duration(seconds: 5), _refreshPoolSession);
+      if (mounted) setState(() => _countdown = '00:00:00');
+      return;
+    }
+
     final hours = diff.inHours.toString().padLeft(2, '0');
     final minutes = (diff.inMinutes % 60).toString().padLeft(2, '0');
     final seconds = (diff.inSeconds % 60).toString().padLeft(2, '0');
@@ -70,6 +96,27 @@ class _HomePageState extends State<HomePage> {
         _countdown = '$hours:$minutes:$seconds';
       });
     }
+  }
+
+  Future<void> _refreshPoolSession() async {
+    if (!mounted) return;
+    try {
+      final flow = AppFlowScope.of(context, listen: false);
+      final session = await flow.repository.fetchPoolSession();
+      if (!mounted) return;
+      final isOpen = session['isOpen'] as bool? ?? false;
+      final opensAt = session['opensAt'] != null
+          ? DateTime.parse(session['opensAt'] as String).toLocal()
+          : null;
+      final closesAt = session['closesAt'] != null
+          ? DateTime.parse(session['closesAt'] as String).toLocal()
+          : null;
+      setState(() {
+        _poolIsOpen = isOpen;
+        _poolOpensAt = opensAt;
+        _poolClosesAt = closesAt;
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadData() async {
@@ -83,26 +130,41 @@ class _HomePageState extends State<HomePage> {
     try {
       final flow = AppFlowScope.of(context, listen: false);
 
-      // Get user location
-      final locationService = LocationService();
-      final locationResult = await locationService.getCoarseLocation();
+      // Run location + timezone in parallel, both with hard timeouts so they
+      // never block the page indefinitely.
+      final results = await Future.wait([
+        LocationService()
+            .getCoarseLocation()
+            .timeout(const Duration(seconds: 6),
+                onTimeout: () => const LocationResult(denied: true)),
+        FlutterTimezone.getLocalTimezone()
+            .timeout(const Duration(seconds: 4),
+                onTimeout: () => TimezoneInfo(identifier: 'UTC'))
+            .catchError((_) => TimezoneInfo(identifier: 'UTC')),
+      ]);
 
-      // Get device timezone
-      final timezoneInfo = await FlutterTimezone.getLocalTimezone();
-      final timezone = timezoneInfo.identifier;
+      if (_disposed) return;
 
-      // Fetch Tonight Pool with location and timezone
+      final locationResult = results[0] as LocationResult;
+      final timezone = (results[1] as TimezoneInfo).identifier;
+
+      // Fetch the feed — if location is available use the geo-enhanced pool,
+      // otherwise fall back to the basic daily pool.
       List<models.VibeProfile> profiles;
-      if (locationResult.denied || locationResult.lat == null || locationResult.lng == null) {
-        // Location denied or unavailable, fallback to basic fetch
-        profiles = await flow.repository.fetchDailyProfiles();
+      if (locationResult.denied ||
+          locationResult.lat == null ||
+          locationResult.lng == null) {
+        profiles = await flow.repository
+            .fetchDailyProfiles()
+            .timeout(const Duration(seconds: 10));
       } else {
-        // Use enhanced Tonight Pool with geo + timezone
-        profiles = await flow.repository.fetchTonightPool(
-          lat: locationResult.lat!,
-          lng: locationResult.lng!,
-          timezone: timezone,
-        );
+        profiles = await flow.repository
+            .fetchTonightPool(
+              lat: locationResult.lat!,
+              lng: locationResult.lng!,
+              timezone: timezone,
+            )
+            .timeout(const Duration(seconds: 10));
       }
 
       if (mounted) {
@@ -113,9 +175,10 @@ class _HomePageState extends State<HomePage> {
           if (locationResult.cityName != null) {
             _locationName = locationResult.cityName!;
           }
+          if (locationResult.lat != null) _locationLat = locationResult.lat;
+          if (locationResult.lng != null) _locationLng = locationResult.lng;
         });
 
-        // Trigger paths refresh in background
         // Trigger paths refresh in background
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -127,17 +190,22 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (e) {
-      // Error loading data, use fallback
-      if (mounted) {
-        try {
-          final flow = AppFlowScope.of(context, listen: false);
-          final profiles = await flow.repository.fetchDailyProfiles();
+      if (!mounted) return;
+      // Anything went wrong — try bare daily pool as last resort
+      try {
+        final flow = AppFlowScope.of(context, listen: false);
+        final profiles = await flow.repository
+            .fetchDailyProfiles()
+            .timeout(const Duration(seconds: 8));
+        if (mounted) {
           setState(() {
             _tonightPool = profiles;
             _isLoading = false;
-            _hasError = true; // show error but keep fallback data
+            _hasError = false;
           });
-        } catch (_) {
+        }
+      } catch (_) {
+        if (mounted) {
           setState(() {
             _tonightPool = [];
             _isLoading = false;
@@ -189,13 +257,23 @@ class _HomePageState extends State<HomePage> {
     );
     if (city != null && city.isNotEmpty) {
       if (!mounted) return;
-      setState(() {
-        _locationName = city;
-        _isLoading = true;
-      });
-      // Simulate fetching for city
-      await Future.delayed(const Duration(seconds: 1));
-      _loadData(); // Re-trigger with fake city name logic
+      setState(() => _locationName = city);
+      _loadData();
+    }
+  }
+
+  Future<void> _openInMaps() async {
+    final lat = _locationLat;
+    final lng = _locationLng;
+    if (lat == null || lng == null) return;
+    final encodedName = Uri.encodeComponent(_locationName);
+    // Try Apple Maps first (maps://), fall back to geo: URI
+    final appleUri = Uri.parse('maps://?ll=$lat,$lng&q=$encodedName');
+    final geoUri = Uri.parse('geo:$lat,$lng?q=$encodedName');
+    if (await canLaunchUrl(appleUri)) {
+      await launchUrl(appleUri);
+    } else if (await canLaunchUrl(geoUri)) {
+      await launchUrl(geoUri, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -308,55 +386,94 @@ class _HomePageState extends State<HomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'TONIGHT IN',
-                        style: FreezmeDesignSystem.caption.copyWith(
-                          letterSpacing: 1.2,
-                          fontWeight: FontWeight.w800,
-                          color: FreezmeDesignSystem.textSecondary,
+                  child: GestureDetector(
+                    onTap: _locationLat != null ? _openInMaps : null,
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'TONIGHT IN',
+                                style: FreezmeDesignSystem.caption.copyWith(
+                                  letterSpacing: 1.2,
+                                  fontWeight: FontWeight.w800,
+                                  color: FreezmeDesignSystem.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                _locationName,
+                                style: FreezmeDesignSystem.display,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Text(
-                        _locationName,
-                        style: FreezmeDesignSystem.display,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                        if (_locationLat != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.open_in_new,
+                              size: 14,
+                              color: FreezmeDesignSystem.textSecondary,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: FreezmeDesignSystem.surface,
-                    borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
-                    border: Border.all(color: FreezmeDesignSystem.primary.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.timer_outlined, size: 14, color: FreezmeDesignSystem.primary),
-                      const SizedBox(width: 4),
-                      Text(
-                        _countdown,
-                        style: FreezmeDesignSystem.small.copyWith(
-                          color: FreezmeDesignSystem.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
+                GestureDetector(
+                  onTap: _refreshPoolSession,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: _poolIsOpen
+                          ? FreezmeDesignSystem.success.withValues(alpha: 0.1)
+                          : FreezmeDesignSystem.surface,
+                      borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
+                      border: Border.all(
+                        color: _poolIsOpen
+                            ? FreezmeDesignSystem.success.withValues(alpha: 0.4)
+                            : FreezmeDesignSystem.primary.withValues(alpha: 0.2),
                       ),
-                    ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _poolIsOpen ? Icons.lock_open_outlined : Icons.timer_outlined,
+                          size: 14,
+                          color: _poolIsOpen ? FreezmeDesignSystem.success : FreezmeDesignSystem.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _countdown,
+                          style: FreezmeDesignSystem.small.copyWith(
+                            color: _poolIsOpen ? FreezmeDesignSystem.success : FreezmeDesignSystem.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Builder(builder: (ctx) {
                   final f = AppFlowScope.of(ctx, listen: false);
+                  final name = f.profileName?.trim() ?? '';
+                  final initials = name.isNotEmpty
+                      ? name.split(' ').where((p) => p.isNotEmpty).take(2)
+                          .map((p) => p[0].toUpperCase()).join()
+                      : null;
                   return GestureDetector(
                     onTap: () => f.openTab(4),
                     child: UserAvatar(
                       imageUrl: f.profilePhotoUrl,
+                      initials: initials,
                       size: 36,
                       isPremium: f.isPremium,
                     ),
@@ -1228,7 +1345,10 @@ class _SheetHeat extends StatelessWidget {
             style: TextStyle(color: FreezmeDesignSystem.textSecondary, fontSize: 13, height: 1.5)),
         const SizedBox(height: 20),
         _SheetPrimaryButton(label: 'View Tonight\'s Pool', colors: colors,
-            onTap: () => Navigator.pop(context)),
+            onTap: () {
+              Navigator.pop(context);
+              AppFlowScope.of(context, listen: false).openTab(0);
+            }),
       ],
     );
   }
@@ -1286,7 +1406,12 @@ class _SheetMystery extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _SheetPrimaryButton(label: 'Unlock with Freezme+ ✦', colors: colors,
-            onTap: () => Navigator.pop(context)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const FreezmePlusPage()),
+              );
+            }),
       ],
     );
   }
@@ -1312,7 +1437,10 @@ class _SheetSpark extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _SheetPrimaryButton(label: 'See Tonight\'s Pool', colors: colors,
-            onTap: () => Navigator.pop(context)),
+            onTap: () {
+              Navigator.pop(context);
+              AppFlowScope.of(context, listen: false).openTab(0);
+            }),
       ],
     );
   }
@@ -1351,7 +1479,10 @@ class _SheetClock extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         _SheetPrimaryButton(label: 'Browse Pool Now', colors: colors,
-            onTap: () => Navigator.pop(context)),
+            onTap: () {
+              Navigator.pop(context);
+              AppFlowScope.of(context, listen: false).openTab(0);
+            }),
       ],
     );
   }
@@ -1470,8 +1601,10 @@ class _SheetIcebreaker extends StatelessWidget {
             label: 'Copy to clipboard',
             colors: colors,
             onTap: () {
+              Clipboard.setData(ClipboardData(text: question));
+              final messenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
+              messenger.showSnackBar(
                 const SnackBar(content: Text('Copied to clipboard!')),
               );
             }),
@@ -1653,7 +1786,7 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
-        // TODO: Navigate to profile or send wave
+        AppFlowScope.of(context).openTab(2); // Navigate to Paths tab to send wave
       },
       child: Container(
         width: 110,

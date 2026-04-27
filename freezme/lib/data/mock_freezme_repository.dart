@@ -246,6 +246,19 @@ class MockFreezmeRepository implements FreezmeRepository {
   @override
   Future<void> reportUser(String targetUid) async {}
 
+  @override
+  Future<Map<String, dynamic>> fetchPoolSession() async {
+    final now = DateTime.now();
+    final opens = DateTime(now.year, now.month, now.day, 18, 0, 0);
+    final closes = opens.add(const Duration(hours: 6));
+    final isOpen = now.isAfter(opens) && now.isBefore(closes);
+    return {
+      'isOpen': isOpen,
+      'opensAt': opens.toUtc().toIso8601String(),
+      'closesAt': closes.toUtc().toIso8601String(),
+    };
+  }
+
   static const List<VibeProfile> _profiles = [
     VibeProfile(
       uid: 'mock-priya',

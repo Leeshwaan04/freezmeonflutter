@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.freezme.app</string>
+	<string>com.sumitbagewadi.freezme</string>
 	<key>PROJECT_ID</key>
 	<string>freezme-844cc</string>
 	<key>STORAGE_BUCKET</key>
@@ -24,6 +24,10 @@
 	<true></true>
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
+	<key>CLIENT_ID</key>
+	<string>542457497074-3uq4cfeimroq5v6d711ip0r52gdle7jn.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.542457497074-3uq4cfeimroq5v6d711ip0r52gdle7jn</string>
 	<key>GOOGLE_APP_ID</key>
 	<string>1:542457497074:ios:a16d48099255920f1e576b</string>
 </dict>

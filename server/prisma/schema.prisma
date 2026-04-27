@@ -8,15 +8,37 @@ datasource db {
 }
 
 model User {
-  id           String      @id @default(uuid())
-  email        String?     @unique
-  passwordHash String?
-  fcmToken     String?
-  status       String      @default("active")
-  lastActiveAt DateTime?
-  createdAt    DateTime    @default(now())
-  profile      Profile?
-  membership   Membership?
+  id            String      @id @default(uuid())
+  email         String?     @unique
+  passwordHash  String?
+  fcmToken      String?
+  status        String      @default("active")
+  emailVerified Boolean     @default(false)
+  lastActiveAt  DateTime?
+  createdAt     DateTime    @default(now())
+  profile       Profile?
+  membership    Membership?
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Profile {
@@ -135,7 +157,7 @@ model MeltSession {
   targetUid String
   slotLabel String?
   status    String   @default("pending")
-  expiresAt DateTime
+  expiresAt DateTime @default(now())
   createdAt DateTime @default(now())
 
   @@index([hostUid])
@@ -161,7 +183,7 @@ model PathInvite {
   receiverUid String
   intent      String
   status      String    @default("pending")
-  expiresAt   DateTime  // auto-set to createdAt + 24h; cleaned up by cron
+  expiresAt   DateTime  @default(now())  // auto-set to createdAt + 24h; cleaned up by cron
   createdAt   DateTime  @default(now())
   respondedAt DateTime?
 
@@ -197,15 +219,16 @@ model BlindsSession {
 }
 
 model Membership {
-  id          String    @id @default(cuid())
-  userId      String    @unique
-  platform    String
-  productId   String
-  active      Boolean   @default(true)
-  expiry      DateTime?
-  environment String
-  updatedAt   DateTime  @updatedAt
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  platform              String
+  productId             String
+  active                Boolean   @default(true)
+  expiry                DateTime?
+  environment           String
+  originalTransactionId String?   @unique
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model FeedPost {
@@ -260,10 +283,20 @@ model RefreshToken {
   id        String   @id @default(cuid())
   userId    String
   token     String   @unique
-  expiresAt DateTime
+  expiresAt DateTime @default(now())
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// Access token blacklist — populated on logout so stolen tokens can't be reused
+model TokenBlacklist {
+  id        String   @id @default(cuid())
+  jti       String   @unique  // JWT ID claim (or token hash for legacy tokens)
+  expiresAt DateTime           // copied from JWT exp — enables cron cleanup
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 // ── Freeze Room ──────────────────────────────────────────────────────────────
@@ -303,6 +336,19 @@ model FreezeMatch {
   @@unique([userA, userB])
   @@index([userA])
   @@index([userB])
+}
+
+// ── Pool Session (nightly dating pool open/close) ───────────────────────────
+
+model PoolSession {
+  id        String   @id @default(cuid())
+  opensAt   DateTime
+  closesAt  DateTime
+  isOpen    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([opensAt])
+  @@index([closesAt])
 }
 
 // ── Presence events (for computing presenceScore) ────────────────────────────

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -20,6 +22,7 @@ class AuthUser {
     this.gender,
     this.interests = const [],
     this.intent,
+    this.isPremium = false,
   });
 
   final String uid;
@@ -34,6 +37,7 @@ class AuthUser {
   final String? gender;
   final List<String> interests;
   final String? intent;
+  final bool isPremium;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
     // The server may return photoUrls as an array or imageUrl as a single string.
@@ -64,6 +68,7 @@ class AuthUser {
       gender: json['gender'] as String?,
       interests: interests,
       intent: json['intent'] as String?,
+      isPremium: json['isPremium'] as bool? ?? false,
     );
   }
 
@@ -78,6 +83,7 @@ class AuthUser {
     String? gender,
     List<String>? interests,
     String? intent,
+    bool? isPremium,
   }) {
     return AuthUser(
       uid: uid ?? this.uid,
@@ -90,6 +96,7 @@ class AuthUser {
       gender: gender ?? this.gender,
       interests: interests ?? this.interests,
       intent: intent ?? this.intent,
+      isPremium: isPremium ?? this.isPremium,
     );
   }
 }
@@ -116,7 +123,9 @@ class AuthService {
     _googleInitialized = true;
     try {
       await GoogleSignIn.instance.initialize(
-        serverClientId: '542457497074-a16d48099255920f1e576b.apps.googleusercontent.com',
+        // iOS OAuth client ID — the idToken audience will be this value.
+        // The server's GOOGLE_IOS_CLIENT_ID must match.
+        serverClientId: '542457497074-3uq4cfeimroq5v6d711ip0r52gdle7jn.apps.googleusercontent.com',
       );
     } catch (e) {
       debugPrint('[AuthService] GoogleSignIn.initialize error: $e');
@@ -129,18 +138,58 @@ class AuthService {
   Future<void> init() async {
     final loggedIn = await _client.isLoggedIn;
     if (loggedIn) {
-      // Try to fetch current user from /profiles/me to verify token still valid
       try {
         final response = await _client.dio.get('/profiles/me');
         final user = AuthUser.fromJson(response.data as Map<String, dynamic>);
         _setUser(user);
+      } on DioException catch (e) {
+        final status = e.response?.statusCode;
+        if (status == 404) {
+          // Token is valid but profile hasn't been created yet (new signup).
+          // Stay logged in with a minimal user derived from the JWT uid stored
+          // in the access token — the onboarding flow will create the profile.
+          final uid = await _extractUidFromToken();
+          if (uid != null) {
+            _setUser(AuthUser(uid: uid));
+          } else {
+            await _client.clearTokens();
+            _setUser(null);
+          }
+        } else {
+          // 401 / network error / 5xx — treat as logged out and clear tokens.
+          await _client.clearTokens();
+          _setUser(null);
+        }
       } catch (_) {
-        // Token invalid / expired → treat as logged out
         await _client.clearTokens();
         _setUser(null);
       }
     } else {
       _setUser(null);
+    }
+  }
+
+  /// Decodes the stored access token to extract the uid without a network call.
+  Future<String?> _extractUidFromToken() async {
+    try {
+      final token = await _client.getAccessToken();
+      if (token == null) return null;
+      // JWT is base64url: header.payload.signature — decode the payload part.
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      // Base64url → base64 (pad to multiple of 4)
+      String payload = parts[1].replaceAll('-', '+').replaceAll('_', '/');
+      switch (payload.length % 4) {
+        case 2: payload += '=='; break;
+        case 3: payload += '='; break;
+      }
+      final decoded = String.fromCharCodes(
+        base64Decode(payload),
+      );
+      final json = jsonDecode(decoded) as Map<String, dynamic>;
+      return json['uid'] as String? ?? json['sub'] as String?;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -190,8 +239,7 @@ class AuthService {
   /// Returns true if [e] represents a user-initiated cancel (not an error to show).
   static bool isAppleCancelError(Object e) {
     if (e is SignInWithAppleAuthorizationException) {
-      return e.code == AuthorizationErrorCode.canceled ||
-          e.code == AuthorizationErrorCode.unknown;
+      return e.code == AuthorizationErrorCode.canceled;
     }
     if (e is PlatformException) {
       final code = e.code.toLowerCase();
@@ -233,6 +281,17 @@ class AuthService {
     return _handleAuthResponse(response.data as Map<String, dynamic>);
   }
 
+  Future<void> sendPasswordReset({required String email}) async {
+    await _client.dio.post(
+      '/auth/forgot-password',
+      data: {'email': email},
+    );
+  }
+
+  Future<void> sendEmailVerification() async {
+    await _client.dio.post('/auth/send-verification');
+  }
+
   // ── Refresh profile data from server ───────────────────────────────────────
 
   Future<void> refreshProfile() async {
@@ -267,12 +326,12 @@ class AuthService {
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
-  AuthUser _handleAuthResponse(Map<String, dynamic> data) {
+  Future<AuthUser> _handleAuthResponse(Map<String, dynamic> data) async {
     final accessToken = data['accessToken'] as String;
     final refreshToken = data['refreshToken'] as String;
     final userJson = data['user'] as Map<String, dynamic>;
 
-    _client.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
+    await _client.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
 
     final user = AuthUser.fromJson(userJson);
     _setUser(user);

@@ -4,9 +4,9 @@ const client = new OAuth2Client();
 
 // Accept tokens from both web and iOS OAuth clients
 const ALLOWED_AUDIENCES = [
-  process.env.GOOGLE_CLIENT_ID!,                                              // web client
-  '542457497074-3uq4cfeimroq5v6d711ip0r52gdle7jn.apps.googleusercontent.com', // iOS client
-];
+  process.env.GOOGLE_CLIENT_ID!,         // web client
+  process.env.GOOGLE_IOS_CLIENT_ID!,     // iOS client
+].filter(Boolean);
 
 export interface GoogleUser {
   uid: string;

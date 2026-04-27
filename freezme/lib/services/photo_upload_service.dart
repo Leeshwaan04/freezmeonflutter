@@ -68,6 +68,11 @@ class S3PhotoUploadService implements PhotoUploadService {
   Future<String> _uploadFile(File file) async {
     try {
       final filename = '${_uuid.v4()}.jpg';
+      final bytes = await file.readAsBytes();
+
+      if (bytes.length > 8 * 1024 * 1024) {
+        throw const PhotoUploadException('File too large. Maximum size is 8 MB.');
+      }
 
       // Step 1: get presigned URL from EC2
       final urlResp = await _apiClient.dio.get<Map<String, dynamic>>(
@@ -75,14 +80,14 @@ class S3PhotoUploadService implements PhotoUploadService {
         queryParameters: {
           'filename': filename,
           'contentType': 'image/jpeg',
+          'fileSize': bytes.length.toString(),
         },
       );
 
       final uploadUrl = urlResp.data!['uploadUrl'] as String;
-      final publicUrl = urlResp.data!['publicUrl'] as String;
+      final s3Key = urlResp.data!['key'] as String;
 
-      // Step 2: PUT directly to S3 presigned URL
-      final bytes = await file.readAsBytes();
+      // Step 2: PUT directly to S3 presigned URL (no JWT header)
       await _s3Dio.put<void>(
         uploadUrl,
         data: Stream.fromIterable([bytes]),
@@ -96,12 +101,20 @@ class S3PhotoUploadService implements PhotoUploadService {
         ),
       );
 
-      return publicUrl;
+      // Step 3: confirm upload — server validates magic bytes and returns CDN URL
+      final confirmResp = await _apiClient.dio.post<Map<String, dynamic>>(
+        '/storage/confirm',
+        data: {'key': s3Key},
+      );
+      final cdnUrl = confirmResp.data!['cdnUrl'] as String;
+
+      return cdnUrl;
     } on DioException catch (e) {
       if (kDebugMode) debugPrint('[S3Upload] failed: ${e.message}');
       throw PhotoUploadException('upload_failed: ${e.message}');
     } catch (e) {
       if (kDebugMode) debugPrint('[S3Upload] error: $e');
+      if (e is PhotoUploadException) rethrow;
       throw const PhotoUploadException('upload_failed');
     }
   }
