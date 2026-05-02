@@ -113,10 +113,13 @@ new Worker(
     const { type } = job.data;
 
     if (type === 'expired_tokens') {
-      const deleted = await prisma.refreshToken.deleteMany({
-        where: { expiresAt: { lt: new Date() } },
-      });
-      logger.info({ msg: 'expired_tokens_pruned', count: deleted.count });
+      const now = new Date();
+      const [rt, bl, prt] = await Promise.all([
+        prisma.refreshToken.deleteMany({ where: { expiresAt: { lt: now } } }),
+        prisma.tokenBlacklist.deleteMany({ where: { expiresAt: { lt: now } } }),
+        prisma.passwordResetToken.deleteMany({ where: { expiresAt: { lt: now } } }),
+      ]);
+      logger.info({ msg: 'expired_tokens_pruned', refreshTokens: rt.count, blacklist: bl.count, passwordResetTokens: prt.count });
     }
 
     if (type === 'old_messages') {

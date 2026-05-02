@@ -25,7 +25,7 @@ export async function getPresignedUploadUrl(
     CacheControl: 'max-age=31536000',
   });
 
-  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
+  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 }); // 15 min — enough for slow connections
   const publicUrl = `${PUBLIC_BASE}/${key}`;
 
   return { uploadUrl, publicUrl, key };

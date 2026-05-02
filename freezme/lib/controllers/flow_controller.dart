@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -77,14 +78,12 @@ class AppFlowController extends ChangeNotifier {
   final List<AppStage> _stack = <AppStage>[AppStage.splash];
   final List<AppMatch> _matches = <AppMatch>[];
   final List<VibeProfile> dailyProfiles;
-  final List<VibeCircle> activeCircles = <VibeCircle>[];
   final List<PhotoSlot> _photoSlots = List.generate(
     6, (i) => const PhotoSlot(status: PhotoSlotStatus.empty));
   
   VibeProfile? activeProfile;
   String? _activeChatId;
   String? _testCurrentUserId;
-  VibeCircle? activeCircle;
   LifestyleArchetype? selectedArchetype;
   int _poolIndex = 0;
   bool _isFreezed = false;
@@ -137,8 +136,26 @@ class AppFlowController extends ChangeNotifier {
   int _currentTabIndex = 0;
   int get currentTabIndex => _currentTabIndex;
   void openTab(int index) { _currentTabIndex = index; notifyListeners(); }
-  double get completionPercent => isVerified ? 1.0 : (userBlueprint != null ? 0.6 : 0.3);
-  bool get isProfileComplete => userBlueprint != null && isVerified;
+  /// Real field-by-field profile completion (each field = 1/7 weight).
+  double get completionPercent {
+    final u = AuthService.instance.currentUser;
+    int filled = 0;
+    if ((u?.displayName ?? _localName)?.isNotEmpty == true) filled++;
+    if ((u?.photoUrl) != null || (u?.photoUrls.isNotEmpty == true)) filled++;
+    if ((u?.age ?? _localAge) != null) filled++;
+    if ((u?.bio ?? _localBio)?.isNotEmpty == true) filled++;
+    if ((u?.gender)?.isNotEmpty == true) filled++;
+    if ((u?.interests ?? _localInterests).isNotEmpty) filled++;
+    if (isVerified) filled++;
+    return (filled / 7) * 100;
+  }
+  bool get isProfileComplete {
+    final u = AuthService.instance.currentUser;
+    final hasPhoto = (u?.photoUrl) != null || (u?.photoUrls.isNotEmpty == true);
+    final hasName = (u?.displayName ?? _localName)?.isNotEmpty == true;
+    final hasAge = (u?.age ?? _localAge) != null;
+    return hasPhoto && hasName && hasAge;
+  }
   String? get profilePhotoUrl => AuthService.instance.currentUser?.photoUrl;
   String? get profileName => AuthService.instance.currentUser?.displayName ?? _localName;
   String? get profileEmail => AuthService.instance.currentUser?.email;
@@ -373,6 +390,11 @@ class AppFlowController extends ChangeNotifier {
             replaceStack([AppStage.authGate]);
           }
         } else {
+          // Sync premium status from server profile
+          if (user.isPremium && !_isPremium) {
+            _isPremium = true;
+            _prefs?.setBool('is_premium', true);
+          }
           // Populate photo slots from existing profile photos
           bool slotsChanged = false;
           if (user.photoUrls.isNotEmpty) {
@@ -385,7 +407,20 @@ class AppFlowController extends ChangeNotifier {
             slotsChanged = true;
           }
           if (current == AppStage.authGate || current == AppStage.splash) {
-            final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+            // Use server profile completeness as source of truth — local pref is
+            // only a fallback for speed on app restart when profile is already known.
+            // gender is never auto-populated (unlike name/age which Google may seed),
+            // so it's a reliable signal that the user completed onboarding.
+            final serverProfileComplete = user.displayName != null &&
+                user.displayName!.isNotEmpty &&
+                user.age != null &&
+                user.gender != null &&
+                user.gender!.isNotEmpty;
+            final localCompleted = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+            final completed = serverProfileComplete || localCompleted;
+            if (serverProfileComplete && !localCompleted) {
+              _prefs?.setBool(_kOnboardingCompleteKey, true);
+            }
             // replaceStack already calls notifyListeners
             replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
           } else if (slotsChanged) {
@@ -573,6 +608,10 @@ class AppFlowController extends ChangeNotifier {
   }
 
   Future<void> toggleFreeze(bool value, {int days = 1}) async {
+    // Snapshot previous state to revert on backend failure
+    final prevFreezed = _isFreezed;
+    final prevFreezeUntil = _freezeUntil;
+
     _isFreezed = value;
     if (_isFreezed) {
       _freezeUntil = DateTime.now().add(Duration(days: days));
@@ -583,7 +622,9 @@ class AppFlowController extends ChangeNotifier {
     }
     await _prefs?.setBool('is_freezed', _isFreezed);
     await _prefs?.setString('freeze_until', _freezeUntil?.toIso8601String() ?? '');
-    // Persist to backend
+    notifyListeners();
+
+    // Persist to backend — revert local state if it fails
     try {
       await ApiClient.instance.dio.patch('/profiles/freeze', data: {
         'frozen': _isFreezed,
@@ -591,8 +632,12 @@ class AppFlowController extends ChangeNotifier {
       });
     } catch (e) {
       debugPrint('[Flow] toggleFreeze backend error: $e');
+      _isFreezed = prevFreezed;
+      _freezeUntil = prevFreezeUntil;
+      await _prefs?.setBool('is_freezed', _isFreezed);
+      await _prefs?.setString('freeze_until', _freezeUntil?.toIso8601String() ?? '');
+      replaceStack([prevFreezed ? AppStage.freeze : AppStage.dailyPool]);
     }
-    notifyListeners();
   }
 
   void openVerification() => pushIfMissing(AppStage.verification);
@@ -600,7 +645,8 @@ class AppFlowController extends ChangeNotifier {
   void openVectorSimulation() => pushIfMissing(AppStage.vectorSimulation);
 
   void openChat([VibeProfile? profile]) {
-    activeProfile = profile ?? activeProfile ?? dailyProfiles.first;
+    activeProfile = profile ?? activeProfile ?? (dailyProfiles.isNotEmpty ? dailyProfiles.first : null);
+    if (activeProfile == null) return;
     pushIfMissing(AppStage.chat);
   }
 
@@ -623,9 +669,19 @@ class AppFlowController extends ChangeNotifier {
   }
 
   Future<void> purchasePremium() async {
-    _isPremium = true;
-    await _prefs?.setBool('is_premium', true);
-    notifyListeners();
+    // Try to purchase through the real IAP service
+    final product = iapService.monthlyPlan;
+    if (product != null && iapService.isAvailable) {
+      await iapService.buy(product);
+      // Premium status will be set via IAPService → server verify → refreshProfile → _listenToAuth
+      return;
+    }
+    // Fallback for debug/simulator: mock premium locally
+    if (kDebugMode) {
+      _isPremium = true;
+      await _prefs?.setBool('is_premium', true);
+      notifyListeners();
+    }
   }
 
   Future<void> buyCredits(int amount) async {
@@ -791,27 +847,6 @@ class AppFlowController extends ChangeNotifier {
   void finishMatchSuccessToPool() {
     activeProfile = null;
     replaceStack(<AppStage>[AppStage.dailyPool]);
-  }
-
-  void openCircleDiscovery() => pushIfMissing(AppStage.circleDiscovery);
-
-  void joinCircle(VibeCircle circle) {
-    if (!activeCircles.contains(circle)) {
-      activeCircles.add(circle);
-    }
-    activeCircle = circle;
-    pushIfMissing(AppStage.circleChat);
-  }
-
-  void openCircleChat(VibeCircle circle) {
-    activeCircle = circle;
-    pushIfMissing(AppStage.circleChat);
-  }
-
-  void exitCircleChat() {
-    if (pop()) {
-      activeCircle = null;
-    }
   }
 
   void returnToPool({bool resetIndex = false}) {

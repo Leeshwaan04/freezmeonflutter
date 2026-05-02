@@ -43,6 +43,8 @@ Future<AppFlowController> pumpToProfileSettings(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 500));
   await tester.pump(const Duration(milliseconds: 500));
   await tester.pump(const Duration(milliseconds: 500));
+  // Drain location (6s) + timezone (4s) timeouts so no pending timers remain.
+  await tester.pump(const Duration(seconds: 7));
   return ctrl;
 }
 

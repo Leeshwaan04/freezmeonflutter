@@ -84,8 +84,12 @@ class S3PhotoUploadService implements PhotoUploadService {
         },
       );
 
-      final uploadUrl = urlResp.data!['uploadUrl'] as String;
-      final s3Key = urlResp.data!['key'] as String;
+      final urlData = urlResp.data;
+      final uploadUrl = urlData?['uploadUrl'] as String?;
+      final s3Key = urlData?['key'] as String?;
+      if (uploadUrl == null || s3Key == null) {
+        throw const PhotoUploadException('upload_url_missing');
+      }
 
       // Step 2: PUT directly to S3 presigned URL (no JWT header)
       await _s3Dio.put<void>(
@@ -106,7 +110,8 @@ class S3PhotoUploadService implements PhotoUploadService {
         '/storage/confirm',
         data: {'key': s3Key},
       );
-      final cdnUrl = confirmResp.data!['cdnUrl'] as String;
+      final cdnUrl = confirmResp.data?['cdnUrl'] as String?;
+      if (cdnUrl == null) throw const PhotoUploadException('cdn_url_missing');
 
       return cdnUrl;
     } on DioException catch (e) {

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../main.dart';
+import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';
 
@@ -57,7 +59,29 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
 
   Future<void> _saveSetting(String key, bool value) async {
     try {
-      await Future.delayed(const Duration(milliseconds: 200));
+      final flow = AppFlowScope.of(context, listen: false);
+      final uid = AuthService.instance.currentUser?.uid;
+      if (uid == null) return;
+      // Map privacy toggle keys to the profile update fields
+      switch (key) {
+        case 'hideOnlineStatus':
+          // hideOnlineStatus covers both "online now" and "last seen" — single server field
+          await flow.repository.updateProfile(uid: uid, hideLastActive: value);
+        case 'hideLastSeen':
+          // Treated as alias for hideLastActive on the server
+          await flow.repository.updateProfile(uid: uid, hideLastActive: value);
+        case 'hideReadReceipts':
+          // No server field yet — persisted locally only
+          break;
+        case 'incognitoMode':
+          // Incognito = don't appear in pools
+          await flow.repository.updateProfile(
+            uid: uid,
+            appearInMenPool: !value,
+            appearInWomenPool: !value,
+            nbOnlyPool: false,
+          );
+      }
     } catch (e) {
       if (mounted) {
         PremiumSnackBar.show(context, 'Failed to save setting', type: SnackBarType.error);
@@ -87,6 +111,7 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
     if (confirmed == true) {
       if (!mounted) return;
       try {
+        await ApiClient.instance.dio.delete<void>('/users/blocked/$blockedUid');
         setState(() => _blockedUsers.remove(blockedUid));
         PremiumSnackBar.show(context, 'User unblocked', type: SnackBarType.success);
       } catch (e) {
@@ -124,6 +149,7 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
       if (!mounted) return;
       try {
         final flow = AppFlowScope.of(context, listen: false);
+        await ApiClient.instance.dio.delete<Map<String, dynamic>>('/users/me');
         await flow.signOut();
         if (mounted) {
           PremiumSnackBar.show(context, 'Account deleted successfully', type: SnackBarType.success);
@@ -147,7 +173,9 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
+          : SafeArea(
+              top: false,
+              child: ListView(
               padding: const EdgeInsets.all(FreezmeDesignSystem.spaceLg),
               children: [
                 const Text('Privacy Settings', style: FreezmeDesignSystem.bodySemiBold),
@@ -271,6 +299,7 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
                 ),
               ],
             ),
+          ),
     );
   }
 
@@ -426,7 +455,9 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
         backgroundColor: FreezmeDesignSystem.background,
         iconTheme: const IconThemeData(color: FreezmeDesignSystem.primary),
       ),
-      body: ListView(
+      body: SafeArea(
+        top: false,
+        child: ListView(
         padding: const EdgeInsets.all(FreezmeDesignSystem.spaceLg),
         children: [
           const Text('Frequently Asked Questions', style: FreezmeDesignSystem.bodySemiBold),
@@ -558,6 +589,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceXl),
         ],
+        ),
       ),
     );
   }

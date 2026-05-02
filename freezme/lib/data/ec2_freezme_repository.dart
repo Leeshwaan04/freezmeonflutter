@@ -156,12 +156,23 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     required double distanceKm,
     required String bio,
   }) async {
-    await _client.dio.post<void>('/profiles', data: {'bio': bio});
+    await _client.dio.post<void>('/profiles', data: {
+      'bio': bio,
+      'ageMin': ageMin,
+      'ageMax': ageMax,
+      'distanceKm': distanceKm,
+    });
   }
 
   @override
   Future<Map<String, dynamic>> fetchUserPreferences() async {
-    return {};
+    try {
+      final response = await _client.dio.get<Map<String, dynamic>>('/profiles/me');
+      return response.data ?? {};
+    } catch (e) {
+      debugPrint('[Ec2Repo] fetchUserPreferences error: $e');
+      return {};
+    }
   }
 
   // ── Matching ───────────────────────────────────────────────────────────────
@@ -395,6 +406,8 @@ class Ec2FreezmeRepository implements FreezmeRepository {
       } catch (e) {
         debugPrint('[Ec2Repo] fetchNearbyPaths error: $e');
         if (!controller.isClosed) controller.add([]);
+      } finally {
+        await controller.close();
       }
     }
 

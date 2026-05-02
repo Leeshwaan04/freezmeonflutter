@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
 import { scheduleBlindExpiry, enqueuePush } from '../jobs/queues';
 import { io } from '../index';
+import { isValidIntent, isValidDistanceBucket, isValidInterests } from '../utils/validate';
 
 const router = Router();
 router.use(requireAuth);
@@ -15,6 +16,15 @@ router.post('/enqueue', async (req: Request, res: Response) => {
     const { intent, distanceBucket, interests } = req.body;
     if (!intent || !distanceBucket) {
       res.status(400).json({ code: 'MISSING_FIELD', error: 'intent and distanceBucket required' }); return;
+    }
+    if (!isValidIntent(intent)) {
+      res.status(400).json({ code: 'INVALID_INTENT', error: 'Invalid intent value' }); return;
+    }
+    if (!isValidDistanceBucket(distanceBucket)) {
+      res.status(400).json({ code: 'INVALID_DISTANCE_BUCKET', error: 'Invalid distanceBucket value' }); return;
+    }
+    if (interests !== undefined && !isValidInterests(interests)) {
+      res.status(400).json({ code: 'INVALID_INTERESTS', error: 'interests must be an array of at most 30 strings' }); return;
     }
 
     const availableUntil = new Date(Date.now() + 30 * 60 * 1000); // 30 min
@@ -143,17 +153,24 @@ router.get('/session', async (req: Request, res: Response) => {
 // POST /blinds/session/:id/reveal — reveal identity
 router.post('/session/:id/reveal', async (req: Request, res: Response) => {
   try {
+    // Use atomic updateMany with a where-clause guard so concurrent reveals are idempotent
     const session = await prisma.blindsSession.findUnique({ where: { id: req.params.id } });
     if (!session) { res.status(404).json({ code: 'NOT_FOUND', error: 'Session not found' }); return; }
     if (session.userA !== req.uid && session.userB !== req.uid) {
       res.status(403).json({ code: 'FORBIDDEN', error: 'Access denied' }); return;
     }
+    if (session.phase === 'ended') {
+      res.status(400).json({ code: 'SESSION_ENDED', error: 'Session has already ended' }); return;
+    }
 
     const isUserA = session.userA === req.uid;
+    // Only update if reveal not already set (prevents double-write on concurrent calls)
     const updated = await prisma.blindsSession.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id, ...(isUserA ? { revealA: false } : { revealB: false }) },
       data: isUserA ? { revealA: true } : { revealB: true },
-    });
+    }).catch(() => prisma.blindsSession.findUnique({ where: { id: req.params.id } }));
+
+    if (!updated) { res.status(404).json({ code: 'NOT_FOUND', error: 'Session not found' }); return; }
 
     // Emit real-time phase change to both parties
     io.to(`user:${session.userA}`).emit('blind:phase_change', { sessionId: session.id, session: updated });

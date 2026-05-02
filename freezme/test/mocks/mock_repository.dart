@@ -176,6 +176,9 @@ class MockFreezmeRepository implements FreezmeRepository {
 
   @override
   Future<void> reportUser(String targetUid) async {}
+
+  @override
+  Future<Map<String, dynamic>> fetchPoolSession() async => {'isOpen': false};
 }
 
 

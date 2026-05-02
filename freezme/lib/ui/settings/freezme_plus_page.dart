@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../main.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';
@@ -34,17 +35,32 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
     return AnimatedBuilder(
       animation: iap,
       builder: (context, child) {
-        // Show error if transient
+        // Show error once then clear — prevents infinite snackbar loop on rebuilds
         if (iap.error != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-             PremiumSnackBar.show(context, iap.error!, type: SnackBarType.error);
+            if (!mounted) return;
+            PremiumSnackBar.show(context, iap.error!, type: SnackBarType.error);
+            iap.clearError();
           });
         }
-        
+
+        // Show restore result once when StoreKit completes
+        if (iap.restoreCompleted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final isNowPremium = flow.isPremium;
+            PremiumSnackBar.show(
+              context,
+              isNowPremium ? 'Your Freezme+ has been restored!' : 'No active subscription found.',
+              type: isNowPremium ? SnackBarType.success : SnackBarType.info,
+            );
+          });
+        }
+
         final weeklyProduct = iap.weeklyPlan;
         final monthlyProduct = iap.monthlyPlan;
 
-        // Extract price strings
+        // Price strings — show store prices when loaded, fallback while loading
         final weeklyPrice = weeklyProduct?.price ?? '₹149';
         final monthlyPrice = monthlyProduct?.price ?? '₹499';
         
@@ -60,12 +76,7 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
             title: const Text('Freezme+'),
             actions: [
               TextButton(
-                onPressed: () async {
-                  await iap.restorePurchases();
-                  if (context.mounted) {
-                    PremiumSnackBar.show(context, 'Purchases Restored', type: SnackBarType.info);
-                  }
-                },
+                onPressed: iap.purchasePending ? null : () => iap.restorePurchases(),
                 child: Text('Restore', style: FreezmeDesignSystem.body.copyWith(color: FreezmeDesignSystem.primary)),
               ),
             ],
@@ -213,14 +224,18 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                            StoreKit returns formatted strings like "₹ 149.00" or "$4.99".
                            We just display the string directly usually.
                           */
-                          Text(
-                             _selectedPlan == 0 ? weeklyPrice : monthlyPrice,
-                             style: const TextStyle(
-                               color: Colors.white,
-                               fontSize: 32, // Adjusted size for potentially long strings
-                               fontWeight: FontWeight.bold,
-                               height: 1,
-                             ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                               _selectedPlan == 0 ? weeklyPrice : monthlyPrice,
+                               style: const TextStyle(
+                                 color: Colors.white,
+                                 fontSize: 32,
+                                 fontWeight: FontWeight.bold,
+                                 height: 1,
+                               ),
+                            ),
                           ),
                         ],
                       ),
@@ -294,7 +309,10 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                   textAlign: TextAlign.center,
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () async {
+                    final uri = Uri.parse('https://api.freezme.in/terms');
+                    if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
+                  },
                   child: Text(
                     'Terms & Conditions',
                     style: FreezmeDesignSystem.small.copyWith(

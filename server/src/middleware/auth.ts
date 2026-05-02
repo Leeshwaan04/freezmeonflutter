@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken, JwtPayload } from '../services/jwt';
+import { verifyAccessToken, isTokenBlacklisted, JwtPayload } from '../services/jwt';
 
 declare global {
   namespace Express {
@@ -18,12 +18,37 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   const token = authHeader.slice(7);
+  let payload: JwtPayload;
   try {
-    const payload = verifyAccessToken(token);
+    payload = verifyAccessToken(token);
+  } catch {
+    res.status(401).json({ error: 'Invalid or expired token' });
+    return;
+  }
+
+  if (!payload.jti) {
+    // Legacy tokens without jti — still accepted
     req.uid = payload.uid;
     req.jwtPayload = payload;
     next();
-  } catch {
-    res.status(401).json({ error: 'Invalid or expired token' });
+    return;
   }
+
+  // Async blacklist check — properly awaited so response is never sent after next()
+  isTokenBlacklisted(payload.jti)
+    .then((blacklisted) => {
+      if (blacklisted) {
+        res.status(401).json({ error: 'Token has been revoked' });
+        return;
+      }
+      req.uid = payload.uid;
+      req.jwtPayload = payload;
+      next();
+    })
+    .catch(() => {
+      // If blacklist check fails (DB down), fall through — availability > security here
+      req.uid = payload.uid;
+      req.jwtPayload = payload;
+      next();
+    });
 }

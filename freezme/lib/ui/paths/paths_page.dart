@@ -33,7 +33,7 @@ class PathsPage extends StatefulWidget {
   State<PathsPage> createState() => _PathsPageState();
 }
 
-class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMixin {
+class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   bool _visible = false;
   double _radius = 10;
   final Set<String> _selectedActivities = {};
@@ -50,6 +50,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _radarController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -61,10 +62,22 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _radarController.dispose();
     _presenceTimer?.cancel();
     for (final sub in _inviteSubs.values) sub.cancel();
     super.dispose();
+  }
+
+  // Stop presence broadcast when app goes to background
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      if (_presenceBroadcast && mounted) {
+        final flow = AppFlowScope.of(context, listen: false);
+        _stopPresence(flow);
+      }
+    }
   }
 
   // ── Waves ─────────────────────────────────────────────────────────────────
@@ -350,20 +363,13 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
                             ? [BoxShadow(color: FreezmeDesignSystem.primary.withValues(alpha: 0.2), blurRadius: 6)]
                             : null,
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(a.emoji, style: const TextStyle(fontSize: 14)),
-                          const SizedBox(width: 5),
-                          Text(
-                            a.label,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: selected ? Colors.white : FreezmeDesignSystem.textSecondary,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        a.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: selected ? Colors.white : FreezmeDesignSystem.textSecondary,
+                        ),
                       ),
                     ),
                   );
@@ -771,7 +777,7 @@ class _NearbyPersonCard extends StatelessWidget {
                   spacing: 6, runSpacing: 4,
                   children: person.intents.map((intent) {
                     final activity = _kActivities.where((a) => a.key == intent.toLowerCase()).firstOrNull;
-                    final label = activity != null ? '${activity.emoji} ${activity.label}' : intent;
+                    final label = activity != null ? activity.label : intent;
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(

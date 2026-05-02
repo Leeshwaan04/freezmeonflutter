@@ -170,11 +170,12 @@ void main() {
         final nyTimezone = tz.getLocation('America/New_York');
         final laTimezone = tz.getLocation('America/Los_Angeles');
 
-        final now = DateTime.now();
-        final nyNow = tz.TZDateTime.from(now, nyTimezone);
-        final laNow = tz.TZDateTime.from(now, laTimezone);
+        // Use a fixed midday UTC timestamp to avoid midnight/DST edge cases
+        final fixedUtc = DateTime.utc(2025, 6, 15, 18, 0); // 2pm ET, 11am PT
+        final nyNow = tz.TZDateTime.from(fixedUtc, nyTimezone);
+        final laNow = tz.TZDateTime.from(fixedUtc, laTimezone);
 
-        // LA should be 3 hours behind NY
+        // LA is always 3 hours behind NY (NY=UTC-4 summer, LA=UTC-7 summer)
         final hourDiff = nyNow.hour - laNow.hour;
         expect(hourDiff.abs(), greaterThanOrEqualTo(2));
         expect(hourDiff.abs(), lessThanOrEqualTo(4));

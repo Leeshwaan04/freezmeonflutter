@@ -28,6 +28,7 @@ class LocationService {
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.low,
+          timeLimit: Duration(seconds: 5),
         ),
       );
       final cityName = await _reverseGeocode(position.latitude, position.longitude);

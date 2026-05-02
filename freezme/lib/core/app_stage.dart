@@ -14,8 +14,6 @@ enum AppStage {
   freeze,
   verification,
   vectorSimulation,
-  circleDiscovery,
-  circleChat,
   // Stages added by remote refactor
   profileCompletion,
   editProfile,

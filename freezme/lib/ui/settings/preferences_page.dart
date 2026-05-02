@@ -13,6 +13,7 @@ class PreferencesPage extends StatefulWidget {
 
 class _PreferencesPageState extends State<PreferencesPage> {
   bool _isLoading = true;
+  String? _loadError;
   RangeValues _ageRange = const RangeValues(18, 35);
   double _distance = 10;
   // 'everyone' | 'men' | 'women' | 'nonbinary'
@@ -64,7 +65,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() { _isLoading = false; _loadError = 'Could not load preferences. Please try again.'; });
     }
   }
 
@@ -97,7 +98,24 @@ class _PreferencesPageState extends State<PreferencesPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          : _loadError != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_loadError!, textAlign: TextAlign.center),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: () { setState(() { _isLoading = true; _loadError = null; }); _loadPreferences(); },
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : SingleChildScrollView(
               padding: const EdgeInsets.all(FreezmeDesignSystem.spaceLg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,12 +212,8 @@ class _PreferencesPageState extends State<PreferencesPage> {
     setState(() => _isLoading = true);
     final flow = AppFlowScope.of(context, listen: false);
 
-    // Fetch existing bio so we don't wipe it
-    String currentBio = '';
-    try {
-      final prefs = await flow.repository.fetchUserPreferences();
-      currentBio = prefs['bio'] as String? ?? '';
-    } catch (_) {}
+    // Use in-memory bio — no extra API call needed
+    final currentBio = AuthService.instance.currentUser?.bio ?? flow.profileBio ?? '';
 
     try {
       // Save age/distance/bio via updateUserPreferences

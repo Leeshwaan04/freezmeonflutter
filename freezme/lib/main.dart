@@ -30,13 +30,11 @@ import 'ui/screens/chat_screen.dart';
 import 'ui/profile/profile_settings_page.dart';
 import 'ui/screens/profile_preview.dart';
 import 'ui/screens/daily_recap.dart';
-import 'ui/screens/freezme_plus.dart' show FreezeMePlusPage;
+import 'ui/settings/freezme_plus_page.dart';
 import 'ui/screens/developer_preview.dart';
 import 'ui/screens/freeze_screen.dart';
 import 'ui/screens/verification_screen.dart';
 import 'ui/screens/vector_simulation.dart';
-import 'ui/screens/circle_discovery.dart';
-import 'ui/screens/circle_chat.dart';
 import 'ui/freeze_room/freeze_room_page.dart';
 import 'ui/profile/profile_level_up_flow.dart';
 
@@ -238,7 +236,7 @@ class FlowNavigator extends StatelessWidget {
       case AppStage.dailyRecap:
         return const DailyRecapPage();
       case AppStage.freezmePlus:
-        return const FreezeMePlusPage();
+        return const FreezmePlusPage();
       case AppStage.developerMenu:
         return const DeveloperPreviewScreen();
       case AppStage.freeze:
@@ -247,10 +245,6 @@ class FlowNavigator extends StatelessWidget {
         return const VerificationScreen();
       case AppStage.vectorSimulation:
         return const VectorSimulationScreen();
-      case AppStage.circleDiscovery:
-        return const CircleDiscoveryPage();
-      case AppStage.circleChat:
-        return const CircleChatPage();
       case AppStage.profileCompletion:
         return const OnboardingFlowPage();
       case AppStage.editProfile:

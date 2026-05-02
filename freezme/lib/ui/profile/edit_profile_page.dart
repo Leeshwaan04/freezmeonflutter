@@ -92,16 +92,30 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
+  static const _kMaxPhotoBytes = 8 * 1024 * 1024; // 8 MB
+
   Future<void> _pickPhoto(int slotIndex) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(
         source: ImageSource.gallery, imageQuality: 85);
-    if (picked != null && mounted) {
-      setState(() {
-        _newPhotos = List.from(_newPhotos)..[slotIndex] = File(picked.path);
-        _hasUnsavedChanges = true;
-      });
+    if (picked == null || !mounted) return;
+
+    // Enforce 8 MB limit before attempting S3 upload
+    final file = File(picked.path);
+    final bytes = await file.length();
+    if (bytes > _kMaxPhotoBytes) {
+      PremiumSnackBar.show(
+        context,
+        'Photo is too large (max 8 MB). Please choose a smaller image.',
+        type: SnackBarType.warning,
+      );
+      return;
     }
+
+    setState(() {
+      _newPhotos = List.from(_newPhotos)..[slotIndex] = file;
+      _hasUnsavedChanges = true;
+    });
   }
 
   Future<void> _saveProfile() async {

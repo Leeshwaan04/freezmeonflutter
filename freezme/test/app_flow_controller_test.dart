@@ -92,6 +92,12 @@ class _FakeIAPService extends ChangeNotifier implements IAPService {
   
   @override
   String? get error => null;
+
+  @override
+  bool get restoreCompleted => false;
+
+  @override
+  void clearError() {}
   
   @override
   Future<void> buy(ProductDetails product) async {}

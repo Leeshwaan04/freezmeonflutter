@@ -148,6 +148,7 @@ model Message {
   chat          Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@index([chatId, createdAt])
+  @@index([chatId, senderUid])
   @@index([senderUid])
 }
 
@@ -174,7 +175,7 @@ model PathsPresence {
   visibleUntil DateTime
   lastActiveAt DateTime @updatedAt
 
-  @@index([geohash])
+  @@index([geohash, visibleUntil])
 }
 
 model PathInvite {

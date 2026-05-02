@@ -10,10 +10,12 @@ const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN ?? '30d';
 export interface JwtPayload {
   uid: string;
   email?: string;
+  jti?: string;
 }
 
 export function signAccessToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
+  const jti = uuidv4();
+  return jwt.sign({ ...payload, jti }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
 }
 
 export function signRefreshToken(payload: JwtPayload): string {
@@ -49,4 +51,26 @@ export async function issueTokenPair(uid: string, email?: string): Promise<{ acc
 
 export async function revokeRefreshToken(token: string): Promise<void> {
   await prisma.refreshToken.deleteMany({ where: { token } });
+}
+
+// Blacklist an access token by its jti so it cannot be reused after logout.
+// expiresAt is copied from the JWT exp so the row can be cleaned up after expiry.
+export async function blacklistAccessToken(token: string): Promise<void> {
+  try {
+    const decoded = jwt.decode(token) as any;
+    if (!decoded?.jti || !decoded?.exp) return;
+    const expiresAt = new Date(decoded.exp * 1000);
+    await prisma.tokenBlacklist.upsert({
+      where: { jti: decoded.jti },
+      update: {},
+      create: { jti: decoded.jti, expiresAt },
+    });
+  } catch {
+    // Best-effort — don't fail logout if blacklist write fails
+  }
+}
+
+export async function isTokenBlacklisted(jti: string): Promise<boolean> {
+  const entry = await prisma.tokenBlacklist.findUnique({ where: { jti } });
+  return entry !== null;
 }

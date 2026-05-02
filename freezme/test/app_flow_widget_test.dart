@@ -87,9 +87,8 @@ void main() {
       await tester.pump(const Duration(seconds: 3)); // past splash delay
       await tester.pump(); // navigation fires
       await tester.pump(); // new route builds
-      // Flush periodic timers (typewriter, count animation) so none are
-      // pending when the test framework disposes the widget tree.
-      await tester.pump(const Duration(seconds: 2));
+      // Drain location (6s) + timezone (4s) timeouts so no pending timers remain.
+      await tester.pump(const Duration(seconds: 7));
 
       // Verify the app renders successfully after onboarding (checks that we navigated past splash/auth)
       // HomePage may have async dependencies that make specific UI checks unreliable in tests
@@ -111,6 +110,12 @@ class _FakeIAPService extends ChangeNotifier implements IAPService {
   
   @override
   String? get error => null;
+
+  @override
+  bool get restoreCompleted => false;
+
+  @override
+  void clearError() {}
   
   @override
   Future<void> buy(ProductDetails product) async {}

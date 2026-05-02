@@ -49,6 +49,9 @@ Future<AppFlowController> pumpToDailyPool(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 500));
   await tester.pump(const Duration(milliseconds: 500));
   await tester.pump(const Duration(milliseconds: 500));
+  // Drain the 6-second location + 4-second timezone timeouts so no pending timers
+  // remain when the test framework checks after widget disposal.
+  await tester.pump(const Duration(seconds: 7));
   return ctrl;
 }
 

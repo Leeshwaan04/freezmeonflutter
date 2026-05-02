@@ -208,6 +208,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   void _showHealthSheet(BuildContext context, ConversationEnergy energy) {
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),

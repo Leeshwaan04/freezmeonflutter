@@ -20,6 +20,8 @@ Future<void> _openUrl(String url) async {
   }
 }
 
+enum _AuthMethod { apple, google, email }
+
 class AuthGatePage extends StatefulWidget {
   const AuthGatePage({super.key});
 
@@ -29,8 +31,11 @@ class AuthGatePage extends StatefulWidget {
 
 class _AuthGatePageState extends State<AuthGatePage>
     with SingleTickerProviderStateMixin {
-  bool _isLoading = false;
+  // Per-button loading so other buttons stay visible while one is in progress
+  _AuthMethod? _loadingMethod;
   late final AnimationController _bgController;
+
+  bool get _isLoading => _loadingMethod != null;
 
   @override
   void initState() {
@@ -39,6 +44,8 @@ class _AuthGatePageState extends State<AuthGatePage>
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
+    // Pre-warm Google SDK so there's zero delay when user taps the button
+    AuthService.initGoogleSignIn();
   }
 
   @override
@@ -48,49 +55,67 @@ class _AuthGatePageState extends State<AuthGatePage>
   }
 
   Future<void> _signInWithGoogle(AppFlowController flow) async {
-    setState(() => _isLoading = true);
+    if (_isLoading) return;
+    setState(() => _loadingMethod = _AuthMethod.google);
     try {
       await AuthService.instance.signInWithGoogle();
-      if (mounted) flow.startOnboarding();
+      // Navigation handled by _listenToAuth in flow_controller:
+      //   new user  → onboarding
+      //   returning → dailyPool
     } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingMethod = null);
       if (AuthService.isGoogleCancelError(e)) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Google sign-in failed. Please try again.')),
-        );
-      }
+      _showAuthError('Google sign-in failed. Please try again.');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && _loadingMethod == _AuthMethod.google) {
+        setState(() => _loadingMethod = null);
+      }
     }
   }
 
   Future<void> _signInWithApple(AppFlowController flow) async {
-    setState(() => _isLoading = true);
+    if (_isLoading) return;
+    setState(() => _loadingMethod = _AuthMethod.apple);
     try {
       await AuthService.instance.signInWithApple();
-      if (mounted) flow.startOnboarding();
+      // Navigation handled by _listenToAuth in flow_controller
     } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingMethod = null);
       if (AuthService.isAppleCancelError(e)) return;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apple sign-in failed. Please try again.')),
-        );
-      }
+      _showAuthError('Apple sign-in failed. Please try again.');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && _loadingMethod == _AuthMethod.apple) {
+        setState(() => _loadingMethod = null);
+      }
     }
   }
 
   Future<void> _signInWithEmail(AppFlowController flow) async {
+    if (_isLoading) return;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (ctx) => _EmailAuthSheet(
         onSuccess: () {
           Navigator.of(ctx).pop();
-          flow.startOnboarding();
+          // Navigation handled by _listenToAuth in flow_controller
         },
+      ),
+    );
+  }
+
+  void _showAuthError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -155,8 +180,8 @@ class _AuthGatePageState extends State<AuthGatePage>
                             MediaQuery.of(context).padding.top -
                             MediaQuery.of(context).padding.bottom,
                       ),
-                      child: IntrinsicHeight(
-                        child: Column(
+                      child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const SizedBox(height: 56),
 
@@ -165,8 +190,15 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 20),
 
-                            // FREEZME animated wordmark
-                            const _FreezmeWordmark(),
+                            // FREEZME animated wordmark — SizedBox constrains width so
+                            // FittedBox can scale down on narrow screens (SE = 375px).
+                            SizedBox(
+                              width: double.infinity,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: const _FreezmeWordmark(),
+                              ),
+                            ),
 
                             const SizedBox(height: 8),
 
@@ -181,10 +213,13 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 36),
 
-                            // Animated feature highlights
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: const _AnimatedHighlights(highlights: _highlights),
+                            // Animated feature highlights — ClipRect prevents
+                            // SlideTransition entrance from overflowing horizontally.
+                            ClipRect(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: const _AnimatedHighlights(highlights: _highlights),
+                              ),
                             ),
 
                             const SizedBox(height: 40),
@@ -195,29 +230,27 @@ class _AuthGatePageState extends State<AuthGatePage>
                               children: [
                                 const Icon(Icons.people_outline, size: 15, color: FreezmeColors.primary),
                                 const SizedBox(width: 6),
-                                Text(
-                                  'Join thousands finding real connections',
-                                  style: FreezmeTypography.bodyMuted.copyWith(fontSize: 12.5),
+                                Flexible(
+                                  child: Text(
+                                    'Join thousands finding real connections',
+                                    style: FreezmeTypography.bodyMuted.copyWith(fontSize: 12.5),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),
 
                             const SizedBox(height: 32),
 
-                            // Sign-in buttons
-                            if (_isLoading)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 32),
-                                child: CircularProgressIndicator(
-                                  color: FreezmeColors.primary,
-                                ),
-                              )
-                            else ...[
+                            // Sign-in buttons — always visible; spinner per button
+                            ...[
                               _AuthButton(
                                 label: 'Continue with Apple',
                                 icon: Icons.apple,
                                 variant: _AuthButtonVariant.apple,
                                 foreground: Colors.white,
+                                isLoading: _loadingMethod == _AuthMethod.apple,
+                                disabled: _isLoading && _loadingMethod != _AuthMethod.apple,
                                 onTap: () => _signInWithApple(flow),
                               ),
                               const SizedBox(height: 10),
@@ -226,6 +259,8 @@ class _AuthGatePageState extends State<AuthGatePage>
                                 icon: Icons.g_mobiledata,
                                 variant: _AuthButtonVariant.google,
                                 foreground: FreezmeColors.neutral,
+                                isLoading: _loadingMethod == _AuthMethod.google,
+                                disabled: _isLoading && _loadingMethod != _AuthMethod.google,
                                 onTap: () => _signInWithGoogle(flow),
                               ),
                               const SizedBox(height: 10),
@@ -234,6 +269,8 @@ class _AuthGatePageState extends State<AuthGatePage>
                                 icon: Icons.mail_outline,
                                 variant: _AuthButtonVariant.email,
                                 foreground: Colors.white,
+                                isLoading: _loadingMethod == _AuthMethod.email,
+                                disabled: _isLoading && _loadingMethod != _AuthMethod.email,
                                 onTap: () => _signInWithEmail(flow),
                               ),
                               // Dev-only skip button — debug/profile builds only
@@ -304,7 +341,6 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 24),
                           ],
-                        ),
                       ),
                     ),
                   ),
@@ -441,7 +477,7 @@ class _FreezmeWordmarkState extends State<_FreezmeWordmark>
                 final frost = _frostControllers[i].value;
                 return Stack(
                   alignment: Alignment.center,
-                  clipBehavior: Clip.none,
+                  clipBehavior: Clip.hardEdge,
                   children: [
                     // Frost particle ring — expands and fades on letter land
                     if (frost > 0 && frost < 1)
@@ -808,6 +844,8 @@ class _AuthButton extends StatefulWidget {
     required this.onTap,
     required this.variant,
     this.foreground,
+    this.isLoading = false,
+    this.disabled = false,
   });
 
   final String label;
@@ -815,6 +853,8 @@ class _AuthButton extends StatefulWidget {
   final VoidCallback onTap;
   final _AuthButtonVariant variant;
   final Color? foreground;
+  final bool isLoading;
+  final bool disabled;
 
   @override
   State<_AuthButton> createState() => _AuthButtonState();
@@ -842,19 +882,23 @@ class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderState
     final textColor = widget.foreground ?? Colors.white;
 
     return GestureDetector(
-      onTap: widget.onTap,
-      onTapDown: (_) => setState(() => _pressed = true),
+      onTap: (widget.isLoading || widget.disabled) ? null : widget.onTap,
+      onTapDown: (widget.isLoading || widget.disabled) ? null : (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: AnimatedBuilder(
-          animation: _ctrl,
-          builder: (context, _) {
-            final t = _ctrl.value;
-            return _buildButton(context, t, textColor);
-          },
+      child: AnimatedOpacity(
+        opacity: widget.disabled ? 0.45 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: AnimatedScale(
+          scale: _pressed ? 0.96 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: AnimatedBuilder(
+            animation: _ctrl,
+            builder: (context, _) {
+              final t = _ctrl.value;
+              return _buildButton(context, t, textColor);
+            },
+          ),
         ),
       ),
     );
@@ -889,9 +933,12 @@ class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(widget.icon, color: textColor, size: 20),
+              if (widget.isLoading)
+                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: textColor))
+              else
+                Icon(widget.icon, color: textColor, size: 20),
               const SizedBox(width: 12),
-              Text(widget.label, style: FreezmeTypography.button.copyWith(color: textColor, fontSize: 15)),
+              Flexible(child: Text(widget.label, style: FreezmeTypography.button.copyWith(color: textColor, fontSize: 15), overflow: TextOverflow.ellipsis)),
             ],
           ),
         );
@@ -916,8 +963,10 @@ class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Animated 4-dot Google logo
-              SizedBox(
+              // Animated 4-dot Google logo or spinner
+              if (widget.isLoading)
+                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4285F4)))
+              else SizedBox(
                 width: 20, height: 20,
                 child: Stack(
                   children: List.generate(4, (i) {
@@ -938,9 +987,10 @@ class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderState
                 ),
               ),
               const SizedBox(width: 12),
-              Text(widget.label,
+              Flexible(child: Text(widget.label,
                 style: FreezmeTypography.button.copyWith(
-                  color: const Color(0xFF1A1A1A), fontSize: 15)),
+                  color: const Color(0xFF1A1A1A), fontSize: 15),
+                overflow: TextOverflow.ellipsis)),
             ],
           ),
         );
@@ -974,16 +1024,21 @@ class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(widget.icon, color: textColor, size: 20),
+              if (widget.isLoading)
+                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: textColor))
+              else
+                Icon(widget.icon, color: textColor, size: 20),
               const SizedBox(width: 12),
-              Text(widget.label,
-                style: FreezmeTypography.button.copyWith(color: textColor, fontSize: 15)),
+              Flexible(child: Text(widget.label,
+                style: FreezmeTypography.button.copyWith(color: textColor, fontSize: 15),
+                overflow: TextOverflow.ellipsis)),
               const Spacer(),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 100),
-                transform: Matrix4.translationValues(arrowSlide, 0, 0),
-                child: Icon(Icons.arrow_forward_rounded, color: textColor.withValues(alpha: 0.8), size: 18),
-              ),
+              if (!widget.isLoading)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 100),
+                  transform: Matrix4.translationValues(arrowSlide, 0, 0),
+                  child: Icon(Icons.arrow_forward_rounded, color: textColor.withValues(alpha: 0.8), size: 18),
+                ),
             ],
           ),
         );
@@ -1027,6 +1082,8 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
     try {
       if (_isSignUp) {
         await AuthService.instance.signUpWithEmail(email: email, password: pass);
+        // Send verification email in background — don't block the flow
+        AuthService.instance.sendEmailVerification().catchError((_) {});
       } else {
         await AuthService.instance.signInWithEmail(email: email, password: pass);
       }
@@ -1041,6 +1098,54 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
       });
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _emailCtrl.text.trim();
+    final emailToUse = email.isNotEmpty ? email : null;
+
+    final enteredEmail = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final ctrl = TextEditingController(text: emailToUse);
+        return AlertDialog(
+          title: const Text('Reset Password'),
+          content: TextField(
+            controller: ctrl,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(hintText: 'Enter your email'),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('Send Reset Link'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (enteredEmail == null || enteredEmail.isEmpty || !mounted) return;
+
+    try {
+      await AuthService.instance.sendPasswordReset(email: enteredEmail);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('If that email exists, a reset link has been sent.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send reset email. Please try again.')),
+        );
+      }
     }
   }
 
@@ -1150,6 +1255,23 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
               onPressed: () => setState(() => _obscurePass = !_obscurePass),
             ),
           ),
+
+          // Forgot password link (sign-in mode only)
+          if (!_isSignUp) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _forgotPassword,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Forgot Password?', style: TextStyle(fontSize: 13)),
+              ),
+            ),
+          ],
 
           // Error
           if (_error != null) ...[

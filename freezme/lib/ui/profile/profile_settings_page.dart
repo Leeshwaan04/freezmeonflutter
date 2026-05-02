@@ -9,8 +9,6 @@ import '../settings/preferences_page.dart';
 import '../settings/settings_pages.dart';
 import 'edit_profile_page.dart';
 
-// FreezmePlusPage is imported but ideally we use flow.push or named route if structure allows
-// But here we are using Navigator.push with SmoothPageRoute which matches flow architecture for 'sub-pages'
 
 class ProfileSettingsPage extends StatefulWidget {
   const ProfileSettingsPage({super.key});
@@ -101,8 +99,13 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     final profileName = flow.profileName ?? 'Freezme member';
     final profileEmail = flow.profileEmail ?? 'Add your email';
     final photoUrl = flow.profilePhotoUrl;
+    // Derive initials from profile name so we never show '?'
+    final nameInitials = profileName.isNotEmpty
+        ? profileName.trim().split(' ').take(2).map((w) => w.isNotEmpty ? w[0].toUpperCase() : '').join()
+        : 'ME';
     final avatar = UserAvatar(
       imageUrl: photoUrl,
+      initials: nameInitials,
       size: 80,
       isPremium: flow.isPremium,
     );
@@ -173,12 +176,15 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                           icon: const Icon(Icons.chevron_left),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
-                          'Profile & Settings',
-                          style: TextStyle(
-                            color: FreezmeDesignSystem.primary,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w600,
+                        const Flexible(
+                          child: Text(
+                            'Profile & Settings',
+                            style: TextStyle(
+                              color: FreezmeDesignSystem.primary,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -441,12 +447,14 @@ class _StatPill extends StatelessWidget {
         children: [
           Icon(icon, color: FreezmeDesignSystem.primary, size: 20),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value, style: FreezmeDesignSystem.h3),
-              Text(label, style: FreezmeDesignSystem.small),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, style: FreezmeDesignSystem.h3, overflow: TextOverflow.ellipsis),
+                Text(label, style: FreezmeDesignSystem.small, overflow: TextOverflow.ellipsis),
+              ],
+            ),
           ),
         ],
       ),

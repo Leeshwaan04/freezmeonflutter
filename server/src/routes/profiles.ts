@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
 import { geohashForCoords } from '../services/geo';
+import { sanitizeText } from '../utils/validate';
+import { logger } from '../services/logger';
 
 const router = Router();
 router.use(requireAuth);
@@ -214,26 +216,114 @@ router.post('/', async (req: Request, res: Response) => {
       name, age, bio, imageUrl, interests,
       intent, personalityTraits, lifestyleFactors, archetype, promptAnswer,
       energyType, paceSignal, presenceWindows,
-      genderPrefs, ageMin, ageMax, messagingPref,
+      gender, genderPrefs, ageMin, ageMax, messagingPref,
       lat, lng,
     } = req.body;
 
-    if (!name || !age) { res.status(400).json({ error: 'name and age required' }); return; }
+    // Sanitize user-supplied text fields to strip HTML/XSS before storing
+    const safeName = typeof name === 'string' ? sanitizeText(name).trim() : name;
+    const safeBio = typeof bio === 'string' ? sanitizeText(bio) : bio;
+
+    if (!safeName || typeof safeName !== 'string' || safeName.trim().length < 1 || safeName.length > 60) {
+      res.status(400).json({ error: 'name must be 1–60 characters' }); return;
+    }
+    if (!age || typeof age !== 'number' || age < 18 || age > 100) {
+      res.status(400).json({ error: 'age must be between 18 and 100' }); return;
+    }
+    if (safeBio && (typeof safeBio !== 'string' || safeBio.length > 500)) {
+      res.status(400).json({ error: 'bio must be under 500 characters' }); return;
+    }
+    if (imageUrl !== undefined && imageUrl !== null) {
+      try { new URL(imageUrl); } catch {
+        res.status(400).json({ error: 'imageUrl must be a valid URL' }); return;
+      }
+    }
+
+    const VALID_INTENTS = ['meaningful', 'exploring', 'friendship'];
+    // Accept both camelCase (Flutter) and snake_case
+    const VALID_ENERGY_TYPES = ['deep_diver', 'room_igniter', 'quiet_storm', 'open_road', 'deepDiver', 'roomIgniter', 'quietStorm', 'openRoad'];
+    const VALID_PACE_SIGNALS = ['takes_their_time', 'moves_with_interest', 'quick_connector', 'takesTheirTime', 'movesWithInterest', 'quickConnector'];
+    const VALID_ARCHETYPES = ['explorer', 'nurturer', 'visionary', 'harmonizer', 'dynamo'];
+    // Normalize gender casing: 'Man' → 'man', 'Non-binary' → 'nonbinary'
+    const normalizeGenderValue = (g: string) => {
+      const lower = g.toLowerCase().replace(/[^a-z]/g, '');
+      if (lower === 'nonbinary' || lower === 'nonbinarytransgender') return 'nonbinary';
+      if (lower === 'man' || lower === 'male') return 'man';
+      if (lower === 'woman' || lower === 'female') return 'woman';
+      return lower;
+    };
+    const normalizedGender = gender !== undefined ? normalizeGenderValue(gender) : undefined;
+
+    const VALID_GENDERS = ['man', 'woman', 'nonbinary', 'other'];
+    const VALID_GENDER_PREFS = ['man', 'woman', 'nonbinary'];
+    const VALID_MESSAGING_PREFS = ['anyone', 'matches_only'];
+
+    if (normalizedGender !== undefined && !VALID_GENDERS.includes(normalizedGender)) {
+      res.status(400).json({ error: `gender must be one of: ${VALID_GENDERS.join(', ')}` }); return;
+    }
+
+    if (intent !== undefined && !VALID_INTENTS.includes(intent)) {
+      res.status(400).json({ error: `intent must be one of: ${VALID_INTENTS.join(', ')}` }); return;
+    }
+    // Silently ignore unknown energyType/paceSignal/archetype rather than 400
+    const safeEnergyType = energyType !== undefined && VALID_ENERGY_TYPES.includes(energyType) ? energyType : undefined;
+    const safePaceSignal = paceSignal !== undefined && VALID_PACE_SIGNALS.includes(paceSignal) ? paceSignal : undefined;
+    const safeArchetype = archetype !== undefined && VALID_ARCHETYPES.includes(archetype) ? archetype : undefined;
+
+    // Normalize and filter genderPrefs — strip invalid values rather than rejecting
+    const normalizedGenderPrefs = genderPrefs !== undefined && Array.isArray(genderPrefs)
+      ? genderPrefs.map(normalizeGenderValue).filter((g: string) => VALID_GENDER_PREFS.includes(g))
+      : genderPrefs;
+
+    if (messagingPref !== undefined && !VALID_MESSAGING_PREFS.includes(messagingPref)) {
+      res.status(400).json({ error: `messagingPref must be one of: ${VALID_MESSAGING_PREFS.join(', ')}` }); return;
+    }
+    if (interests !== undefined && (!Array.isArray(interests) || interests.length > 30)) {
+      res.status(400).json({ error: 'interests must be an array of at most 30 items' }); return;
+    }
+    if (personalityTraits !== undefined && (!Array.isArray(personalityTraits) || personalityTraits.length > 8)) {
+      res.status(400).json({ error: 'personalityTraits must be an array of at most 8 items' }); return;
+    }
+    if (lifestyleFactors !== undefined && (!Array.isArray(lifestyleFactors) || lifestyleFactors.length > 8)) {
+      res.status(400).json({ error: 'lifestyleFactors must be an array of at most 8 items' }); return;
+    }
+    if (promptAnswer !== undefined && promptAnswer !== null) {
+      if (typeof promptAnswer !== 'object' ||
+          typeof promptAnswer.prompt !== 'string' || promptAnswer.prompt.length > 200 ||
+          typeof promptAnswer.answer !== 'string' || promptAnswer.answer.length > 500) {
+        res.status(400).json({ error: 'promptAnswer must have prompt (≤200 chars) and answer (≤500 chars)' }); return;
+      }
+    }
+    if (ageMin !== undefined && (typeof ageMin !== 'number' || ageMin < 18 || ageMin > 100)) {
+      res.status(400).json({ error: 'ageMin must be 18–100' }); return;
+    }
+    if (ageMax !== undefined && (typeof ageMax !== 'number' || ageMax < 18 || ageMax > 100)) {
+      res.status(400).json({ error: 'ageMax must be 18–100' }); return;
+    }
+    if (ageMin !== undefined && ageMax !== undefined && ageMin > ageMax) {
+      res.status(400).json({ error: 'ageMin cannot be greater than ageMax' }); return;
+    }
+
+    // Normalize camelCase → snake_case for energyType and paceSignal (Flutter sends camelCase)
+    const camelToSnake = (s: string) => s.replace(/([A-Z])/g, '_$1').toLowerCase();
+    const normalizedEnergyType = energyType ? camelToSnake(energyType) : energyType;
+    const normalizedPaceSignal = paceSignal ? camelToSnake(paceSignal) : paceSignal;
 
     const profile = await prisma.profile.upsert({
       where: { userId: req.uid },
       update: {
-        name, age, bio, imageUrl,
+        name: safeName, age, bio: safeBio, imageUrl,
         interests: interests ?? [],
+        ...(normalizedGender !== undefined && { gender: normalizedGender }),
         ...(intent !== undefined && { intent }),
         ...(personalityTraits !== undefined && { personalityTraits }),
         ...(lifestyleFactors !== undefined && { lifestyleFactors }),
-        ...(archetype !== undefined && { archetype }),
+        ...(safeArchetype !== undefined && { archetype: safeArchetype }),
         ...(promptAnswer !== undefined && { promptAnswer }),
-        ...(energyType !== undefined && { energyType }),
-        ...(paceSignal !== undefined && { paceSignal }),
+        ...(safeEnergyType !== undefined && { energyType: camelToSnake(safeEnergyType) }),
+        ...(safePaceSignal !== undefined && { paceSignal: camelToSnake(safePaceSignal) }),
         ...(presenceWindows !== undefined && { presenceWindows }),
-        ...(genderPrefs !== undefined && { genderPrefs }),
+        ...(normalizedGenderPrefs !== undefined && { genderPrefs: normalizedGenderPrefs }),
         ...(ageMin !== undefined && { ageMin }),
         ...(ageMax !== undefined && { ageMax }),
         ...(messagingPref !== undefined && { messagingPref }),
@@ -242,17 +332,18 @@ router.post('/', async (req: Request, res: Response) => {
       },
       create: {
         userId: req.uid,
-        name, age, bio, imageUrl,
+        name: safeName, age, bio: safeBio, imageUrl,
+        gender: normalizedGender ?? null,
         interests: interests ?? [],
         intent: intent ?? null,
         personalityTraits: personalityTraits ?? [],
         lifestyleFactors: lifestyleFactors ?? [],
-        archetype: archetype ?? null,
+        archetype: safeArchetype ?? null,
         promptAnswer: promptAnswer ?? null,
-        energyType: energyType ?? null,
-        paceSignal: paceSignal ?? null,
+        energyType: safeEnergyType ? camelToSnake(safeEnergyType) : null,
+        paceSignal: safePaceSignal ? camelToSnake(safePaceSignal) : null,
         presenceWindows: presenceWindows ?? null,
-        genderPrefs: genderPrefs ?? [],
+        genderPrefs: normalizedGenderPrefs ?? [],
         ageMin: ageMin ?? 18,
         ageMax: ageMax ?? 99,
         messagingPref: messagingPref ?? 'anyone',
@@ -265,17 +356,6 @@ router.post('/', async (req: Request, res: Response) => {
   } catch (err) {
     console.error('[profiles POST]', err);
     res.status(500).json({ error: 'Failed to save profile' });
-  }
-});
-
-// GET /profiles/me
-router.get('/me', async (req: Request, res: Response) => {
-  try {
-    const profile = await prisma.profile.findUnique({ where: { userId: req.uid } });
-    if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
-    res.json({ ...profile, uid: profile.userId });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
 
@@ -430,12 +510,15 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
   }
 });
 
-// GET /profiles/:uid — view another user's profile
+// GET /profiles/:uid — view another user's public profile (no GPS, no preferences)
 router.get('/:uid', async (req: Request, res: Response) => {
   try {
     const profile = await prisma.profile.findUnique({ where: { userId: req.params.uid } });
     if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
-    res.json({ ...profile, uid: profile.userId });
+    // Strip private fields before returning to other users
+    const { lat, lng, geohash, genderPrefs, ageMin, ageMax, messagingPref,
+            distanceKm, presenceWindows, ...publicProfile } = profile;
+    res.json({ ...publicProfile, uid: profile.userId });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
@@ -445,7 +528,11 @@ router.get('/:uid', async (req: Request, res: Response) => {
 router.patch('/location', async (req: Request, res: Response) => {
   try {
     const { lat, lng } = req.body;
-    if (lat == null || lng == null) { res.status(400).json({ error: 'lat and lng required' }); return; }
+    if (lat == null || lng == null || typeof lat !== 'number' || typeof lng !== 'number' ||
+        isNaN(lat) || isNaN(lng) ||
+        lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      res.status(400).json({ error: 'valid lat (-90 to 90) and lng (-180 to 180) required' }); return;
+    }
     const geohash = geohashForCoords(lat, lng);
     await prisma.profile.update({
       where: { userId: req.uid },
@@ -461,11 +548,25 @@ router.patch('/location', async (req: Request, res: Response) => {
 router.patch('/freeze', async (req: Request, res: Response) => {
   try {
     const { frozen, freezeUntil } = req.body;
+
+    let freezeUntilDate: Date | null = null;
+    if (freezeUntil) {
+      freezeUntilDate = new Date(freezeUntil);
+      if (isNaN(freezeUntilDate.getTime())) {
+        res.status(400).json({ error: 'Invalid freezeUntil date' }); return;
+      }
+      const maxFreeze = new Date();
+      maxFreeze.setDate(maxFreeze.getDate() + 180);
+      if (freezeUntilDate > maxFreeze) {
+        res.status(400).json({ error: 'freezeUntil cannot be more than 180 days from now' }); return;
+      }
+    }
+
     await prisma.profile.update({
       where: { userId: req.uid },
       data: {
         frozen: frozen ?? false,
-        freezeUntil: freezeUntil ? new Date(freezeUntil) : null,
+        freezeUntil: freezeUntilDate,
         presenceLabel: frozen ? 'frozen' : 'in_the_flow',
       },
     });
@@ -479,8 +580,19 @@ router.patch('/freeze', async (req: Request, res: Response) => {
 router.patch('/presence-window', async (req: Request, res: Response) => {
   try {
     const { presenceWindows } = req.body;
-    if (!Array.isArray(presenceWindows)) {
-      res.status(400).json({ error: 'presenceWindows must be an array' }); return;
+    if (!Array.isArray(presenceWindows) || presenceWindows.length > 21) {
+      res.status(400).json({ error: 'presenceWindows must be an array of at most 21 entries' }); return;
+    }
+    for (const w of presenceWindows) {
+      if (
+        typeof w !== 'object' || w === null ||
+        typeof w.day !== 'number' || w.day < 0 || w.day > 6 || !Number.isInteger(w.day) ||
+        typeof w.startHour !== 'number' || w.startHour < 0 || w.startHour > 23 || !Number.isInteger(w.startHour) ||
+        typeof w.endHour !== 'number' || w.endHour < 1 || w.endHour > 24 || !Number.isInteger(w.endHour) ||
+        w.endHour <= w.startHour
+      ) {
+        res.status(400).json({ error: 'Each window must have day (0-6), startHour (0-23), endHour (1-24) with endHour > startHour' }); return;
+      }
     }
     await prisma.profile.update({
       where: { userId: req.uid },

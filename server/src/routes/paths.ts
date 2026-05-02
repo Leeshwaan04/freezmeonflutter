@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
 import { geohashForCoords, getGeohashRanges, kmBetween } from '../services/geo';
 import { sendPushNotification } from '../services/fcm';
+import { isValidLat, isValidLng } from '../utils/validate';
 
 const router = Router();
 router.use(requireAuth);
@@ -12,6 +13,12 @@ router.post('/presence', async (req: Request, res: Response) => {
   try {
     const { lat, lng, intents, radiusKm, visibleForMinutes = 60 } = req.body;
     if (lat == null || lng == null) { res.status(400).json({ error: 'lat and lng required' }); return; }
+    if (!isValidLat(lat) || !isValidLng(lng)) {
+      res.status(400).json({ error: 'lat must be -90 to 90, lng must be -180 to 180' }); return;
+    }
+    if (visibleForMinutes < 1 || visibleForMinutes > 480) {
+      res.status(400).json({ error: 'visibleForMinutes must be 1–480' }); return;
+    }
 
     const geohash = geohashForCoords(lat, lng);
     const visibleUntil = new Date(Date.now() + visibleForMinutes * 60 * 1000);
@@ -48,6 +55,12 @@ router.get('/nearby', async (req: Request, res: Response) => {
     const radiusKm = parseFloat(req.query.radius as string ?? '5');
 
     if (isNaN(lat) || isNaN(lng)) { res.status(400).json({ error: 'lat and lng required' }); return; }
+    if (!isValidLat(lat) || !isValidLng(lng)) {
+      res.status(400).json({ error: 'lat must be -90 to 90, lng must be -180 to 180' }); return;
+    }
+    if (isNaN(radiusKm) || radiusKm < 0.1 || radiusKm > 100) {
+      res.status(400).json({ error: 'radius must be 0.1–100 km' }); return;
+    }
 
     const ranges = getGeohashRanges(lat, lng, radiusKm);
     const now = new Date();
@@ -84,6 +97,17 @@ router.post('/invite', async (req: Request, res: Response) => {
   try {
     const { receiverUid, intent } = req.body;
     if (!receiverUid || !intent) { res.status(400).json({ code: 'MISSING_FIELD', error: 'receiverUid and intent required' }); return; }
+    if (receiverUid === req.uid) { res.status(400).json({ code: 'INVALID_RECEIVER', error: 'Cannot invite yourself' }); return; }
+
+    // Verify receiver exists to avoid orphaned invites
+    const receiverExists = await prisma.user.findUnique({ where: { id: receiverUid }, select: { id: true } });
+    if (!receiverExists) { res.status(404).json({ code: 'USER_NOT_FOUND', error: 'Receiver not found' }); return; }
+
+    // Prevent duplicate pending invites between same pair
+    const duplicateInvite = await prisma.pathInvite.findFirst({
+      where: { senderUid: req.uid, receiverUid, status: 'pending', expiresAt: { gt: new Date() } },
+    });
+    if (duplicateInvite) { res.status(409).json({ code: 'ALREADY_INVITED', error: 'You already have a pending invite to this user' }); return; }
 
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h expiry
     const invite = await prisma.pathInvite.create({

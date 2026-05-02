@@ -30,11 +30,15 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    // note: using listen: false in initState is standard, 
-    // but if we want it strictly reactive we should rely on build. 
-    // For simplicity, we init here and update on change.
     consented = AppFlowScope.of(context, listen: false).blindsConsent;
-    
+
+    // Show consent dialog on first visit if not yet agreed
+    if (!consented) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showConsentDialog();
+      });
+    }
+
     _diceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -50,6 +54,38 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
     _diceController.dispose();
     _cardController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showConsentDialog() async {
+    final flow = AppFlowScope.of(context, listen: false);
+    final agreed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Blinds Ground Rules'),
+        content: const Text(
+          '• Blinds are fully anonymous — no names, no photos.\n'
+          '• Be kind and respectful in every chat.\n'
+          '• Don\'t share personal contact details immediately.\n'
+          '• Chats auto-close unless you both vibe.\n\n'
+          'Do you agree to chat respectfully?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No thanks'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('I Agree'),
+          ),
+        ],
+      ),
+    );
+    if (agreed == true && mounted) {
+      setState(() => consented = true);
+      flow.setBlindsConsent(true);
+    }
   }
 
   Future<void> _onDiceTap(AppFlowController flow) async {
@@ -133,8 +169,8 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                             child: GestureDetector(
                               onTap: () => _onDiceTap(flow),
                               child: Container(
-                                width: 140,
-                                height: 140,
+                                width: MediaQuery.sizeOf(context).width * 0.37,
+                                height: MediaQuery.sizeOf(context).width * 0.37,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   gradient: consented
@@ -177,8 +213,8 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                                   children: [
                                     // Inner circle for depth
                                     Container(
-                                      width: 120,
-                                      height: 120,
+                                      width: MediaQuery.sizeOf(context).width * 0.32,
+                                      height: MediaQuery.sizeOf(context).width * 0.32,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         gradient: LinearGradient(
@@ -285,7 +321,7 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                           ),
                           const SizedBox(height: 16),
                           CheckboxListTile(
-                            contentPadding: EdgeInsets.zero,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                             activeColor: FreezmeDesignSystem.primary,
                             title: const Text('I agree to chat respectfully', style: TextStyle(fontWeight: FontWeight.w500)),
                             value: consented,
@@ -296,7 +332,7 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                           ),
                           const Divider(color: FreezmeDesignSystem.border),
                           SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                             activeTrackColor: FreezmeDesignSystem.primary,
                             title: const Text('Allow Reveal', style: TextStyle(fontWeight: FontWeight.w500)),
                             subtitle: const Text('Show profile after mutual thumbs up'),
@@ -308,11 +344,12 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                           ),
                           const Divider(color: FreezmeDesignSystem.border),
                           ListTile(
-                            contentPadding: EdgeInsets.zero,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                             title: const Text('Intent', style: TextStyle(fontWeight: FontWeight.w500)),
                             trailing: DropdownButton<String>(
                               value: _selectedIntent,
                               underline: const SizedBox(),
+                              isDense: true,
                               items: const [
                                 DropdownMenuItem(value: 'friends', child: Text('Friends')),
                                 DropdownMenuItem(value: 'dates', child: Text('Dates')),
@@ -322,11 +359,12 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                             ),
                           ),
                           ListTile(
-                            contentPadding: EdgeInsets.zero,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                             title: const Text('Distance', style: TextStyle(fontWeight: FontWeight.w500)),
                             trailing: DropdownButton<String>(
                               value: _selectedDistance,
                               underline: const SizedBox(),
+                              isDense: true,
                               items: const [
                                 DropdownMenuItem(value: '5km', child: Text('5 km')),
                                 DropdownMenuItem(value: '10km', child: Text('10 km')),

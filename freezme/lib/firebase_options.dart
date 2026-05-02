@@ -54,7 +54,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '542457497074',
     projectId: 'freezme-844cc',
     storageBucket: 'freezme-844cc.firebasestorage.app',
-    iosBundleId: 'com.freezme.app',
+    iosBundleId: 'com.sumitbagewadi.freezme',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '542457497074',
     projectId: 'freezme-844cc',
     storageBucket: 'freezme-844cc.firebasestorage.app',
-    iosBundleId: 'com.freezme.app',
+    iosBundleId: 'com.sumitbagewadi.freezme',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
