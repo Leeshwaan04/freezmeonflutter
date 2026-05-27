@@ -49,10 +49,6 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Freezme uses the camera when you want to capture new photos for your vibe.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Freezme uses your location to show nearby people on Paths and to surface relevant matches in your area.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Freezme uses your location to show nearby people on Paths and to surface relevant matches in your area.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Freezme uses your location to show nearby people on Paths.</string>
 	<key>LSApplicationQueriesSchemes</key>

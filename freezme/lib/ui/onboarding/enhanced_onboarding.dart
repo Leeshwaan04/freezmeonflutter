@@ -154,13 +154,23 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
         : null;
 
     // Save full profile to backend
-    await controller.updateProfile(
-      name: _name,
-      bio: _bio,
-      interests: _selectedInterests,
-      age: age,
-      gender: _gender,
-    );
+    try {
+      await controller.updateProfile(
+        name: _name,
+        bio: _bio,
+        interests: _selectedInterests,
+        age: age,
+        gender: _gender,
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save profile. Please try again.')),
+        );
+      }
+      return;
+    }
 
     controller.completeOnboarding();
     // No set state needed as we navigate away

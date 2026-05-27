@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/localization_service.dart';
 import '../theme.dart';
 
 class LanguageSelector extends StatefulWidget {
@@ -9,7 +10,7 @@ class LanguageSelector extends StatefulWidget {
 }
 
 class _LanguageSelectorState extends State<LanguageSelector> {
-  String _selectedLocale = 'en';
+  String _selectedLocale = LocalizationService().currentLocale.languageCode;
 
   final List<Map<String, String>> _languages = [
     {'code': 'en', 'name': 'English', 'flag': '🇺🇸'},
@@ -67,15 +68,18 @@ class _LanguageSelectorState extends State<LanguageSelector> {
                 trailing: isSelected
                     ? const Icon(Icons.check_circle, color: FreezmeColors.primary)
                     : null,
-                onTap: () {
-                  setState(() => _selectedLocale = lang['code']!);
-                  // TODO: Apply locale change via LocalizationService
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Language changed to ${lang['name']}'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
+                onTap: () async {
+                  final code = lang['code']!;
+                  setState(() => _selectedLocale = code);
+                  await LocalizationService().setLocale(code);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Language changed to ${lang['name']}'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
                 },
               ),
             );

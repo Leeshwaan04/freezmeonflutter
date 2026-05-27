@@ -11,6 +11,7 @@ import 'data/ec2_freezme_repository.dart';
 import 'data/mock_freezme_repository.dart';
 import 'services/auth_service.dart';
 import 'services/api_client.dart';
+import 'services/localization_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/websocket_service.dart';
 
@@ -49,6 +50,7 @@ void main() async {
   // Wrap initialization in a fail-safe timeout to prevent white screen hangs
   try {
     await Future.wait([
+      LocalizationService().initialize().timeout(const Duration(seconds: 2)),
       AuthService.instance.init().timeout(const Duration(seconds: 3)),
       AuthService.initGoogleSignIn().timeout(const Duration(seconds: 3)),
       Firebase.initializeApp().timeout(const Duration(seconds: 3)).then((_) {
@@ -102,10 +104,12 @@ class FreezmeApp extends StatefulWidget {
 
 class _FreezmeAppState extends State<FreezmeApp> {
   AppFlowController? _controller;
+  final _localization = LocalizationService();
 
   @override
   void initState() {
     super.initState();
+    _localization.addListener(_onLocaleChanged);
     final builder = widget.controllerBuilder ??
         () => AppFlowController.create(
             Ec2FreezmeRepository(fallback: const MockFreezmeRepository()));
@@ -119,8 +123,11 @@ class _FreezmeAppState extends State<FreezmeApp> {
     });
   }
 
+  void _onLocaleChanged() => setState(() {});
+
   @override
   void dispose() {
+    _localization.removeListener(_onLocaleChanged);
     _controller?.dispose();
     WebSocketService.instance.dispose();
     AuthService.instance.dispose();
@@ -144,6 +151,8 @@ class _FreezmeAppState extends State<FreezmeApp> {
         title: 'Freezme',
         debugShowCheckedModeBanner: false,
         theme: FreezmeTheme.build(),
+        locale: _localization.currentLocale,
+        supportedLocales: _localization.supportedLocales,
         home: const FlowNavigator(),
       ),
     );
