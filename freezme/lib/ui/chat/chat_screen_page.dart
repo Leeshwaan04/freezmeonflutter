@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
@@ -274,7 +275,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                       child: CircleAvatar(
                         radius: 22,
                         backgroundColor: FreezmeDesignSystem.surfaceAlt,
-                        backgroundImage: NetworkImage(
+                        backgroundImage: CachedNetworkImageProvider(
                           profile?.imageUrl ??
                               'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=320',
                         ),

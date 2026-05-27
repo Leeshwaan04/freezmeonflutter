@@ -124,8 +124,23 @@ new Worker(
 
     if (type === 'old_messages') {
       const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-      const deleted = await prisma.message.deleteMany({ where: { createdAt: { lt: cutoff } } });
-      logger.info({ msg: 'old_messages_pruned', count: deleted.count });
+      // Batch deletes to avoid locking the table for large datasets
+      let totalDeleted = 0;
+      for (let i = 0; i < 200; i++) {
+        const ids = await prisma.message.findMany({
+          where: { createdAt: { lt: cutoff } },
+          select: { id: true },
+          take: 5_000,
+        });
+        if (ids.length === 0) break;
+        const batch = await prisma.message.deleteMany({
+          where: { id: { in: ids.map(r => r.id) } },
+        });
+        totalDeleted += batch.count;
+        // Small pause between batches to reduce DB pressure
+        await new Promise(r => setTimeout(r, 50));
+      }
+      logger.info({ msg: 'old_messages_pruned', count: totalDeleted });
     }
 
     if (type === 'expired_path_invites') {
@@ -186,49 +201,59 @@ new Worker(
       if (closed.count > 0) logger.info({ msg: 'freeze_rooms_closed', count: closed.count });
     }
 
-    // Recompute presence scores for all profiles
+    // Recompute presence scores for all profiles — bulk SQL (O(1) queries vs O(U×4))
     if (type === 'presence_score_update') {
-      const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const cutoff7d  = new Date(Date.now() - 7  * 24 * 60 * 60 * 1000);
+      // Single UPDATE using correlated subqueries — replaces per-user loop
+      await prisma.$executeRaw`
+        UPDATE "Profile" p
+        SET
+          "presenceScore" = LEAST(100, ROUND(
+            -- Activity frequency: up to 40 pts (1 event/day = full)
+            LEAST(
+              (SELECT COUNT(*) FROM "PresenceEvent"
+               WHERE uid = p."userId"
+               AND "createdAt" >= NOW() - INTERVAL '30 days') / 30.0, 1
+            ) * 40
+            +
+            -- Recency: up to 30 pts (active last 7 days)
+            LEAST(
+              (SELECT COUNT(*) FROM "PresenceEvent"
+               WHERE uid = p."userId"
+               AND "createdAt" >= NOW() - INTERVAL '7 days') / 7.0, 1
+            ) * 30
+            +
+            -- Conversation depth: up to 30 pts (10 messages sent in 7d = full)
+            LEAST(
+              (SELECT COUNT(*) FROM "Message"
+               WHERE "senderUid" = p."userId"
+               AND "createdAt" >= NOW() - INTERVAL '7 days') / 10.0, 1
+            ) * 30
+          )::int),
+          "presenceLabel" = CASE
+            WHEN LEAST(100, ROUND(
+              LEAST((SELECT COUNT(*) FROM "PresenceEvent" WHERE uid = p."userId" AND "createdAt" >= NOW() - INTERVAL '30 days') / 30.0, 1) * 40
+              + LEAST((SELECT COUNT(*) FROM "PresenceEvent" WHERE uid = p."userId" AND "createdAt" >= NOW() - INTERVAL '7 days') / 7.0, 1) * 30
+              + LEAST((SELECT COUNT(*) FROM "Message" WHERE "senderUid" = p."userId" AND "createdAt" >= NOW() - INTERVAL '7 days') / 10.0, 1) * 30
+            )::int) >= 80 THEN 'in_the_fire'
+            WHEN LEAST(100, ROUND(
+              LEAST((SELECT COUNT(*) FROM "PresenceEvent" WHERE uid = p."userId" AND "createdAt" >= NOW() - INTERVAL '30 days') / 30.0, 1) * 40
+              + LEAST((SELECT COUNT(*) FROM "PresenceEvent" WHERE uid = p."userId" AND "createdAt" >= NOW() - INTERVAL '7 days') / 7.0, 1) * 30
+              + LEAST((SELECT COUNT(*) FROM "Message" WHERE "senderUid" = p."userId" AND "createdAt" >= NOW() - INTERVAL '7 days') / 10.0, 1) * 30
+            )::int) >= 50 THEN 'in_the_flow'
+            WHEN LEAST(100, ROUND(
+              LEAST((SELECT COUNT(*) FROM "PresenceEvent" WHERE uid = p."userId" AND "createdAt" >= NOW() - INTERVAL '30 days') / 30.0, 1) * 40
+              + LEAST((SELECT COUNT(*) FROM "PresenceEvent" WHERE uid = p."userId" AND "createdAt" >= NOW() - INTERVAL '7 days') / 7.0, 1) * 30
+              + LEAST((SELECT COUNT(*) FROM "Message" WHERE "senderUid" = p."userId" AND "createdAt" >= NOW() - INTERVAL '7 days') / 10.0, 1) * 30
+            )::int) >= 20 THEN 'in_the_quiet'
+            ELSE 'frozen'
+          END
+      `;
 
-      const profiles = await prisma.profile.findMany({ select: { userId: true } });
-
-      for (const p of profiles) {
-        const [events30d, events7d, messagesSent7d, matchesResponded7d] = await Promise.all([
-          prisma.presenceEvent.count({ where: { uid: p.userId, createdAt: { gte: cutoff30d } } }),
-          prisma.presenceEvent.count({ where: { uid: p.userId, createdAt: { gte: cutoff7d } } }),
-          prisma.message.count({ where: { senderUid: p.userId, createdAt: { gte: cutoff7d } } }),
-          prisma.message.count({
-            where: {
-              senderUid: p.userId,
-              createdAt: { gte: cutoff7d },
-              chat: { messages: { some: { senderUid: { not: p.userId } } } },
-            },
-          }),
-        ]);
-
-        // Score: activity frequency (40) + recency (30) + conversation depth (30)
-        const activityScore  = Math.min(events30d / 30, 1) * 40;   // 1 event/day = full score
-        const recencyScore   = Math.min(events7d / 7, 1) * 30;     // active last 7d
-        const depthScore     = Math.min((messagesSent7d + matchesResponded7d) / 10, 1) * 30;
-
-        const presenceScore  = Math.round(activityScore + recencyScore + depthScore);
-
-        const presenceLabel  = presenceScore >= 80 ? 'in_the_fire'
-          : presenceScore >= 50 ? 'in_the_flow'
-          : presenceScore >= 20 ? 'in_the_quiet'
-          : 'frozen';
-
-        await prisma.profile.update({
-          where: { userId: p.userId },
-          data: { presenceScore, presenceLabel },
-        });
-      }
-
-      logger.info({ msg: 'presence_scores_updated', count: profiles.length });
+      const count = await prisma.profile.count();
+      logger.info({ msg: 'presence_scores_updated', count });
     }
   },
-  { connection }
+  { connection, concurrency: 1 }  // Only one cleanup job at a time to avoid DB overload
 );
 
 // ── Scheduled recurring jobs ─────────────────────────────────────────────────

@@ -187,15 +187,22 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     await _client.dio.post<void>('/matching/skip', data: {'targetUid': targetUid});
   }
 
+  Future<List<Map<String, dynamic>>>? _fetchMatchesInFlight;
+
   @override
   Future<List<Map<String, dynamic>>> fetchMatches() async {
+    // Deduplicate concurrent calls — return the same future if one is already in flight
+    if (_fetchMatchesInFlight != null) return _fetchMatchesInFlight!;
+    _fetchMatchesInFlight = _doFetchMatches().whenComplete(() {
+      _fetchMatchesInFlight = null;
+    });
+    return _fetchMatchesInFlight!;
+  }
+
+  Future<List<Map<String, dynamic>>> _doFetchMatches() async {
     try {
-      // Use /chats so the returned `id` is the Chat id (needed to load messages)
-      // Each chat includes otherProfile with name/imageUrl, and messages[0] for preview
-      final response =
-          await _client.dio.get<List<dynamic>>('/chats');
-      return (response.data ?? [])
-          .cast<Map<String, dynamic>>();
+      final response = await _client.dio.get<List<dynamic>>('/chats');
+      return (response.data ?? []).cast<Map<String, dynamic>>();
     } catch (e) {
       debugPrint('[Ec2Repo] fetchMatches error: $e');
       return [];
@@ -204,7 +211,6 @@ class Ec2FreezmeRepository implements FreezmeRepository {
 
   @override
   Stream<List<Map<String, dynamic>>> watchMatches() {
-    // Emit initial + update on each new match/message event
     final controller = StreamController<List<Map<String, dynamic>>>();
 
     Future<void> fetch() async {
@@ -213,13 +219,9 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     }
 
     fetch();
-    // Refresh chat list when a new match or message arrives
+    // Only refresh on new match — NOT on every message (avoids O(M) refetches per session)
     final sub1 = _ws.onMatchNew.listen((_) => fetch());
-    final sub2 = _ws.onChatMessage.listen((_) => fetch());
-    controller.onCancel = () {
-      sub1.cancel();
-      sub2.cancel();
-    };
+    controller.onCancel = sub1.cancel;
 
     return controller.stream;
   }
@@ -302,16 +304,23 @@ class Ec2FreezmeRepository implements FreezmeRepository {
 
     loadHistory();
 
+    Timer? _persistDebounce;
     final sub = _ws.chatMessages(chatId).listen((event) {
       final msg = ChatMessage.fromJson(
           event['message'] as Map<String, dynamic>);
       buffer.add(msg);
       if (!controller.isClosed) controller.add(List.from(buffer));
-      // Persist incrementally on every new message
-      unawaited(_persistMessages(chatId, buffer));
+      // Debounce disk writes — batch rapid messages into one write every 2s
+      _persistDebounce?.cancel();
+      _persistDebounce = Timer(const Duration(seconds: 2), () {
+        unawaited(_persistMessages(chatId, List.from(buffer)));
+      });
     });
+    controller.onCancel = () {
+      _persistDebounce?.cancel();
+      sub.cancel();
+    };
 
-    controller.onCancel = sub.cancel;
     return controller.stream;
   }
 

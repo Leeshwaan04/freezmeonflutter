@@ -133,6 +133,7 @@ model Chat {
 
   @@index([members])
   @@index([updatedAt])
+  @@index([matchId])
 }
 
 model Message {
@@ -202,6 +203,7 @@ model BlindsQueue {
   createdAt      DateTime @default(now())
 
   @@index([intent, distanceBucket])
+  @@index([availableUntil])
 }
 
 model BlindsSession {

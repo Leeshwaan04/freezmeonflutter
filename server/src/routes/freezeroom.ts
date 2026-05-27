@@ -161,78 +161,88 @@ router.post('/reveal', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'Already revealed to this person' }); return;
     }
 
-    // Update reveals list
-    const updatedReveals = [...myPart.reveals, targetUid];
-    await prisma.freezeRoomParticipant.update({
-      where: { roomId_uid: { roomId, uid: req.uid } },
-      data: { reveals: updatedReveals },
-    });
+    // Update reveals list + check for mutual match inside a transaction to prevent race conditions
+    const [userA, userB] = [req.uid, targetUid].sort();
+    const txResult = await prisma.$transaction(async (tx) => {
+      // Re-read my participant record inside transaction for consistency
+      const myPartTx = await tx.freezeRoomParticipant.findUnique({
+        where: { roomId_uid: { roomId, uid: req.uid } },
+      });
+      if (!myPartTx) return null;
+      if (myPartTx.reveals.includes(targetUid)) return { alreadyRevealed: true };
 
-    // Check if target also revealed to me → mutual match!
-    const theirPart = await prisma.freezeRoomParticipant.findUnique({
-      where: { roomId_uid: { roomId, uid: targetUid } },
-    });
-
-    if (theirPart?.reveals.includes(req.uid)) {
-      // Mutual reveal — create FreezeMatch + regular Match + Chat
-      const [userA, userB] = [req.uid, targetUid].sort();
-
-      const existing = await prisma.freezeMatch.findUnique({
-        where: { userA_userB: { userA, userB } },
+      // Update my reveals
+      await tx.freezeRoomParticipant.update({
+        where: { roomId_uid: { roomId, uid: req.uid } },
+        data: { reveals: [...myPartTx.reveals, targetUid] },
       });
 
-      if (!existing) {
-        await prisma.freezeMatch.create({ data: { roomId, userA, userB } });
+      // Read target's reveals inside the same transaction
+      const theirPartTx = await tx.freezeRoomParticipant.findUnique({
+        where: { roomId_uid: { roomId, uid: targetUid } },
+      });
 
-        // Create a real match + chat so they can message
-        const match = await prisma.match.create({
-          data: { members: [userA, userB], status: 'active' },
-        });
-        await prisma.chat.create({
-          data: { members: [userA, userB], matchId: match.id },
-        });
+      if (!theirPartTx?.reveals.includes(req.uid)) {
+        return { mutual: false };
+      }
 
-        // Fetch profiles for notification
-        const [profileA, profileB] = await Promise.all([
+      // Mutual — create FreezeMatch idempotently
+      const existing = await tx.freezeMatch.findUnique({
+        where: { userA_userB: { userA, userB } },
+      });
+      if (existing) return { mutual: true, matchId: existing.id, isNew: false };
+
+      await tx.freezeMatch.create({ data: { roomId, userA, userB } });
+      const match = await tx.match.create({
+        data: { members: [userA, userB], status: 'active' },
+      });
+      await tx.chat.create({
+        data: { members: [userA, userB], matchId: match.id },
+      });
+      return { mutual: true, matchId: match.id, isNew: true };
+    });
+
+    if (!txResult) { res.status(403).json({ error: 'Not in this room' }); return; }
+    if ((txResult as any).alreadyRevealed) {
+      res.status(400).json({ error: 'Already revealed to this person' }); return;
+    }
+
+    if ((txResult as any).mutual) {
+      const { matchId, isNew } = txResult as any;
+      if (isNew) {
+        // Fetch profiles + notify outside transaction
+        const [profileA, profileB, userARecord, userBRecord] = await Promise.all([
           prisma.profile.findUnique({ where: { userId: userA } }),
           prisma.profile.findUnique({ where: { userId: userB } }),
+          prisma.user.findUnique({ where: { id: userA } }),
+          prisma.user.findUnique({ where: { id: userB } }),
         ]);
 
-        // Notify both via socket
         io.to(`user:${userA}`).emit('freeze_room:match', {
-          matchId: match.id,
+          matchId,
           otherUid: userB,
           otherName: profileB?.name ?? 'Someone',
           otherImageUrl: profileB?.imageUrl ?? null,
           fromRoom: roomId,
         });
         io.to(`user:${userB}`).emit('freeze_room:match', {
-          matchId: match.id,
+          matchId,
           otherUid: userA,
           otherName: profileA?.name ?? 'Someone',
           otherImageUrl: profileA?.imageUrl ?? null,
           fromRoom: roomId,
         });
 
-        // Push notifications
-        const [userARecord, userBRecord] = await Promise.all([
-          prisma.user.findUnique({ where: { id: userA } }),
-          prisma.user.findUnique({ where: { id: userB } }),
-        ]);
         if (userARecord?.fcmToken) {
           await enqueuePush(userARecord.fcmToken, '❄️ It\'s a Freeze Match!',
-            `You and ${profileB?.name ?? 'someone'} revealed to each other`, { type: 'freeze_match', matchId: match.id });
+            `You and ${profileB?.name ?? 'someone'} revealed to each other`, { type: 'freeze_match', matchId });
         }
         if (userBRecord?.fcmToken) {
           await enqueuePush(userBRecord.fcmToken, '❄️ It\'s a Freeze Match!',
-            `You and ${profileA?.name ?? 'someone'} revealed to each other`, { type: 'freeze_match', matchId: match.id });
+            `You and ${profileA?.name ?? 'someone'} revealed to each other`, { type: 'freeze_match', matchId });
         }
-
-        res.json({ mutual: true, matchId: match.id });
-        return;
       }
-      // Match already existed between these users
-      res.json({ mutual: true, matchId: existing.id });
+      res.json({ mutual: true, matchId });
       return;
     }
 

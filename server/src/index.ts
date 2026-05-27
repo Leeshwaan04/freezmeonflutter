@@ -5,6 +5,7 @@ import http from 'http';
 import path from 'path';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
+import compression from 'compression';
 import helmet from 'helmet';
 
 import { logger } from './services/logger';
@@ -54,6 +55,7 @@ applyRedisAdapter(io);
 // ── Middleware ──────────────────────────────────────────────────────────────
 
 app.set('trust proxy', 1); // behind nginx
+app.use(compression()); // gzip responses — ~60-70% bandwidth reduction
 app.use(helmet());
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json({ limit: '1mb' }));

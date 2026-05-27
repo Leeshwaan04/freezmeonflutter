@@ -137,6 +137,8 @@ export function setupSocket(io: Server): void {
     // ── PRESENCE ────────────────────────────────────────────────────────────
 
     socket.on('presence:ping', async () => {
+      // Debounce: only write to DB once per minute per user — prevents 330+ writes/sec at scale
+      if (!socketRateLimit(uid, 'presence:ping', 1, 60_000)) return;
       await prisma.user.update({ where: { id: uid }, data: { lastActiveAt: new Date() } }).catch(() => {});
     });
 

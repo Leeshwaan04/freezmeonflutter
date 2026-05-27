@@ -408,7 +408,7 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
     const myDistanceCap = myProfile.distanceKm ?? 50;
     const hasMyLocation = myProfile.lat != null && myProfile.lng != null;
 
-    // Fetch candidate pool — 100 to score down to 20 (larger pool for better quality)
+    // Fetch candidate pool — 100 to score down to 20 (select only scoring fields, not full profile)
     const candidates = await prisma.profile.findMany({
       where: {
         userId: { notIn: Array.from(excluded) },
@@ -416,6 +416,33 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
         ...genderFilter,
         ...ageFilter,
         ...intentFilter,
+      },
+      select: {
+        userId: true,
+        name: true,
+        age: true,
+        bio: true,
+        imageUrl: true,
+        gender: true,
+        genderPrefs: true,
+        interests: true,
+        personalityTraits: true,
+        lifestyleFactors: true,
+        energyType: true,
+        paceSignal: true,
+        archetype: true,
+        promptAnswer: true,
+        lat: true,
+        lng: true,
+        presenceScore: true,
+        presenceLabel: true,
+        presenceWindows: true,
+        ageMin: true,
+        ageMax: true,
+        distanceKm: true,
+        intent: true,
+        isPremium: true,
+        updatedAt: true,
       },
       take: 100,
       orderBy: { presenceScore: 'desc' },

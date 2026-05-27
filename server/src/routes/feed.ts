@@ -90,9 +90,11 @@ router.delete('/:id/like', async (req: Request, res: Response) => {
 // GET /feed/:id/comments
 router.get('/:id/comments', async (req: Request, res: Response) => {
   try {
+    const limit = Math.min(parseInt(req.query.limit as string ?? '50'), 100);
     const comments = await prisma.postComment.findMany({
       where: { postId: req.params.id },
       orderBy: { createdAt: 'asc' },
+      take: limit,
     });
     res.json(comments);
   } catch (err) {
