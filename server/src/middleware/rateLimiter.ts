@@ -23,7 +23,7 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   store: new RedisStore({ sendCommand }),
   message: { error: 'Too many auth attempts. Try again in a minute.' },
-  skipSuccessfulRequests: true,
+  skipSuccessfulRequests: false, // count ALL attempts — successful logins included
 });
 
 // Per-user action limiter (like, skip, message send) — 60/min

@@ -1,3 +1,4 @@
+import path from 'path';
 import { Router, Request, Response } from 'express';
 import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { requireAuth } from '../middleware/auth';
@@ -90,22 +91,23 @@ router.post('/confirm', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'key required' }); return;
     }
 
-    // Ownership check — key must start with uploads/<uid>/
-    const expectedPrefix = `uploads/${req.uid}/`;
-    if (!key.startsWith(expectedPrefix)) {
-      logger.warn({ msg: 'storage_confirm_ownership_fail', uid: req.uid, key });
-      res.status(403).json({ error: 'Forbidden' }); return;
+    // Normalize and guard against path traversal (handles ../, %2e%2e, etc.)
+    const normalizedKey = path.posix.normalize(key);
+    if (normalizedKey !== key || key.includes('..') || key.includes('//') || key.startsWith('/')) {
+      res.status(400).json({ error: 'Invalid key' }); return;
     }
 
-    // Path traversal guard
-    if (key.includes('..') || key.includes('//')) {
-      res.status(400).json({ error: 'Invalid key' }); return;
+    // Ownership check — key must start with uploads/<uid>/
+    const expectedPrefix = `uploads/${req.uid}/`;
+    if (!normalizedKey.startsWith(expectedPrefix)) {
+      logger.warn({ msg: 'storage_confirm_ownership_fail', uid: req.uid, key });
+      res.status(403).json({ error: 'Forbidden' }); return;
     }
 
     // Fetch just the first 16 bytes from S3 to check magic bytes
     let headBuf: Buffer;
     try {
-      const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: key, Range: 'bytes=0-15' });
+      const cmd = new GetObjectCommand({ Bucket: BUCKET, Key: normalizedKey, Range: 'bytes=0-15' });
       const obj = await s3.send(cmd);
       const chunks: Buffer[] = [];
       for await (const chunk of obj.Body as AsyncIterable<Uint8Array>) {
@@ -121,9 +123,9 @@ router.post('/confirm', async (req: Request, res: Response) => {
     if (!detectMagicBytes(headBuf)) {
       // Delete the rejected file from S3
       try {
-        await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+        await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: normalizedKey }));
       } catch (_) { /* best effort */ }
-      logger.warn({ msg: 'storage_confirm_magic_fail', uid: req.uid, key, bytes: headBuf.toString('hex') });
+      logger.warn({ msg: 'storage_confirm_magic_fail', uid: req.uid, key: normalizedKey, bytes: headBuf.toString('hex') });
       res.status(400).json({ error: 'Unsupported or corrupt image file.' }); return;
     }
 
@@ -131,9 +133,9 @@ router.post('/confirm', async (req: Request, res: Response) => {
     if (!CDN_BASE) {
       res.status(500).json({ error: 'CDN not configured' }); return;
     }
-    const cdnUrl = `${CDN_BASE}/${key}`;
+    const cdnUrl = `${CDN_BASE}/${normalizedKey}`;
 
-    logger.info({ msg: 'storage_confirm_ok', uid: req.uid, key });
+    logger.info({ msg: 'storage_confirm_ok', uid: req.uid, key: normalizedKey });
     res.json({ cdnUrl });
   } catch (err) {
     logger.error({ msg: 'storage_confirm_error', err });

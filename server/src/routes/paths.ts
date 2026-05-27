@@ -4,6 +4,7 @@ import { prisma } from '../db/client';
 import { geohashForCoords, getGeohashRanges, kmBetween } from '../services/geo';
 import { sendPushNotification } from '../services/fcm';
 import { isValidLat, isValidLng } from '../utils/validate';
+import { logger } from '../services/logger';
 
 const router = Router();
 router.use(requireAuth);
@@ -31,7 +32,7 @@ router.post('/presence', async (req: Request, res: Response) => {
 
     res.json(presence);
   } catch (err) {
-    console.error('[paths/presence]', err);
+    logger.error({ msg: 'paths_presence_error', err });
     res.status(500).json({ error: 'Failed to update paths presence' });
   }
 });
@@ -42,7 +43,7 @@ router.delete('/presence', async (req: Request, res: Response) => {
     await prisma.pathsPresence.deleteMany({ where: { uid: req.uid } });
     res.json({ success: true });
   } catch (err) {
-    console.error('[paths/presence DELETE]', err);
+    logger.error({ msg: 'paths_presence_delete_error', err });
     res.status(500).json({ error: 'Failed to delete paths presence' });
   }
 });
@@ -87,7 +88,7 @@ router.get('/nearby', async (req: Request, res: Response) => {
 
     res.json(enriched);
   } catch (err) {
-    console.error('[paths/nearby]', err);
+    logger.error({ msg: 'paths_nearby_error', err });
     res.status(500).json({ error: 'Failed to fetch nearby paths' });
   }
 });
@@ -139,11 +140,19 @@ router.post('/invite/:id/respond', async (req: Request, res: Response) => {
   try {
     const { status } = req.body; // 'accepted' | 'declined' | 'cancelled'
     if (!status) { res.status(400).json({ error: 'status required' }); return; }
+    if (!['accepted', 'declined', 'cancelled'].includes(status)) {
+      res.status(400).json({ error: 'status must be accepted, declined, or cancelled' }); return;
+    }
 
     const invite = await prisma.pathInvite.findUnique({ where: { id: req.params.id } });
     if (!invite) { res.status(404).json({ error: 'Invite not found' }); return; }
-    if (invite.receiverUid !== req.uid && invite.senderUid !== req.uid) {
-      res.status(403).json({ error: 'Access denied' }); return;
+
+    // Only receiver can accept/decline; only sender can cancel
+    if (status === 'cancelled' && invite.senderUid !== req.uid) {
+      res.status(403).json({ error: 'Only the sender can cancel an invite' }); return;
+    }
+    if ((status === 'accepted' || status === 'declined') && invite.receiverUid !== req.uid) {
+      res.status(403).json({ error: 'Only the receiver can accept or decline' }); return;
     }
 
     const updated = await prisma.pathInvite.update({

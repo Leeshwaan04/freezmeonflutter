@@ -145,6 +145,7 @@ model Message {
   status        String    @default("sent")
   deliveredAt   DateTime?
   readAt        DateTime?
+  deletedAt     DateTime? // set when sender deletes; text cleared to '[deleted]'
   createdAt     DateTime  @default(now())
   chat          Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
 

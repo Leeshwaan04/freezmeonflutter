@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
-import { enqueuePush } from '../jobs/queues';
-import { scheduleMeltExpiry } from '../jobs/queues';
+import { enqueuePush, scheduleMeltExpiry } from '../jobs/queues';
+import { logger } from '../services/logger';
 
 const router = Router();
 router.use(requireAuth);
@@ -45,7 +45,7 @@ router.post('/invite', async (req: Request, res: Response) => {
 
     res.json(session);
   } catch (err) {
-    console.error('[melt/invite]', err);
+    logger.error({ msg: 'melt_invite_error', err });
     res.status(500).json({ error: 'Failed to create Melt invite' });
   }
 });
@@ -55,8 +55,12 @@ router.patch('/invite/:id', async (req: Request, res: Response) => {
   try {
     const { status } = req.body; // 'accepted' | 'declined'
     if (!status) { res.status(400).json({ error: 'status required' }); return; }
+    if (!['accepted', 'declined'].includes(status)) {
+      res.status(400).json({ error: 'status must be accepted or declined' }); return;
+    }
 
     const session = await prisma.meltSession.findUnique({ where: { id: req.params.id } });
+    // Only the target (receiver) can accept or decline — host cannot accept their own invite
     if (!session || session.targetUid !== req.uid) {
       res.status(403).json({ error: 'Access denied' }); return;
     }

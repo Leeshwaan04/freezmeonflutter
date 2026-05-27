@@ -4,6 +4,7 @@ import { prisma } from '../db/client';
 import { scheduleBlindExpiry, enqueuePush } from '../jobs/queues';
 import { io } from '../index';
 import { isValidIntent, isValidDistanceBucket, isValidInterests } from '../utils/validate';
+import { logger } from '../services/logger';
 
 const router = Router();
 router.use(requireAuth);
@@ -118,7 +119,7 @@ router.post('/enqueue', async (req: Request, res: Response) => {
       res.json({ queued: true, entry });
     }
   } catch (err) {
-    console.error('[blinds/enqueue]', err);
+    logger.error({ msg: 'blinds_enqueue_error', err });
     res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to enqueue' });
   }
 });

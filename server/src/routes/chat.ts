@@ -80,4 +80,26 @@ router.post('/:chatId/read', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /chats/:chatId/messages/:messageId — soft-delete (clear text, keep record for delivery state)
+router.delete('/:chatId/messages/:messageId', async (req: Request, res: Response) => {
+  try {
+    const { chatId, messageId } = req.params;
+
+    const message = await prisma.message.findUnique({ where: { id: messageId } });
+    if (!message) { res.status(404).json({ code: 'NOT_FOUND', error: 'Message not found' }); return; }
+    if (message.chatId !== chatId) { res.status(400).json({ code: 'INVALID', error: 'Message does not belong to this chat' }); return; }
+    if (message.senderUid !== req.uid) { res.status(403).json({ code: 'FORBIDDEN', error: 'Can only delete your own messages' }); return; }
+
+    // Soft-delete: clear content but preserve delivery metadata (GDPR erasure)
+    const updated = await prisma.message.update({
+      where: { id: messageId },
+      data: { text: '[deleted]', deletedAt: new Date() },
+    });
+
+    res.json({ deleted: true, message: updated });
+  } catch (err) {
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to delete message' });
+  }
+});
+
 export default router;

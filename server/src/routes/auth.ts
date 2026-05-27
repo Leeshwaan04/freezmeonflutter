@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { logger } from '../services/logger';
 import { prisma } from '../db/client';
 import { verifyGoogleToken } from '../services/google-auth';
 import { verifyAppleToken } from '../services/apple-auth';
@@ -53,7 +54,7 @@ router.post('/google', async (req: Request, res: Response) => {
 
     res.json({ ...tokens, user: safeUser({ ...user, displayName: name, photoUrl: photoUrl || googleUser.picture }), hasProfile: !!profile });
   } catch (err) {
-    console.error('[auth/google]', err);
+    logger.error({ msg: 'auth_google_error', err });
     res.status(401).json({ code: 'AUTH_FAILED', error: 'Google authentication failed' });
   }
 });
@@ -81,7 +82,7 @@ router.post('/apple', async (req: Request, res: Response) => {
 
     res.json({ ...tokens, user: safeUser(user), hasProfile: !!profile });
   } catch (err) {
-    console.error('[auth/apple]', err);
+    logger.error({ msg: 'auth_apple_error', err });
     res.status(401).json({ code: 'AUTH_FAILED', error: 'Apple authentication failed' });
   }
 });
@@ -126,7 +127,7 @@ router.post('/email', async (req: Request, res: Response) => {
       res.json({ ...tokens, user: safeUser(user), hasProfile: !!profile });
     }
   } catch (err) {
-    console.error('[auth/email]', err);
+    logger.error({ msg: 'auth_email_error', err });
     res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Authentication failed' });
   }
 });
@@ -188,7 +189,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     await sendPasswordResetEmail(email, token);
     res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
   } catch (err) {
-    console.error('[auth/forgot-password]', err);
+    logger.error({ msg: 'auth_forgot_password_error', err });
     res.status(500).json({ error: 'Failed to process request' });
   }
 });
@@ -219,7 +220,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
     res.json({ success: true, message: 'Password updated. Please log in again.' });
   } catch (err) {
-    console.error('[auth/reset-password]', err);
+    logger.error({ msg: 'auth_reset_password_error', err });
     res.status(500).json({ error: 'Failed to reset password' });
   }
 });
@@ -253,7 +254,7 @@ router.post('/send-verification', async (req: Request, res: Response) => {
     await sendEmailVerificationEmail(user.email, token);
     res.json({ success: true, message: 'Verification email sent' });
   } catch (err) {
-    console.error('[auth/send-verification]', err);
+    logger.error({ msg: 'auth_send_verification_error', err });
     res.status(500).json({ error: 'Failed to send verification email' });
   }
 });
@@ -279,7 +280,7 @@ router.get('/verify-email', async (req: Request, res: Response) => {
     // Redirect to app deep link or show success page
     res.redirect(`freezme://email-verified`);
   } catch (err) {
-    console.error('[auth/verify-email]', err);
+    logger.error({ msg: 'auth_verify_email_error', err });
     res.status(500).send('Verification failed. Please try again.');
   }
 });

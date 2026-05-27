@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { getPresignedUploadUrl } from '../services/s3';
 import { prisma } from '../db/client';
+import { logger } from '../services/logger';
 
 const router = Router();
 router.use(requireAuth);
@@ -21,7 +22,7 @@ router.post('/selfie-url', async (req: Request, res: Response) => {
       selfieKey: result.key,
     });
   } catch (err) {
-    console.error('[verification/selfie-url]', err);
+    logger.error({ msg: 'verification_selfie_url_error', err });
     res.status(500).json({ error: 'Failed to generate selfie upload URL' });
   }
 });
@@ -40,7 +41,7 @@ router.post('/selfie-submit', async (req: Request, res: Response) => {
 
     res.json({ success: true, status: 'pending' });
   } catch (err) {
-    console.error('[verification/selfie-submit]', err);
+    logger.error({ msg: 'verification_selfie_submit_error', err });
     res.status(500).json({ error: 'Failed to record verification' });
   }
 });

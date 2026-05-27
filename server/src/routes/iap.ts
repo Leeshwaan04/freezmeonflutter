@@ -27,6 +27,9 @@ function verifyWithApple(hostname: string, payload: string): Promise<any> {
       },
     );
     req.on('error', reject);
+    req.setTimeout(15000, () => {
+      req.destroy(new Error('Apple receipt verification timed out'));
+    });
     req.write(payload);
     req.end();
   });

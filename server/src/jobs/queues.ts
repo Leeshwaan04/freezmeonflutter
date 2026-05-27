@@ -158,6 +158,15 @@ new Worker(
       logger.info({ msg: 'old_blind_sessions_pruned', count: deleted.count });
     }
 
+    if (type === 'old_presence_events') {
+      // Keep 90 days of presence data for scoring; prune the rest
+      const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      const deleted = await prisma.presenceEvent.deleteMany({
+        where: { createdAt: { lt: cutoff } },
+      });
+      logger.info({ msg: 'old_presence_events_pruned', count: deleted.count });
+    }
+
     // Open a new Freeze Room (rolls every 2 hours)
     if (type === 'freeze_room_open') {
       const types: Array<'reflective' | 'playful' | 'values'> = ['reflective', 'playful', 'values'];
@@ -313,6 +322,13 @@ export async function scheduleRecurringJobs(): Promise<void> {
     'old_blind_sessions',
     { type: 'old_blind_sessions' },
     { repeat: { every: 24 * 60 * 60 * 1000 }, jobId: 'old_blind_sessions_daily' }
+  );
+
+  // Prune PresenceEvents older than 90 days — weekly
+  await cleanupQueue.add(
+    'old_presence_events',
+    { type: 'old_presence_events' },
+    { repeat: { every: 7 * 24 * 60 * 60 * 1000 }, jobId: 'old_presence_events_weekly' }
   );
 
   // Open first room immediately on startup
