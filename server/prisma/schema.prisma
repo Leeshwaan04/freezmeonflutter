@@ -354,6 +354,19 @@ model PoolSession {
   @@index([closesAt])
 }
 
+// ── Block list ───────────────────────────────────────────────────────────────
+
+model Block {
+  id          String   @id @default(cuid())
+  blockerUid  String
+  blockedUid  String
+  createdAt   DateTime @default(now())
+
+  @@unique([blockerUid, blockedUid])
+  @@index([blockerUid])
+  @@index([blockedUid])
+}
+
 // ── Presence events (for computing presenceScore) ────────────────────────────
 
 model PresenceEvent {

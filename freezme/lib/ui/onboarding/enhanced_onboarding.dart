@@ -171,7 +171,11 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     switch (_currentStep) {
       case 0: return true; // Welcome
       case 1: return _name.length >= 2; // Name
-      case 2: return _birthDate != null; // Birthday
+      case 2: { // Birthday — must be 18+
+        if (_birthDate == null) return false;
+        final age = DateTime.now().difference(_birthDate!).inDays ~/ 365;
+        return age >= 18;
+      }
       case 3: return _gender.isNotEmpty; // Gender
       case 4: return _selectedInterests.length >= 3; // Interests
       case 5: return controller.uploadedPhotoCount >= 2; // Photos (Require 2)

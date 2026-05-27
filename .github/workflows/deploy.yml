@@ -45,7 +45,8 @@ jobs:
             npm ci --omit=dev
             echo "terms in dist: $(grep -c 'terms' dist/index.js 2>/dev/null || echo 0)"
             echo "public dir: $(ls public/ 2>/dev/null | wc -l) files"
-            npx prisma migrate deploy
+            # Serialise migrations — only one deploy may run at a time
+            flock -w 60 /tmp/freezme-migrate.lock npx prisma migrate deploy
             pm2 restart freezme-api
             sleep 3
             pm2 logs freezme-api --lines 10 --nostream

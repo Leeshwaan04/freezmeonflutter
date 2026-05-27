@@ -14,6 +14,17 @@ router.post('/like', async (req: Request, res: Response) => {
     if (!targetUid) { res.status(400).json({ code: 'MISSING_FIELD', error: 'targetUid required' }); return; }
     if (targetUid === req.uid) { res.status(400).json({ code: 'SELF_LIKE', error: 'Cannot like yourself' }); return; }
 
+    // Reject if either user has blocked the other
+    const block = await prisma.block.findFirst({
+      where: {
+        OR: [
+          { blockerUid: req.uid, blockedUid: targetUid },
+          { blockerUid: targetUid, blockedUid: req.uid },
+        ],
+      },
+    });
+    if (block) { res.status(403).json({ code: 'BLOCKED', error: 'Action not allowed' }); return; }
+
     // Idempotent upsert
     await prisma.like.upsert({
       where: { senderUid_targetUid: { senderUid: req.uid, targetUid } },

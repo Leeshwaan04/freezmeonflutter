@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
+import { sanitizeText } from '../utils/validate';
 
 const router = Router();
 router.use(requireAuth);
@@ -34,13 +35,15 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { content, photoUrls, visibility } = req.body;
     if (!content) { res.status(400).json({ error: 'content required' }); return; }
+    const safeContent = sanitizeText(String(content).trim());
+    if (!safeContent) { res.status(400).json({ error: 'Invalid content' }); return; }
 
     const post = await prisma.feedPost.create({
       data: {
         authorUid: req.uid,
-        content,
+        content: safeContent,
         photoUrls: photoUrls ?? [],
-        visibility: visibility ?? 'public',
+        visibility: ['public', 'matches_only', 'private'].includes(visibility) ? visibility : 'public',
       },
     });
 
@@ -87,16 +90,26 @@ router.delete('/:id/like', async (req: Request, res: Response) => {
   }
 });
 
-// GET /feed/:id/comments
+// GET /feed/:id/comments?limit=50&after=<createdAt ISO cursor>
 router.get('/:id/comments', async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string ?? '50'), 100);
+    const after = req.query.after as string | undefined;
+
     const comments = await prisma.postComment.findMany({
-      where: { postId: req.params.id },
+      where: {
+        postId: req.params.id,
+        ...(after ? { createdAt: { gt: new Date(after) } } : {}),
+      },
       orderBy: { createdAt: 'asc' },
       take: limit,
     });
-    res.json(comments);
+
+    const nextCursor = comments.length === limit
+      ? comments[comments.length - 1].createdAt.toISOString()
+      : null;
+
+    res.json({ comments, nextCursor });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch comments' });
   }
@@ -107,9 +120,11 @@ router.post('/:id/comments', async (req: Request, res: Response) => {
   try {
     const { text } = req.body;
     if (!text) { res.status(400).json({ error: 'text required' }); return; }
+    const safeText = sanitizeText(String(text).trim());
+    if (!safeText) { res.status(400).json({ error: 'Invalid text' }); return; }
 
     const comment = await prisma.postComment.create({
-      data: { postId: req.params.id, authorUid: req.uid, text },
+      data: { postId: req.params.id, authorUid: req.uid, text: safeText },
     });
 
     res.status(201).json(comment);

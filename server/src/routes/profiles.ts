@@ -329,6 +329,8 @@ router.post('/', async (req: Request, res: Response) => {
         ...(messagingPref !== undefined && { messagingPref }),
         ...(lat !== undefined && { lat }),
         ...(lng !== undefined && { lng }),
+        // Keep geohash in sync when lat/lng change so geo-matching stays accurate
+        ...(lat !== undefined && lng !== undefined && { geohash: geohashForCoords(lat, lng) }),
       },
       create: {
         userId: req.uid,
@@ -349,6 +351,7 @@ router.post('/', async (req: Request, res: Response) => {
         messagingPref: messagingPref ?? 'anyone',
         lat: lat ?? null,
         lng: lng ?? null,
+        geohash: (lat != null && lng != null) ? geohashForCoords(lat, lng) : null,
       },
     });
 
@@ -364,10 +367,14 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
   try {
     const uid = req.uid;
 
-    const [likes, skips, myProfile] = await Promise.all([
+    const [likes, skips, myProfile, blocks] = await Promise.all([
       prisma.like.findMany({ where: { senderUid: uid }, select: { targetUid: true } }),
       prisma.skip.findMany({ where: { senderUid: uid }, select: { targetUid: true } }),
       prisma.profile.findUnique({ where: { userId: uid } }),
+      prisma.block.findMany({
+        where: { OR: [{ blockerUid: uid }, { blockedUid: uid }] },
+        select: { blockerUid: true, blockedUid: true },
+      }),
     ]);
 
     if (!myProfile) {
@@ -375,7 +382,8 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
       return;
     }
 
-    const excluded = new Set([uid, ...likes.map(l => l.targetUid), ...skips.map(s => s.targetUid)]);
+    const blockedUids = blocks.map(b => b.blockerUid === uid ? b.blockedUid : b.blockerUid);
+    const excluded = new Set([uid, ...likes.map(l => l.targetUid), ...skips.map(s => s.targetUid), ...blockedUids]);
 
     // Who already liked me (excluding already-excluded users)
     const pendingLikesForMe = await prisma.like.findMany({

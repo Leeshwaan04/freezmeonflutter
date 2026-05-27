@@ -132,16 +132,46 @@ router.post('/levelup-nudge', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /users/blocked/:uid — unblock a user
-// TODO: Add Block model to schema for full block/list functionality
+// POST /users/blocked/:targetUid — block a user
+router.post('/blocked/:targetUid', async (req: Request, res: Response) => {
+  try {
+    const { targetUid } = req.params;
+    if (targetUid === req.uid) { res.status(400).json({ error: 'Cannot block yourself' }); return; }
+    await prisma.block.upsert({
+      where: { blockerUid_blockedUid: { blockerUid: req.uid, blockedUid: targetUid } },
+      update: {},
+      create: { blockerUid: req.uid, blockedUid: targetUid },
+    });
+    res.json({ blocked: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to block user' });
+  }
+});
+
+// DELETE /users/blocked/:targetUid — unblock a user
 router.delete('/blocked/:targetUid', async (req: Request, res: Response) => {
   try {
     const { targetUid } = req.params;
-    if (!targetUid) { res.status(400).json({ error: 'targetUid required' }); return; }
-    // Block model not yet implemented — respond success so client stays consistent
-    res.json({ success: true });
+    await prisma.block.deleteMany({
+      where: { blockerUid: req.uid, blockedUid: targetUid },
+    });
+    res.json({ blocked: false });
   } catch (err) {
     res.status(500).json({ error: 'Failed to unblock user' });
+  }
+});
+
+// GET /users/blocked — list blocked users
+router.get('/blocked', async (req: Request, res: Response) => {
+  try {
+    const blocks = await prisma.block.findMany({
+      where: { blockerUid: req.uid },
+      select: { blockedUid: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(blocks);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch block list' });
   }
 });
 
