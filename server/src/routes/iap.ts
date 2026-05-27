@@ -35,7 +35,7 @@ function verifyWithApple(hostname: string, payload: string): Promise<any> {
 // POST /iap/verify-apple
 router.post('/verify-apple', async (req: Request, res: Response) => {
   try {
-    const { receiptData, productId, isSandbox } = req.body;
+    const { receiptData, productId } = req.body;
     if (!receiptData || !productId) {
       res.status(400).json({ error: 'receiptData and productId required' }); return;
     }
@@ -49,12 +49,13 @@ router.post('/verify-apple', async (req: Request, res: Response) => {
     const isProduction = process.env.NODE_ENV === 'production';
     const payload = JSON.stringify({ 'receipt-data': receiptData, password: sharedSecret });
 
-    // SECURITY: In production, only accept production receipts.
-    // Reject sandbox receipts (status 21007) to prevent premium bypass.
-    // In development/staging, allow sandbox fallback.
+    // SECURITY: Always verify against production first.
+    // status 21007 = sandbox receipt — reject in production (never trust client-supplied isSandbox flag).
+    // In dev/staging, fall back to sandbox endpoint.
     let result = await verifyWithApple('buy.itunes.apple.com', payload);
     if (result.status === 21007) {
-      if (isProduction && !isSandbox) {
+      if (isProduction) {
+        // Hard reject sandbox receipts in production regardless of client flags
         console.warn('[iap/verify-apple] Sandbox receipt rejected in production, uid:', req.uid);
         res.status(400).json({ error: 'Sandbox receipt not accepted in production' }); return;
       }

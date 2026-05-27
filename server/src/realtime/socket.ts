@@ -12,19 +12,18 @@ export function applyRedisAdapter(io: Server): void {
   logger.info('[Socket] Redis adapter attached — multi-node ready');
 }
 
-// Simple in-memory rate limiter for socket events (resets on server restart — acceptable for WS)
-const _socketRateLimits = new Map<string, { count: number; resetAt: number }>();
-function socketRateLimit(uid: string, event: string, maxPerWindow: number, windowMs: number): boolean {
-  const key = `${uid}:${event}`;
-  const now = Date.now();
-  const bucket = _socketRateLimits.get(key);
-  if (!bucket || now >= bucket.resetAt) {
-    _socketRateLimits.set(key, { count: 1, resetAt: now + windowMs });
+// Redis-backed rate limiter for socket events — survives server restarts and works across cluster nodes
+async function socketRateLimit(uid: string, event: string, maxPerWindow: number, windowMs: number): Promise<boolean> {
+  const key = `rl:socket:${uid}:${event}`;
+  const windowSec = Math.ceil(windowMs / 1000);
+  try {
+    const current = await redisPub.incr(key);
+    if (current === 1) await redisPub.expire(key, windowSec);
+    return current <= maxPerWindow;
+  } catch {
+    // If Redis is unavailable, allow the request (availability > rate limiting)
     return true;
   }
-  if (bucket.count >= maxPerWindow) return false;
-  bucket.count++;
-  return true;
 }
 
 export function setupSocket(io: Server): void {
@@ -56,7 +55,7 @@ export function setupSocket(io: Server): void {
       clientMsgId,
     }: { chatId: string; text: string; clientMsgId?: string }) => {
       try {
-        if (!socketRateLimit(uid, 'chat:send', 20, 60_000)) return; // 20 messages/min
+        if (!await socketRateLimit(uid, 'chat:send', 20, 60_000)) return; // 20 messages/min
         if (!text || typeof text !== 'string' || text.trim().length === 0 || text.length > 2000) return;
         const safeText = sanitizeText(text.trim());
         if (!safeText) return;
@@ -138,7 +137,7 @@ export function setupSocket(io: Server): void {
 
     socket.on('presence:ping', async () => {
       // Debounce: only write to DB once per minute per user — prevents 330+ writes/sec at scale
-      if (!socketRateLimit(uid, 'presence:ping', 1, 60_000)) return;
+      if (!await socketRateLimit(uid, 'presence:ping', 1, 60_000)) return;
       await prisma.user.update({ where: { id: uid }, data: { lastActiveAt: new Date() } }).catch(() => {});
     });
 
@@ -146,7 +145,7 @@ export function setupSocket(io: Server): void {
 
     socket.on('blind:reveal', async ({ sessionId }: { sessionId: string }) => {
       try {
-        if (!socketRateLimit(uid, 'blind:reveal', 5, 60_000)) return;
+        if (!await socketRateLimit(uid, 'blind:reveal', 5, 60_000)) return;
         const session = await prisma.blindsSession.findUnique({ where: { id: sessionId } });
         if (!session || session.phase === 'ended') return;
         if (session.userA !== uid && session.userB !== uid) return;
@@ -170,7 +169,7 @@ export function setupSocket(io: Server): void {
 
     socket.on('freeze_room:join', async ({ roomId }: { roomId: string }) => {
       try {
-        if (!socketRateLimit(uid, 'freeze_room:join', 10, 60_000)) return;
+        if (!await socketRateLimit(uid, 'freeze_room:join', 10, 60_000)) return;
         // Verify user is a participant in this room before subscribing to events
         const participant = await prisma.freezeRoomParticipant.findUnique({
           where: { roomId_uid: { roomId, uid } },

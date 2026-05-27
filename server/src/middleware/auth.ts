@@ -34,7 +34,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
-  // Async blacklist check — properly awaited so response is never sent after next()
+  // Async blacklist check — fail-closed: if DB is unavailable, reject the request
+  // (security > availability: a revoked token must never be accepted)
   isTokenBlacklisted(payload.jti)
     .then((blacklisted) => {
       if (blacklisted) {
@@ -46,9 +47,6 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
       next();
     })
     .catch(() => {
-      // If blacklist check fails (DB down), fall through — availability > security here
-      req.uid = payload.uid;
-      req.jwtPayload = payload;
-      next();
+      res.status(503).json({ error: 'Authentication service temporarily unavailable. Please retry.' });
     });
 }
