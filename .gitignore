@@ -10,3 +10,18 @@ freezme/infra/
 freezmeonflutter_git/
 AppleAuthKey_7CFVG3STW7.p8
 *.p8
+
+# Flutter build artifacts (large, not needed in repo)
+freezme/build/
+freezme/build 2/
+freezme/build 3/
+freezme/build 4/
+freezme/ios/build/
+freezme/ios/Pods/
+freezme/ios/.symlinks 2/
+freezme/ios/Flutter/Flutter 2.podspec
+freezme/ios/Flutter/Generated 2.xcconfig
+freezme/ios/Flutter/flutter_export_environment 2.sh
+freezme/ios/Podfile 2.lock
+freezme/macos/Pods/
+server/dist_tmp/
