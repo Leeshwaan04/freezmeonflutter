@@ -11,6 +11,7 @@ import 'data/ec2_freezme_repository.dart';
 import 'data/mock_freezme_repository.dart';
 import 'services/auth_service.dart';
 import 'services/api_client.dart';
+import 'services/localization_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/websocket_service.dart';
 
@@ -49,6 +50,7 @@ void main() async {
   // Wrap initialization in a fail-safe timeout to prevent white screen hangs
   try {
     await Future.wait([
+      LocalizationService().initialize().timeout(const Duration(seconds: 2)),
       AuthService.instance.init().timeout(const Duration(seconds: 3)),
       AuthService.initGoogleSignIn().timeout(const Duration(seconds: 3)),
       Firebase.initializeApp().timeout(const Duration(seconds: 3)).then((_) {

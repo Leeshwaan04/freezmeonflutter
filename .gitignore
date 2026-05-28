@@ -24,4 +24,5 @@ freezme/ios/Flutter/Generated 2.xcconfig
 freezme/ios/Flutter/flutter_export_environment 2.sh
 freezme/ios/Podfile 2.lock
 freezme/macos/Pods/
+freezme/ios/vendor/
 server/dist_tmp/
