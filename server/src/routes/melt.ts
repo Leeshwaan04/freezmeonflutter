@@ -13,6 +13,18 @@ router.post('/invite', async (req: Request, res: Response) => {
     const { targetUid, slotLabel } = req.body;
     if (!targetUid) { res.status(400).json({ error: 'targetUid required' }); return; }
 
+    // Block check — don't allow melt invites between blocked users
+    const blocked = await prisma.block.findFirst({
+      where: { OR: [{ blockerUid: req.uid, blockedUid: targetUid }, { blockerUid: targetUid, blockedUid: req.uid }] },
+    });
+    if (blocked) { res.status(403).json({ error: 'BLOCKED' }); return; }
+
+    // Duplicate check — prevent spamming pending invites to same user
+    const existing = await prisma.meltSession.findFirst({
+      where: { hostUid: req.uid, targetUid, status: 'pending', expiresAt: { gt: new Date() } },
+    });
+    if (existing) { res.status(409).json({ error: 'Invite already pending', sessionId: existing.id }); return; }
+
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     const session = await prisma.meltSession.create({

@@ -102,6 +102,13 @@ router.get('/:id/comments', async (req: Request, res: Response) => {
     const limit = Math.min(parseInt(req.query.limit as string ?? '50'), 50);
     const after = req.query.after as string | undefined;
 
+    // Visibility gate — private posts only visible to author
+    const post = await prisma.feedPost.findUnique({ where: { id: req.params.id }, select: { visibility: true, authorUid: true } });
+    if (!post) { res.status(404).json({ error: 'Post not found' }); return; }
+    if (post.visibility === 'private' && post.authorUid !== req.uid) {
+      res.status(403).json({ error: 'Forbidden' }); return;
+    }
+
     const comments = await prisma.postComment.findMany({
       where: {
         postId: req.params.id,

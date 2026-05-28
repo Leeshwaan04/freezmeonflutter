@@ -146,6 +146,8 @@ router.post('/invite/:id/respond', async (req: Request, res: Response) => {
 
     const invite = await prisma.pathInvite.findUnique({ where: { id: req.params.id } });
     if (!invite) { res.status(404).json({ error: 'Invite not found' }); return; }
+    if (invite.status !== 'pending') { res.status(409).json({ error: 'Invite already responded to' }); return; }
+    if (invite.expiresAt < new Date()) { res.status(410).json({ error: 'Invite has expired' }); return; }
 
     // Only receiver can accept/decline; only sender can cancel
     if (status === 'cancelled' && invite.senderUid !== req.uid) {

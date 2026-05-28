@@ -7,7 +7,14 @@ import { enqueuePush } from '../jobs/queues';
 import { logger } from '../services/logger';
 import { sanitizeText } from '../utils/validate';
 
+let _io: Server | null = null;
+export function getIO(): Server {
+  if (!_io) throw new Error('Socket.IO not initialized');
+  return _io;
+}
+
 export function applyRedisAdapter(io: Server): void {
+  _io = io;
   io.adapter(createAdapter(redisPub, redisSub));
   logger.info('[Socket] Redis adapter attached — multi-node ready');
 }
