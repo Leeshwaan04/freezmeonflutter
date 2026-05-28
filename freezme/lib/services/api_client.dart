@@ -13,19 +13,23 @@ const _kBaseUrl = String.fromEnvironment(
 const _kAccessTokenKey = 'access_token';
 const _kRefreshTokenKey = 'refresh_token';
 
-/// Token storage that tries SecureStorage first, falls back to SharedPreferences.
-/// SecureStorage silently fails on iOS Simulator (no Keychain entitlements).
+/// Token storage using FlutterSecureStorage (Keychain on iOS, Keystore on Android).
+/// In debug mode only, falls back to SharedPreferences when SecureStorage fails
+/// (iOS Simulator has no Keychain entitlements). Release builds fail hard on error.
 class _TokenStorage {
   final FlutterSecureStorage _secure = const FlutterSecureStorage();
 
   Future<void> write(String key, String value) async {
     try {
       await _secure.write(key: key, value: value);
-      // Verify the write actually stuck (simulator keychain bug)
       final check = await _secure.read(key: key);
       if (check == value) return;
-    } catch (_) {}
-    // Fallback to SharedPreferences
+      // Write didn't stick — only tolerate in debug (simulator)
+      if (!kDebugMode) throw Exception('SecureStorage write verification failed');
+    } catch (_) {
+      if (!kDebugMode) rethrow;
+    }
+    // Debug-only fallback for iOS Simulator
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
   }
@@ -34,23 +38,30 @@ class _TokenStorage {
     try {
       final val = await _secure.read(key: key);
       if (val != null && val.isNotEmpty) return val;
-    } catch (_) {}
-    // Fallback to SharedPreferences
+    } catch (_) {
+      if (!kDebugMode) rethrow;
+    }
+    // Debug-only fallback
+    if (!kDebugMode) return null;
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(key);
   }
 
   Future<void> delete(String key) async {
     try { await _secure.delete(key: key); } catch (_) {}
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(key);
+    if (kDebugMode) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(key);
+    }
   }
 
   Future<void> deleteAll() async {
     try { await _secure.deleteAll(); } catch (_) {}
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kAccessTokenKey);
-    await prefs.remove(_kRefreshTokenKey);
+    if (kDebugMode) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kAccessTokenKey);
+      await prefs.remove(_kRefreshTokenKey);
+    }
   }
 }
 

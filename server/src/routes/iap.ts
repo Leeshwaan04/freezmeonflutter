@@ -67,7 +67,7 @@ router.post('/verify-apple', async (req: Request, res: Response) => {
 
     if (result.status !== 0) {
       console.warn('[iap/verify-apple] Apple status:', result.status, 'uid:', req.uid);
-      res.status(400).json({ error: 'Invalid receipt', appleStatus: result.status }); return;
+      res.status(400).json({ error: 'Invalid receipt' }); return;
     }
 
     // Find the most recent receipt for this productId

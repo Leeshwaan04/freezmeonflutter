@@ -26,3 +26,8 @@ freezme/ios/Podfile 2.lock
 freezme/macos/Pods/
 freezme/ios/vendor/
 server/dist_tmp/
+
+# Secret JSON files / Service Accounts
+*service-account*.json
+firebase-service-account.json
+service-account.json
