@@ -252,6 +252,7 @@ router.post('/', async (req: Request, res: Response) => {
       if (lower === 'nonbinary' || lower === 'nonbinarytransgender') return 'nonbinary';
       if (lower === 'man' || lower === 'male') return 'man';
       if (lower === 'woman' || lower === 'female') return 'woman';
+      if (lower === 'prefernottosay' || lower === 'prefernot' || lower === 'rathernottosay') return 'other';
       return lower;
     };
     const normalizedGender = gender !== undefined ? normalizeGenderValue(gender) : undefined;
