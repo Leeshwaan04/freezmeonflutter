@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
 import { enqueuePush } from '../jobs/queues';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = prisma as any;
 import { io } from '../index';
 
 const router = Router();
@@ -15,7 +17,7 @@ router.post('/like', async (req: Request, res: Response) => {
     if (targetUid === req.uid) { res.status(400).json({ code: 'SELF_LIKE', error: 'Cannot like yourself' }); return; }
 
     // Reject if either user has blocked the other
-    const block = await prisma.block.findFirst({
+    const block = await db.block.findFirst({
       where: {
         OR: [
           { blockerUid: req.uid, blockedUid: targetUid },

@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
 import { deleteS3Object } from '../services/s3';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = prisma as any;
 
 function extractS3Key(publicUrl: string): string | null {
   try {
@@ -137,7 +139,7 @@ router.post('/blocked/:targetUid', async (req: Request, res: Response) => {
   try {
     const { targetUid } = req.params;
     if (targetUid === req.uid) { res.status(400).json({ error: 'Cannot block yourself' }); return; }
-    await prisma.block.upsert({
+    await db.block.upsert({
       where: { blockerUid_blockedUid: { blockerUid: req.uid, blockedUid: targetUid } },
       update: {},
       create: { blockerUid: req.uid, blockedUid: targetUid },
@@ -152,7 +154,7 @@ router.post('/blocked/:targetUid', async (req: Request, res: Response) => {
 router.delete('/blocked/:targetUid', async (req: Request, res: Response) => {
   try {
     const { targetUid } = req.params;
-    await prisma.block.deleteMany({
+    await db.block.deleteMany({
       where: { blockerUid: req.uid, blockedUid: targetUid },
     });
     res.json({ blocked: false });
@@ -164,7 +166,7 @@ router.delete('/blocked/:targetUid', async (req: Request, res: Response) => {
 // GET /users/blocked — list blocked users
 router.get('/blocked', async (req: Request, res: Response) => {
   try {
-    const blocks = await prisma.block.findMany({
+    const blocks = await db.block.findMany({
       where: { blockerUid: req.uid },
       select: { blockedUid: true, createdAt: true },
       orderBy: { createdAt: 'desc' },

@@ -91,7 +91,8 @@ router.delete('/:chatId/messages/:messageId', async (req: Request, res: Response
     if (message.senderUid !== req.uid) { res.status(403).json({ code: 'FORBIDDEN', error: 'Can only delete your own messages' }); return; }
 
     // Soft-delete: clear content but preserve delivery metadata (GDPR erasure)
-    const updated = await prisma.message.update({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updated = await (prisma.message as any).update({
       where: { id: messageId },
       data: { text: '[deleted]', deletedAt: new Date() },
     });
