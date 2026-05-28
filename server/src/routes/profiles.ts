@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
 import { geohashForCoords } from '../services/geo';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = prisma as any;
 import { sanitizeText } from '../utils/validate';
 import { logger } from '../services/logger';
 
@@ -371,7 +373,7 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
       prisma.like.findMany({ where: { senderUid: uid }, select: { targetUid: true } }),
       prisma.skip.findMany({ where: { senderUid: uid }, select: { targetUid: true } }),
       prisma.profile.findUnique({ where: { userId: uid } }),
-      prisma.block.findMany({
+      db.block.findMany({
         where: { OR: [{ blockerUid: uid }, { blockedUid: uid }] },
         select: { blockerUid: true, blockedUid: true },
       }),
@@ -382,8 +384,9 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
       return;
     }
 
-    const blockedUids = blocks.map(b => b.blockerUid === uid ? b.blockedUid : b.blockerUid);
-    const excluded = new Set([uid, ...likes.map(l => l.targetUid), ...skips.map(s => s.targetUid), ...blockedUids]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const blockedUids = (blocks as any[]).map((b: any) => b.blockerUid === uid ? b.blockedUid : b.blockerUid);
+    const excluded = new Set([uid, ...likes.map((l: any) => l.targetUid), ...skips.map((s: any) => s.targetUid), ...blockedUids]);
 
     // Who already liked me (excluding already-excluded users)
     const pendingLikesForMe = await prisma.like.findMany({
@@ -457,7 +460,7 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
     });
 
     // ── Score each candidate ─────────────────────────────────────────────────
-    const myInterestSet = new Set((myProfile.interests ?? []).map(s => s.toLowerCase()));
+    const myInterestSet = new Set((myProfile.interests ?? []).map((s: string) => s.toLowerCase()));
     const myWindows = myProfile.presenceWindows as any[] | null;
 
     const scored = candidates
