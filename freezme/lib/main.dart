@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'ui/theme.dart';
+import 'core/database.dart';
 import 'controllers/flow_controller.dart';
 import 'core/app_stage.dart';
 import 'data/ec2_freezme_repository.dart';
@@ -47,9 +50,24 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Global error handlers — present errors in debug, swallow them quietly in
+  // release. Sentry (when DSN is set) will already hook FlutterError.onError
+  // via SentryFlutter.init, so we install these only when Sentry is absent.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    if (!kDebugMode) {
+      debugPrint('[FlutterError] ${details.exceptionAsString()}');
+    }
+  };
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('[PlatformError] $error');
+    return true; // marks the error as handled
+  };
+
   // Wrap initialization in a fail-safe timeout to prevent white screen hangs
   try {
     await Future.wait([
+      LocalDatabase.init().timeout(const Duration(seconds: 2)),
       LocalizationService().initialize().timeout(const Duration(seconds: 2)),
       AuthService.instance.init().timeout(const Duration(seconds: 3)),
       AuthService.initGoogleSignIn().timeout(const Duration(seconds: 3)),
@@ -82,6 +100,10 @@ void main() async {
         options.dsn = sentryDsn;
         options.tracesSampleRate = 0.2;
         options.environment = 'production';
+        // Compile-time release tag so crashes can be attributed to a build.
+        // CI should pass --dart-define=APP_RELEASE=freezme@<version>+<build>.
+        const release = String.fromEnvironment('APP_RELEASE');
+        if (release.isNotEmpty) options.release = release;
       },
       appRunner: () => runApp(const FreezmeApp()),
     );
@@ -104,12 +126,10 @@ class FreezmeApp extends StatefulWidget {
 
 class _FreezmeAppState extends State<FreezmeApp> {
   AppFlowController? _controller;
-  final _localization = LocalizationService();
 
   @override
   void initState() {
     super.initState();
-    _localization.addListener(_onLocaleChanged);
     final builder = widget.controllerBuilder ??
         () => AppFlowController.create(
             Ec2FreezmeRepository(fallback: const MockFreezmeRepository()));
@@ -119,15 +139,33 @@ class _FreezmeAppState extends State<FreezmeApp> {
         setState(() {
           _controller = controller;
         });
+        // Now that the flow controller exists, route any pending or future
+        // push-notification taps to the relevant stage.
+        PushNotificationService().registerTapHandler((data) {
+          _routePushTap(controller, data);
+        });
       }
     });
   }
 
-  void _onLocaleChanged() => setState(() {});
+  /// Maps an FCM data payload to a navigation action on the flow controller.
+  /// Server emits {type, chatId|matchId|...}. For now, chat is the most common
+  /// push surface; everything else routes to the daily pool home.
+  void _routePushTap(AppFlowController flow, Map<String, dynamic> data) {
+    final type = (data['type'] as String?)?.toLowerCase();
+    if (type == null) return;
+    if (type == 'chat_message' || type == 'chat') {
+      // openChat() pushes the chat stage; activeChatId is already wired when
+      // the user lands on it via the inbox, but for cold-start we route home
+      // and let the matches/chat list populate.
+      flow.openHome();
+    } else {
+      flow.openHome();
+    }
+  }
 
   @override
   void dispose() {
-    _localization.removeListener(_onLocaleChanged);
     _controller?.dispose();
     WebSocketService.instance.dispose();
     AuthService.instance.dispose();
@@ -151,8 +189,6 @@ class _FreezmeAppState extends State<FreezmeApp> {
         title: 'Freezme',
         debugShowCheckedModeBanner: false,
         theme: FreezmeTheme.build(),
-        locale: _localization.currentLocale,
-        supportedLocales: _localization.supportedLocales,
         home: const FlowNavigator(),
       ),
     );

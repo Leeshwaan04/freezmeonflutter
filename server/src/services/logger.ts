@@ -1,13 +1,33 @@
 import winston from 'winston';
 
-const { combine, timestamp, json, colorize, simple, errors } = winston.format;
+const { combine, timestamp, json, colorize, simple, errors, format } = winston.format;
 
 const isProd = process.env.NODE_ENV === 'production';
+
+// PII Scrubbing Formatter
+const scrubPii = format((info) => {
+  const piiKeys = ['email', 'phone', 'password', 'token', 'name', 'ip', 'fcmToken', 'location'];
+  
+  const scrub = (obj: any) => {
+    if (!obj || typeof obj !== 'object') return;
+    for (const key of Object.keys(obj)) {
+      if (piiKeys.includes(key.toLowerCase()) || piiKeys.includes(key)) {
+        obj[key] = '[REDACTED]';
+      } else if (typeof obj[key] === 'object') {
+        scrub(obj[key]);
+      }
+    }
+  };
+
+  scrub(info);
+  return info;
+});
 
 export const logger = winston.createLogger({
   level: isProd ? 'info' : 'debug',
   format: combine(
     errors({ stack: true }),
+    scrubPii(),
     timestamp(),
     isProd ? json() : combine(colorize(), simple()),
   ),

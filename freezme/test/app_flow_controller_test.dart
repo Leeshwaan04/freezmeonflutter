@@ -17,7 +17,7 @@ class _FakePhotoUploadService implements PhotoUploadService {
   int calls = 0;
 
   @override
-  Future<UploadedPhoto> pickAndUpload({required int slotIndex}) async {
+  Future<UploadedPhoto> pickAndUpload({required int slotIndex, PhotoSource source = PhotoSource.gallery}) async {
     calls++;
     return UploadedPhoto(url: '$url-$slotIndex');
   }
@@ -31,7 +31,7 @@ class _FakePhotoUploadService implements PhotoUploadService {
 
 class _FailingPhotoUploadService implements PhotoUploadService {
   @override
-  Future<UploadedPhoto> pickAndUpload({required int slotIndex}) async {
+  Future<UploadedPhoto> pickAndUpload({required int slotIndex, PhotoSource source = PhotoSource.gallery}) async {
     throw const PhotoUploadException('failure');
   }
 

@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { prisma } from '../db/client';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -6,6 +7,11 @@ const JWT_SECRET = process.env.JWT_SECRET!;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN ?? '15m';
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN ?? '30d';
+
+// Hash refresh tokens before storing — DB leak should not expose usable tokens.
+export function hashRefreshToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
 
 export interface JwtPayload {
   uid: string;
@@ -41,7 +47,7 @@ export async function issueTokenPair(uid: string, email?: string): Promise<{ acc
   await prisma.refreshToken.create({
     data: {
       userId: uid,
-      token: refreshToken,
+      token: hashRefreshToken(refreshToken),
       expiresAt,
     },
   });
@@ -50,7 +56,21 @@ export async function issueTokenPair(uid: string, email?: string): Promise<{ acc
 }
 
 export async function revokeRefreshToken(token: string): Promise<void> {
-  await prisma.refreshToken.deleteMany({ where: { token } });
+  await prisma.refreshToken.deleteMany({ where: { token: hashRefreshToken(token) } });
+}
+
+// Atomic rotate: delete the old refresh token row and report whether it actually existed.
+// Returns true if the token was valid and is now revoked; false if it was already revoked
+// (refresh-token reuse — caller should treat as compromised and revoke the family).
+export async function rotateRefreshToken(token: string, uid: string): Promise<boolean> {
+  const hash = hashRefreshToken(token);
+  const result = await prisma.refreshToken.deleteMany({ where: { token: hash, userId: uid } });
+  return result.count > 0;
+}
+
+// Revoke ALL refresh tokens for a user (used when reuse is detected — token family compromise).
+export async function revokeAllUserRefreshTokens(uid: string): Promise<void> {
+  await prisma.refreshToken.deleteMany({ where: { userId: uid } });
 }
 
 // Blacklist an access token by its jti so it cannot be reused after logout.

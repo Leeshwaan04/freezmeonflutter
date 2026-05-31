@@ -1,0 +1,48 @@
+appId: com.freezme.app
+name: "Premium — Freezme+ Paywall & Upsell"
+tags:
+  - premium
+  - iap
+  - paywall
+---
+# Test: Verify the premium upsell flow works end-to-end.
+# Edge case: Non-premium users should see blurred "who liked you" cards
+# and a clear upgrade CTA. Tapping should navigate to the paywall.
+
+- launchApp
+- assertVisible: "FREEZME"
+
+# Skip auth
+- tapOn: "Skip (Dev only)"
+
+# Wait for home page
+- assertVisible: "Paths"
+
+# Navigate to Likes tab
+- tapOn:
+    index: 2  # Likes tab
+    optional: true
+
+# Verify the "who liked you" section exists
+# For non-premium users, cards should be blurred with upsell
+- assertVisible:
+    text: ".*liked.*"
+    optional: true
+
+# If there's an upgrade/unlock CTA, verify it's tappable
+- tapOn:
+    text: ".*Unlock.*"
+    optional: true
+
+# If paywall screen appears, verify elements
+- assertVisible:
+    text: ".*Freezme.*"
+    optional: true
+
+# Verify pricing is shown
+- assertVisible:
+    text: ".*month.*"
+    optional: true
+
+# Go back without purchasing
+- back

@@ -252,6 +252,7 @@ router.post('/', async (req: Request, res: Response) => {
       if (lower === 'nonbinary' || lower === 'nonbinarytransgender') return 'nonbinary';
       if (lower === 'man' || lower === 'male') return 'man';
       if (lower === 'woman' || lower === 'female') return 'woman';
+      if (lower === 'prefernottosay' || lower === 'prefernot' || lower === 'rathernottosay') return 'other';
       return lower;
     };
     const normalizedGender = gender !== undefined ? normalizeGenderValue(gender) : undefined;
@@ -453,6 +454,7 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
         distanceKm: true,
         intent: true,
         isPremium: true,
+        isVerified: true,
         updatedAt: true,
       },
       take: 100,
@@ -549,9 +551,51 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
 });
 
 // GET /profiles/:uid — view another user's public profile (no GPS, no preferences)
+// Authorization: viewer must be in a relationship with the target (match, chat,
+// active melt/blinds/freeze room invite, or path invite) AND must not have
+// blocked or been blocked by the target.
 router.get('/:uid', async (req: Request, res: Response) => {
   try {
-    const profile = await prisma.profile.findUnique({ where: { userId: req.params.uid } });
+    const targetUid = req.params.uid;
+
+    // Allow viewing own profile
+    if (targetUid !== req.uid) {
+      // Block check (both directions)
+      const block = await prisma.block.findFirst({
+        where: { OR: [
+          { blockerUid: req.uid, blockedUid: targetUid },
+          { blockerUid: targetUid, blockedUid: req.uid },
+        ] },
+      });
+      if (block) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+      // Relationship check: match, chat membership, or any pending/accepted invite
+      const [match, chat, like, pathInvite, meltSession, blindsSession] = await Promise.all([
+        prisma.match.findFirst({ where: { members: { hasEvery: [req.uid, targetUid] } } }),
+        prisma.chat.findFirst({ where: { members: { hasEvery: [req.uid, targetUid] } } }),
+        // Outgoing like that gives the viewer a reason to see the target
+        // (used by the daily pool flow before mutual match is confirmed)
+        prisma.like.findFirst({ where: { senderUid: req.uid, targetUid } }),
+        prisma.pathInvite.findFirst({ where: { OR: [
+          { senderUid: req.uid, receiverUid: targetUid },
+          { senderUid: targetUid, receiverUid: req.uid },
+        ] } }),
+        prisma.meltSession.findFirst({ where: { OR: [
+          { hostUid: req.uid, targetUid },
+          { hostUid: targetUid, targetUid: req.uid },
+        ] } }),
+        prisma.blindsSession.findFirst({ where: { OR: [
+          { userA: req.uid, userB: targetUid },
+          { userA: targetUid, userB: req.uid },
+        ] } }),
+      ]);
+
+      if (!match && !chat && !like && !pathInvite && !meltSession && !blindsSession) {
+        res.status(403).json({ error: 'Forbidden' }); return;
+      }
+    }
+
+    const profile = await prisma.profile.findUnique({ where: { userId: targetUid } });
     if (!profile) { res.status(404).json({ error: 'Profile not found' }); return; }
     // Strip private fields before returning to other users
     const { lat, lng, geohash, genderPrefs, ageMin, ageMax, messagingPref,

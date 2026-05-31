@@ -1,7 +1,10 @@
+import 'dart:io';
+import 'package:dio/dio.dart' as dio_options;
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
 import '../theme.dart';
 import '../../controllers/flow_controller.dart';
+import '../../services/api_client.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -10,10 +13,12 @@ class VerificationScreen extends StatefulWidget {
   State<VerificationScreen> createState() => _VerificationScreenState();
 }
 
-class _VerificationScreenState extends State<VerificationScreen> with SingleTickerProviderStateMixin {
+class _VerificationScreenState extends State<VerificationScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _scanController;
   bool _isCapturing = false;
   bool _isComplete = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -30,14 +35,60 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
     super.dispose();
   }
 
-  void _startVerification() async {
+  Future<void> _startVerification() async {
+    setState(() {
+      _errorMessage = null;
+    });
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 85,
+      preferredCameraDevice: CameraDevice.front,
+    );
+    if (picked == null || !mounted) return;
+
     setState(() => _isCapturing = true);
-    await Future.delayed(const Duration(seconds: 3));
-    if (mounted) {
-      setState(() {
-        _isCapturing = false;
-        _isComplete = true;
-      });
+
+    try {
+      // Step 1: get presigned S3 URL
+      final urlResp = await ApiClient.instance.dio.post<Map<String, dynamic>>(
+        '/verification/selfie-url',
+      );
+      final uploadUrl = urlResp.data!['uploadUrl'] as String;
+      final selfieKey = urlResp.data!['selfieKey'] as String;
+
+      // Step 2: PUT selfie directly to S3
+      final bytes = await File(picked.path).readAsBytes();
+      await ApiClient.instance.dio.put<void>(
+        uploadUrl,
+        data: bytes,
+        options: dio_options.Options(
+          headers: {'Content-Type': 'image/jpeg'},
+          sendTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      // Step 3: submit selfieKey to backend → marks verification_pending
+      await ApiClient.instance.dio.post<void>(
+        '/verification/selfie-submit',
+        data: {'selfieKey': selfieKey},
+      );
+
+      if (mounted) {
+        setState(() {
+          _isCapturing = false;
+          _isComplete = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('[Verification] selfie upload error: $e');
+      if (mounted) {
+        setState(() {
+          _isCapturing = false;
+          _errorMessage = 'Upload failed — please try again';
+        });
+      }
     }
   }
 
@@ -49,17 +100,9 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Simulated Camera View
+          // Solid dark background
           Positioned.fill(
-            child: Opacity(
-              opacity: 0.6,
-              child: CachedNetworkImage(
-                imageUrl: 'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=1080',
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(color: Colors.black12),
-                errorWidget: (context, url, error) => const Icon(Icons.error),
-              ),
-            ),
+            child: Container(color: const Color(0xFF0A0518)),
           ),
 
           // Scanning Overlay
@@ -68,8 +111,9 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
               animation: _scanController,
               builder: (context, child) {
                 return Positioned(
-                  top: MediaQuery.of(context).size.height * 0.2 + 
-                       (MediaQuery.of(context).size.height * 0.6 * _scanController.value),
+                  top: MediaQuery.of(context).size.height * 0.2 +
+                      (MediaQuery.of(context).size.height * 0.6 *
+                          _scanController.value),
                   left: 0,
                   right: 0,
                   child: Container(
@@ -104,15 +148,19 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _isComplete 
-                      ? 'Verification Successful!' 
-                      : 'Position your face in the frame',
+                    _isComplete
+                        ? 'Selfie submitted for review!'
+                        : _isCapturing
+                            ? 'Uploading securely…'
+                            : 'Take a selfie to verify you\'re a real person',
+                    textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white70),
                   ),
                   const SizedBox(height: 12),
                   if (!_isComplete)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.white10,
                         borderRadius: BorderRadius.circular(12),
@@ -120,18 +168,38 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.shield, color: Colors.blueAccent, size: 16),
+                          Icon(Icons.shield,
+                              color: Colors.blueAccent, size: 16),
                           SizedBox(width: 8),
                           Text(
                             '+50 TRUST SCORE',
-                            style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                            style: TextStyle(
+                                color: Colors.blueAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11),
                           ),
                         ],
                       ),
                     ),
-                  
+
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Color(0xFFEF4444)),
+                      ),
+                    ),
+                  ],
+
                   const Spacer(),
-                  
+
                   // Verification Frame
                   Center(
                     child: Container(
@@ -144,18 +212,24 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
                         ),
                         borderRadius: BorderRadius.circular(140),
                       ),
-                      child: _isComplete 
-                        ? const Center(
-                            child: Icon(
-                              Icons.check_circle,
-                              color: Colors.green,
-                              size: 80,
+                      child: _isComplete
+                          ? const Center(
+                              child: Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 80,
+                              ),
+                            )
+                          : Center(
+                              child: Icon(
+                                Icons.camera_alt_outlined,
+                                color: Colors.white.withValues(alpha: 0.3),
+                                size: 64,
+                              ),
                             ),
-                          )
-                        : null,
                     ),
                   ),
-                  
+
                   const Spacer(),
 
                   if (!_isCapturing && !_isComplete)
@@ -172,6 +246,13 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
                       child: const Text('Capture Selfie'),
                     ),
 
+                  if (_isCapturing)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 18),
+                      child: CircularProgressIndicator(
+                          color: Colors.white),
+                    ),
+
                   if (_isComplete)
                     ElevatedButton(
                       onPressed: flow.completeVerification,
@@ -183,7 +264,7 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
                           borderRadius: BorderRadius.circular(20),
                         ),
                       ),
-                      child: const Text('Get My Verified Badge'),
+                      child: const Text('Continue'),
                     ),
 
                   const SizedBox(height: 40),
@@ -191,7 +272,7 @@ class _VerificationScreenState extends State<VerificationScreen> with SingleTick
               ),
             ),
           ),
-          
+
           // Back button
           Positioned(
             top: 50,

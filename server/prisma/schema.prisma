@@ -13,6 +13,7 @@ model User {
   passwordHash  String?
   fcmToken      String?
   status        String      @default("active")
+  selfieKey     String?
   emailVerified Boolean     @default(false)
   lastActiveAt  DateTime?
   createdAt     DateTime    @default(now())
@@ -49,6 +50,7 @@ model Profile {
   bio              String?
   imageUrl         String?
   isPremium        Boolean   @default(false)
+  isVerified       Boolean   @default(false)
   interests        String[]
   lat              Float?
   lng              Float?
@@ -113,11 +115,15 @@ model Skip {
 }
 
 model Match {
-  id        String   @id @default(cuid())
-  members   String[]
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  chats     Chat[]
+  id             String   @id @default(cuid())
+  members        String[]
+  status         String   @default("active")
+  // Sorted "uidA_uidB" key, unique while the match is active, NULL once
+  // unmatched so the pair can re-match later. Enforces one active match per
+  // pair and prevents the concurrent-mutual-like race (two Match rows).
+  activeMatchKey String?  @unique
+  createdAt      DateTime @default(now())
+  chats          Chat[]
 
   @@index([members])
 }
@@ -141,6 +147,8 @@ model Message {
   chatId        String
   senderUid     String
   text          String
+  // Client-generated idempotency key — prevents duplicate persists on retry.
+  clientMsgId   String?
   // ACK lifecycle: sending → sent → delivered → read
   status        String    @default("sent")
   deliveredAt   DateTime?
@@ -149,6 +157,7 @@ model Message {
   createdAt     DateTime  @default(now())
   chat          Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
+  @@unique([chatId, senderUid, clientMsgId])
   @@index([chatId, createdAt])
   @@index([chatId, senderUid])
   @@index([senderUid])
@@ -368,6 +377,23 @@ model Block {
   @@index([blockedUid])
 }
 
+model Report {
+  id          String   @id @default(cuid())
+  reporterUid String
+  reportedUid String
+  reason      String
+  details     String?
+  context     String?  // chat | profile | feed | melt
+  contextId   String?  // e.g. chatId, postId, sessionId
+  status      String   @default("open") // open | reviewed | actioned | dismissed
+  createdAt   DateTime @default(now())
+  reviewedAt  DateTime?
+
+  @@index([reportedUid])
+  @@index([reporterUid])
+  @@index([status])
+}
+
 // ── Presence events (for computing presenceScore) ────────────────────────────
 
 model PresenceEvent {
@@ -378,3 +404,18 @@ model PresenceEvent {
 
   @@index([uid, createdAt])
 }
+
+model Feedback {
+  id        String   @id @default(cuid())
+  uid       String?
+  email     String?
+  category  String
+  message   String
+  platform  String?
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+
+  @@index([uid])
+  @@index([status])
+}
+

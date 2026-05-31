@@ -67,7 +67,17 @@ router.post('/verify-apple', async (req: Request, res: Response) => {
 
     if (result.status !== 0) {
       console.warn('[iap/verify-apple] Apple status:', result.status, 'uid:', req.uid);
-      res.status(400).json({ error: 'Invalid receipt', appleStatus: result.status }); return;
+      res.status(400).json({ error: 'Invalid receipt' }); return;
+    }
+
+    // SECURITY: Validate bundle_id matches our app — prevents receipts issued for
+    // a different app (or a malicious app with a leaked shared secret) being used
+    // to grant premium here.
+    const expectedBundleId = process.env.APPLE_BUNDLE_ID;
+    const receiptBundleId = result.receipt?.bundle_id;
+    if (expectedBundleId && receiptBundleId && receiptBundleId !== expectedBundleId) {
+      console.warn('[iap/verify-apple] Bundle ID mismatch, uid:', req.uid, 'receipt:', receiptBundleId, 'expected:', expectedBundleId);
+      res.status(400).json({ error: 'Receipt not valid for this app' }); return;
     }
 
     // Find the most recent receipt for this productId

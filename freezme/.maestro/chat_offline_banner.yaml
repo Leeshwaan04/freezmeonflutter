@@ -1,0 +1,75 @@
+appId: com.freezme.app
+name: "Chat — Offline Banner & Message Sending"
+tags:
+  - chat
+  - offline
+  - connectivity
+---
+# Test: Verify the offline connectivity banner appears when the device
+# loses network, and that previously cached messages are still visible.
+# Edge case: Subway/tunnel scenario — app should not crash or show empty screen.
+
+# Prerequisite: User must be logged in with an active chat.
+# This flow assumes a dev build with skip-auth enabled.
+
+- launchApp
+- assertVisible: "FREEZME"
+
+# Skip auth (dev-only button)
+- tapOn: "Skip (Dev only)"
+
+# Wait for home page to load
+- assertVisible: "Paths"
+
+# Navigate to Chats tab
+- tapOn:
+    index: 1  # Chats tab in bottom nav
+
+# If there are any chats, tap the first one
+- tapOn:
+    index: 0
+    optional: true
+
+# Verify chat screen elements
+- assertVisible: "Type a message..."
+
+# Send a test message (this will be cached by Isar)
+- tapOn: "Type a message..."
+- inputText: "Hello from Maestro E2E test!"
+- tapOn:
+    id: ".*send.*"
+    retryTapIfNoChange: true
+
+# Verify message appears in the chat
+- assertVisible: "Hello from Maestro E2E test!"
+
+# Toggle airplane mode to simulate offline
+- setAirplaneMode:
+    enabled: true
+
+# Verify the offline banner appears
+- extendedWaitUntil:
+    visible: "Offline"
+    timeout: 5000
+
+- assertVisible: "Offline"
+- assertVisible: "messages will send when you reconnect"
+
+# Verify previously sent messages are still visible (Isar cache)
+- assertVisible: "Hello from Maestro E2E test!"
+
+# Try sending a message while offline — should go to pending status
+- tapOn: "Type a message..."
+- inputText: "This message should queue"
+- tapOn:
+    id: ".*send.*"
+    retryTapIfNoChange: true
+
+# Turn network back on
+- setAirplaneMode:
+    enabled: false
+
+# Wait for reconnection — offline banner should disappear
+- extendedWaitUntil:
+    notVisible: "Offline"
+    timeout: 10000

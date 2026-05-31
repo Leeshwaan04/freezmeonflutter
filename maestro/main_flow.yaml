@@ -1,0 +1,37 @@
+appId: com.sumitbagewadi.freezme
+---
+- launchApp
+- assertVisible:
+    text: "Get Started"
+
+# 1. Onboarding / Auth
+- tapOn: "Get Started"
+- assertVisible:
+    text: "Sign In"
+- tapOn:
+    id: "email_input"
+- inputText: "test@freezme.com"
+- tapOn:
+    id: "password_input"
+- inputText: "password123"
+- tapOn: "Continue"
+
+# 2. Main Feed Verification
+# Wait for the feed to load
+- extendedWaitUntil:
+    visible: 
+      id: "feed_bottom_nav"
+    timeout: 10000
+
+# 3. Tab Navigation
+- tapOn: "Likes"
+- assertVisible:
+    id: "likes_grid"
+    
+- tapOn: "Matches"
+- assertVisible:
+    id: "matches_list"
+
+- tapOn: "Profile"
+- assertVisible:
+    text: "Settings"

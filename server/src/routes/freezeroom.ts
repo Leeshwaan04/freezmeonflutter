@@ -144,6 +144,15 @@ router.post('/reveal', async (req: Request, res: Response) => {
     if (!myPart) { res.status(403).json({ error: 'Not in this room' }); return; }
     if (!myPart.answer) { res.status(400).json({ error: 'Must answer before revealing' }); return; }
 
+    // Block check — cannot force-reveal a blocked user.
+    const block = await prisma.block.findFirst({
+      where: { OR: [
+        { blockerUid: req.uid, blockedUid: targetUid },
+        { blockerUid: targetUid, blockedUid: req.uid },
+      ] },
+    });
+    if (block) { res.status(403).json({ error: 'Cannot reveal to this user' }); return; }
+
     // Max 3 reveals per session
     if (myPart.reveals.length >= 3) {
       res.status(429).json({ error: 'Maximum 3 reveals per room session' }); return;
@@ -193,13 +202,22 @@ router.post('/reveal', async (req: Request, res: Response) => {
       if (existing) return { mutual: true, matchId: existing.id, isNew: false };
 
       await tx.freezeMatch.create({ data: { roomId, userA, userB } });
-      const match = await tx.match.create({
-        data: { members: [userA, userB], status: 'active' },
-      });
-      await tx.chat.create({
-        data: { members: [userA, userB], matchId: match.id },
-      });
-      return { mutual: true, matchId: match.id, isNew: true };
+      const activeMatchKey = [userA, userB].sort().join('_');
+      try {
+        const match = await tx.match.create({
+          data: { members: [userA, userB], status: 'active', activeMatchKey },
+        });
+        await tx.chat.create({
+          data: { members: [userA, userB], matchId: match.id },
+        });
+        return { mutual: true, matchId: match.id, isNew: true };
+      } catch (e: any) {
+        if (e.code === 'P2002') {
+          const match = await tx.match.findUnique({ where: { activeMatchKey } });
+          return { mutual: true, matchId: match?.id, isNew: false };
+        }
+        throw e;
+      }
     });
 
     if (!txResult) { res.status(403).json({ error: 'Not in this room' }); return; }

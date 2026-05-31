@@ -49,69 +49,38 @@ router.delete('/fcm-token', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /users/me — delete account (full cascade cleanup)
+// DELETE /users/me — delete account (soft delete)
 router.delete('/me', async (req: Request, res: Response) => {
   try {
-    // Collect S3 keys before deleting DB records (outside transaction for safety)
     const uid = req.uid;
-    const s3Keys: string[] = [];
-    try {
-      const [profile, feedPosts] = await Promise.all([
-        prisma.profile.findUnique({ where: { userId: uid }, select: { imageUrl: true } }),
-        prisma.feedPost.findMany({ where: { authorUid: uid }, select: { photoUrls: true } }),
-      ]);
-      if (profile?.imageUrl) {
-        const key = extractS3Key(profile.imageUrl);
-        if (key) s3Keys.push(key);
-      }
-      for (const post of feedPosts) {
-        for (const url of post.photoUrls) {
-          const key = extractS3Key(url);
-          if (key) s3Keys.push(key);
-        }
-      }
-    } catch { /* non-fatal — proceed with DB deletion */ }
 
     await prisma.$transaction(async (tx) => {
-
-      // Delete all records that don't cascade automatically
-      await tx.like.deleteMany({ where: { OR: [{ senderUid: uid }, { targetUid: uid }] } });
-      await tx.skip.deleteMany({ where: { OR: [{ senderUid: uid }, { targetUid: uid }] } });
-      await tx.pathInvite.deleteMany({ where: { OR: [{ senderUid: uid }, { receiverUid: uid }] } });
-      await tx.blindsQueue.deleteMany({ where: { uid } });
-      await tx.blindsSession.updateMany({
-        where: { OR: [{ userA: uid }, { userB: uid }] },
-        data: { phase: 'ended', reportReason: 'account_deleted' },
+      // 1. Mark user as deleted and clear FCM token
+      await tx.user.update({
+        where: { id: uid },
+        data: { status: 'deleted', fcmToken: null, lastActiveAt: new Date() },
       });
-      await tx.meltSession.deleteMany({ where: { OR: [{ hostUid: uid }, { targetUid: uid }] } });
-      await tx.pathsPresence.deleteMany({ where: { uid } });
-      await tx.presenceEvent.deleteMany({ where: { uid } });
-      await tx.feedPost.deleteMany({ where: { authorUid: uid } });
-      await tx.postLike.deleteMany({ where: { uid } });
-      await tx.postComment.deleteMany({ where: { authorUid: uid } });
-      await tx.refreshToken.deleteMany({ where: { userId: uid } });
-      await tx.freezeMatch.deleteMany({ where: { OR: [{ userA: uid }, { userB: uid }] } });
-      await tx.freezeRoomParticipant.deleteMany({ where: { uid } });
 
-      // Remove user from any active Match members arrays — mark match as inactive
+      // 2. Clear all refresh tokens so they are logged out
+      await tx.refreshToken.deleteMany({ where: { userId: uid } });
+
+      // 3. Mark matches as inactive so they disappear from other users' inboxes immediately
       const matches = await tx.match.findMany({ where: { members: { has: uid } } });
       for (const m of matches) {
-        const remaining = m.members.filter((id) => id !== uid);
-        if (remaining.length === 0) {
-          await tx.match.delete({ where: { id: m.id } });
-        } else {
-          await tx.match.update({ where: { id: m.id }, data: { members: remaining, status: 'inactive' } });
-        }
+        await tx.match.update({ where: { id: m.id }, data: { status: 'inactive' } });
       }
 
-      // Profile and Membership cascade from User (onDelete: Cascade in schema)
-      await tx.user.delete({ where: { id: uid } });
-    });
+      // 4. Remove them from active pools, presences, or queues to hide their profile
+      await tx.blindsQueue.deleteMany({ where: { uid } });
+      await tx.pathsPresence.deleteMany({ where: { uid } });
 
-    // Delete S3 files after DB is clean — fire and forget (non-blocking)
-    if (s3Keys.length > 0) {
-      Promise.allSettled(s3Keys.map((key) => deleteS3Object(key))).catch(() => {});
-    }
+      // 5. Delete their feed posts and outbound likes so they are immediately removed from discovery
+      await tx.feedPost.deleteMany({ where: { authorUid: uid } });
+      await tx.like.deleteMany({ where: { senderUid: uid } });
+      
+      // We do NOT delete the User, Profile, or Chats yet.
+      // A cron job will permanently clean up users who have been 'deleted' for 30 days.
+    });
 
     res.json({ success: true });
   } catch (err) {
@@ -163,6 +132,44 @@ router.delete('/blocked/:targetUid', async (req: Request, res: Response) => {
   }
 });
 
+// POST /users/:targetUid/report — file a report and auto-block
+router.post('/:targetUid/report', async (req: Request, res: Response) => {
+  try {
+    const { targetUid } = req.params;
+    if (targetUid === req.uid) { res.status(400).json({ error: 'Cannot report yourself' }); return; }
+
+    const { reason, details, context, contextId } = req.body ?? {};
+    const validReasons = ['inappropriate', 'harassment', 'spam', 'fake', 'underage', 'other'];
+    const safeReason = typeof reason === 'string' && validReasons.includes(reason) ? reason : 'other';
+    const safeDetails = typeof details === 'string' ? details.slice(0, 1000) : null;
+    const safeContext = typeof context === 'string' && ['chat', 'profile', 'feed', 'melt', 'blinds', 'freeze_room'].includes(context) ? context : null;
+    const safeContextId = typeof contextId === 'string' ? contextId.slice(0, 64) : null;
+
+    await db.report.create({
+      data: {
+        reporterUid: req.uid,
+        reportedUid: targetUid,
+        reason: safeReason,
+        details: safeDetails,
+        context: safeContext,
+        contextId: safeContextId,
+      },
+    });
+
+    // Auto-block on report (Apple Trust & Safety expectation)
+    await db.block.upsert({
+      where: { blockerUid_blockedUid: { blockerUid: req.uid, blockedUid: targetUid } },
+      update: {},
+      create: { blockerUid: req.uid, blockedUid: targetUid },
+    });
+
+    res.json({ reported: true, blocked: true });
+  } catch (err) {
+    console.error('[users/report]', err);
+    res.status(500).json({ error: 'Failed to file report' });
+  }
+});
+
 // GET /users/blocked — list blocked users
 router.get('/blocked', async (req: Request, res: Response) => {
   try {
@@ -174,6 +181,51 @@ router.get('/blocked', async (req: Request, res: Response) => {
     res.json(blocks);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch block list' });
+  }
+});
+
+// GET /users/me/export — GDPR data export
+router.get('/me/export', async (req: Request, res: Response) => {
+  try {
+    const uid = req.uid;
+    const user = await prisma.user.findUnique({ where: { id: uid } });
+    const profile = await prisma.profile.findUnique({ where: { userId: uid } });
+    const posts = await prisma.feedPost.findMany({ where: { authorUid: uid } });
+    const matches = await prisma.match.findMany({ where: { members: { has: uid } } });
+    // Strip sensitive fields
+    const safeUser = user ? { ...user, passwordHash: undefined } : null;
+    
+    res.json({
+      user: safeUser,
+      profile,
+      posts,
+      matches,
+      exportedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export data' });
+  }
+});
+
+// POST /users/feedback — submit feedback / contact support
+router.post('/feedback', async (req: Request, res: Response) => {
+  try {
+    const { category, message, email, platform } = req.body;
+    if (!message) { res.status(400).json({ error: 'Message required' }); return; }
+
+    await prisma.feedback.create({
+      data: {
+        uid: req.uid,
+        email,
+        category: category ?? 'general',
+        message,
+        platform,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to submit feedback' });
   }
 });
 

@@ -74,7 +74,10 @@ const io = new SocketIOServer(httpServer, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
-  transports: ['websocket', 'polling'],
+  transports: process.env.NODE_ENV === 'production' ? ['websocket'] : ['websocket', 'polling'],
+  // Cap per-event payload at 32KB. Chat messages are capped to 2000 chars;
+  // anything larger is an abuse signal. Default is 1MB which enables DoS.
+  maxHttpBufferSize: 32 * 1024,
 });
 
 // Apply Redis adapter for multi-node socket.io
@@ -99,7 +102,7 @@ app.use('/chats', actionLimiter, chatRouter);
 app.use('/melt', actionLimiter, idempotent, meltRouter);
 app.use('/paths', actionLimiter, pathsRouter);
 app.use('/blinds', actionLimiter, blindsRouter);
-app.use('/iap', iapRouter);
+app.use('/iap', actionLimiter, iapRouter);
 app.use('/storage', storageRouter);
 app.use('/feed', actionLimiter, feedRouter);
 app.use('/users', usersRouter);

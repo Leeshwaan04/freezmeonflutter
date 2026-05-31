@@ -5,13 +5,27 @@ import { logger } from '../services/logger';
 import { prisma } from '../db/client';
 import { verifyGoogleToken } from '../services/google-auth';
 import { verifyAppleToken } from '../services/apple-auth';
-import { issueTokenPair, verifyAccessToken, verifyRefreshToken, revokeRefreshToken, blacklistAccessToken } from '../services/jwt';
+import { issueTokenPair, verifyAccessToken, verifyRefreshToken, revokeRefreshToken, blacklistAccessToken, rotateRefreshToken, revokeAllUserRefreshTokens } from '../services/jwt';
 import { isValidEmail, isValidPassword } from '../utils/validate';
 import { sendPasswordResetEmail, sendEmailVerificationEmail } from '../services/email';
 
 function safeUser(user: Record<string, any>) {
   const { passwordHash, ...safe } = user;
   return safe;
+}
+
+// Detects whether [email] is already claimed by a DIFFERENT account than [selfId].
+// Returns a human-readable existing-method hint, or null if no conflict.
+// Prevents the silent Prisma unique-constraint crash when a user signs in with a
+// second provider using an email already registered to another account (N6).
+async function emailConflictMethod(email: string | null | undefined, selfId: string): Promise<string | null> {
+  if (!email) return null;
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (!existing || existing.id === selfId) return null;
+  // Heuristic: passwordHash => email/password signup; otherwise a social provider.
+  if (existing.passwordHash) return 'email and password';
+  // Apple subject ids look like "000123.<hex>.1234"; Google ids are long numeric strings.
+  return existing.id.includes('.') ? 'Sign in with Apple' : 'Sign in with Google';
 }
 
 const router = Router();
@@ -23,6 +37,16 @@ router.post('/google', async (req: Request, res: Response) => {
     if (!idToken) { res.status(400).json({ code: 'MISSING_FIELD', error: 'idToken required' }); return; }
 
     const googleUser = await verifyGoogleToken(idToken);
+
+    // Guard against email already registered to a different account/provider.
+    const conflict = await emailConflictMethod(googleUser.email, googleUser.uid);
+    if (conflict) {
+      res.status(409).json({
+        code: 'EMAIL_IN_USE',
+        error: `This email is already registered. Please sign in with ${conflict}.`,
+      });
+      return;
+    }
 
     const user = await prisma.user.upsert({
       where: { id: googleUser.uid },
@@ -54,7 +78,7 @@ router.post('/google', async (req: Request, res: Response) => {
 
     res.json({ ...tokens, user: safeUser({ ...user, displayName: name, photoUrl: photoUrl || googleUser.picture }), hasProfile: !!profile });
   } catch (err) {
-    logger.error({ msg: 'auth_google_error', err });
+    logger.error({ msg: 'auth_google_error', error: err instanceof Error ? err.message : String(err) });
     res.status(401).json({ code: 'AUTH_FAILED', error: 'Google authentication failed' });
   }
 });
@@ -62,10 +86,20 @@ router.post('/google', async (req: Request, res: Response) => {
 // POST /auth/apple
 router.post('/apple', async (req: Request, res: Response) => {
   try {
-    const { identityToken } = req.body;
+    const { identityToken, displayName } = req.body;
     if (!identityToken) { res.status(400).json({ code: 'MISSING_FIELD', error: 'identityToken required' }); return; }
 
     const appleUser = await verifyAppleToken(identityToken);
+
+    // Guard against email already registered to a different account/provider.
+    const conflict = await emailConflictMethod(appleUser.email, appleUser.uid);
+    if (conflict) {
+      res.status(409).json({
+        code: 'EMAIL_IN_USE',
+        error: `This email is already registered. Please sign in with ${conflict}.`,
+      });
+      return;
+    }
 
     // Apple only sends email on first authorization — never overwrite with null.
     const user = await prisma.user.upsert({
@@ -78,11 +112,19 @@ router.post('/apple', async (req: Request, res: Response) => {
     });
 
     const tokens = await issueTokenPair(user.id, user.email ?? undefined);
-    const profile = await prisma.profile.findUnique({ where: { userId: user.id } });
+    let profile = await prisma.profile.findUnique({ where: { userId: user.id } });
 
-    res.json({ ...tokens, user: safeUser(user), hasProfile: !!profile });
+    // Auto-populate profile with Apple name if available (mirrors Google flow)
+    const name = typeof displayName === 'string' ? displayName.trim() : '';
+    if (name && !profile) {
+      profile = await prisma.profile.create({
+        data: { userId: user.id, name, age: 25, interests: [] },
+      });
+    }
+
+    res.json({ ...tokens, user: safeUser({ ...user, displayName: name || undefined }), hasProfile: !!profile });
   } catch (err) {
-    logger.error({ msg: 'auth_apple_error', err });
+    logger.error({ msg: 'auth_apple_error', error: err instanceof Error ? err.message : String(err) });
     res.status(401).json({ code: 'AUTH_FAILED', error: 'Apple authentication failed' });
   }
 });
@@ -107,8 +149,17 @@ router.post('/email', async (req: Request, res: Response) => {
     }
 
     if (normalizedAction === 'signup') {
+      // Avoid email enumeration: don't reveal that an account exists. If the
+      // email is already registered, return a generic credentials error so the
+      // attacker can't distinguish "exists" from "doesn't exist". A legitimate
+      // user who already has an account should use the login flow.
       const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) { res.status(409).json({ code: 'EMAIL_EXISTS', error: 'Email already registered' }); return; }
+      if (existing) {
+        // Constant-time delay so timing analysis can't separate the two paths
+        await bcrypt.hash(password, 12);
+        res.status(401).json({ code: 'INVALID_CREDENTIALS', error: 'Invalid credentials' });
+        return;
+      }
 
       const passwordHash = await bcrypt.hash(password, 12);
       const user = await prisma.user.create({ data: { email, passwordHash } });
@@ -127,7 +178,7 @@ router.post('/email', async (req: Request, res: Response) => {
       res.json({ ...tokens, user: safeUser(user), hasProfile: !!profile });
     }
   } catch (err) {
-    logger.error({ msg: 'auth_email_error', err });
+    logger.error({ msg: 'auth_email_error', error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Authentication failed' });
   }
 });
@@ -139,12 +190,18 @@ router.post('/refresh', async (req: Request, res: Response) => {
     if (!refreshToken) { res.status(400).json({ code: 'MISSING_FIELD', error: 'refreshToken required' }); return; }
 
     const payload = verifyRefreshToken(refreshToken);
-    const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
-    if (!stored || stored.expiresAt < new Date()) {
-      res.status(401).json({ code: 'TOKEN_EXPIRED', error: 'Invalid or expired refresh token' }); return;
+
+    // Atomically revoke the presented token. If it doesn't exist in the DB,
+    // either it was already used (replay/reuse) or never issued — in both cases
+    // revoke ALL the user's refresh tokens as a precaution (OAuth refresh-token
+    // family compromise pattern).
+    const rotated = await rotateRefreshToken(refreshToken, payload.uid);
+    if (!rotated) {
+      await revokeAllUserRefreshTokens(payload.uid);
+      res.status(401).json({ code: 'TOKEN_REUSE_DETECTED', error: 'Refresh token reused — please log in again' });
+      return;
     }
 
-    await revokeRefreshToken(refreshToken);
     const tokens = await issueTokenPair(payload.uid, payload.email);
     res.json(tokens);
   } catch {
@@ -189,7 +246,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     await sendPasswordResetEmail(email, token);
     res.json({ success: true, message: 'If that email exists, a reset link has been sent.' });
   } catch (err) {
-    logger.error({ msg: 'auth_forgot_password_error', err });
+    logger.error({ msg: 'auth_forgot_password_error', error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ error: 'Failed to process request' });
   }
 });
@@ -220,7 +277,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
     res.json({ success: true, message: 'Password updated. Please log in again.' });
   } catch (err) {
-    logger.error({ msg: 'auth_reset_password_error', err });
+    logger.error({ msg: 'auth_reset_password_error', error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ error: 'Failed to reset password' });
   }
 });
@@ -254,7 +311,7 @@ router.post('/send-verification', async (req: Request, res: Response) => {
     await sendEmailVerificationEmail(user.email, token);
     res.json({ success: true, message: 'Verification email sent' });
   } catch (err) {
-    logger.error({ msg: 'auth_send_verification_error', err });
+    logger.error({ msg: 'auth_send_verification_error', error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({ error: 'Failed to send verification email' });
   }
 });
@@ -280,8 +337,56 @@ router.get('/verify-email', async (req: Request, res: Response) => {
     // Redirect to app deep link or show success page
     res.redirect(`freezme://email-verified`);
   } catch (err) {
-    logger.error({ msg: 'auth_verify_email_error', err });
+    logger.error({ msg: 'auth_verify_email_error', error: err instanceof Error ? err.message : String(err) });
     res.status(500).send('Verification failed. Please try again.');
+  }
+});
+
+// POST /auth/change-password — change password while logged in
+router.post('/change-password', async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Authentication required' }); return;
+    }
+
+    let uid: string;
+    try {
+      const payload = verifyAccessToken(authHeader.slice(7));
+      uid = payload.uid;
+    } catch {
+      res.status(401).json({ error: 'Invalid token' }); return;
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: 'currentPassword and newPassword required' }); return;
+    }
+    if (!isValidPassword(newPassword)) {
+      res.status(400).json({ error: 'New password must be 8–128 characters' }); return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: uid } });
+    if (!user || !user.passwordHash) {
+      res.status(400).json({ error: 'User does not have an email/password account' }); return;
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: 'Current password incorrect' }); return;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: uid }, data: { passwordHash } }),
+      // Revoke all refresh tokens on password change to log out other sessions
+      prisma.refreshToken.deleteMany({ where: { userId: uid } }),
+    ]);
+
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err) {
+    logger.error({ msg: 'auth_change_password_error', error: err instanceof Error ? err.message : String(err) });
+    res.status(500).json({ error: 'Failed to change password' });
   }
 });
 

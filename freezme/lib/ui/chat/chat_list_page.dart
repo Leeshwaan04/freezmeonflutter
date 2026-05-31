@@ -10,6 +10,7 @@ import '../components/skeleton_loaders.dart';
 import '../design_system.dart';
 import 'message_status.dart';
 import '../../models/vibe_profile.dart';
+import '../likes/who_liked_you_page.dart';
 
 class Conversation {
   Conversation({
@@ -554,12 +555,25 @@ class _ChatListPageState extends State<ChatListPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Chats', style: FreezmeDesignSystem.h1),
-              IconButton(
-                icon: const Icon(Icons.tune, color: FreezmeDesignSystem.primary),
-                tooltip: 'Preferences',
-                onPressed: () {
-                  AppFlowScope.of(context, listen: false).push(AppStage.profileSettings);
-                },
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.favorite, color: FreezmeDesignSystem.primary),
+                    tooltip: 'Who liked you',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const WhoLikedYouPage()),
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.tune, color: FreezmeDesignSystem.primary),
+                    tooltip: 'Preferences',
+                    onPressed: () {
+                      AppFlowScope.of(context, listen: false).push(AppStage.profileSettings);
+                    },
+                  ),
+                ],
               ),
             ],
           ),

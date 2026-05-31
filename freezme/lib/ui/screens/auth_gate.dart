@@ -34,6 +34,7 @@ class _AuthGatePageState extends State<AuthGatePage>
   // Per-button loading so other buttons stay visible while one is in progress
   _AuthMethod? _loadingMethod;
   late final AnimationController _bgController;
+  bool _acceptedEula = false;
 
   bool get _isLoading => _loadingMethod != null;
 
@@ -250,8 +251,14 @@ class _AuthGatePageState extends State<AuthGatePage>
                                 variant: _AuthButtonVariant.apple,
                                 foreground: Colors.white,
                                 isLoading: _loadingMethod == _AuthMethod.apple,
-                                disabled: _isLoading && _loadingMethod != _AuthMethod.apple,
-                                onTap: () => _signInWithApple(flow),
+                                disabled: (!_acceptedEula) || (_isLoading && _loadingMethod != _AuthMethod.apple),
+                                onTap: () {
+                                  if (!_acceptedEula) {
+                                    _showAuthError('Please agree to the Terms of Service to continue.');
+                                    return;
+                                  }
+                                  _signInWithApple(flow);
+                                },
                               ),
                               const SizedBox(height: 10),
                               _AuthButton(
@@ -260,8 +267,14 @@ class _AuthGatePageState extends State<AuthGatePage>
                                 variant: _AuthButtonVariant.google,
                                 foreground: FreezmeColors.neutral,
                                 isLoading: _loadingMethod == _AuthMethod.google,
-                                disabled: _isLoading && _loadingMethod != _AuthMethod.google,
-                                onTap: () => _signInWithGoogle(flow),
+                                disabled: (!_acceptedEula) || (_isLoading && _loadingMethod != _AuthMethod.google),
+                                onTap: () {
+                                  if (!_acceptedEula) {
+                                    _showAuthError('Please agree to the Terms of Service to continue.');
+                                    return;
+                                  }
+                                  _signInWithGoogle(flow);
+                                },
                               ),
                               const SizedBox(height: 10),
                               _AuthButton(
@@ -270,8 +283,14 @@ class _AuthGatePageState extends State<AuthGatePage>
                                 variant: _AuthButtonVariant.email,
                                 foreground: Colors.white,
                                 isLoading: _loadingMethod == _AuthMethod.email,
-                                disabled: _isLoading && _loadingMethod != _AuthMethod.email,
-                                onTap: () => _signInWithEmail(flow),
+                                disabled: (!_acceptedEula) || (_isLoading && _loadingMethod != _AuthMethod.email),
+                                onTap: () {
+                                  if (!_acceptedEula) {
+                                    _showAuthError('Please agree to the Terms of Service to continue.');
+                                    return;
+                                  }
+                                  _signInWithEmail(flow);
+                                },
                               ),
                               // Dev-only skip button — debug/profile builds only
                               if (!kReleaseMode) ...[
@@ -307,36 +326,57 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 24),
 
-                            // Legal — tappable Terms and Privacy Policy
-                            Text.rich(
-                              TextSpan(
-                                text: 'By continuing you agree to our ',
-                                style: FreezmeTypography.bodyMuted
-                                    .copyWith(fontSize: 12),
-                                children: [
-                                  TextSpan(
-                                    text: 'Terms',
-                                    style: const TextStyle(
-                                      color: FreezmeColors.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () => _openUrl(_kTermsUrl),
+                            // Legal — explicit EULA Checkbox for UGC compliance
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: Checkbox(
+                                    value: _acceptedEula,
+                                    activeColor: FreezmeColors.primary,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                    onChanged: (val) {
+                                      setState(() => _acceptedEula = val ?? false);
+                                    },
                                   ),
-                                  const TextSpan(text: ' and '),
-                                  TextSpan(
-                                    text: 'Privacy Policy',
-                                    style: const TextStyle(
-                                      color: FreezmeColors.primary,
-                                      fontWeight: FontWeight.w600,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text.rich(
+                                    TextSpan(
+                                      text: 'I agree to the ',
+                                      style: FreezmeTypography.bodyMuted
+                                          .copyWith(fontSize: 12),
+                                      children: [
+                                        TextSpan(
+                                          text: 'Terms of Service',
+                                          style: const TextStyle(
+                                            color: FreezmeColors.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          recognizer: TapGestureRecognizer()
+                                            ..onTap = () => _openUrl(_kTermsUrl),
+                                        ),
+                                        const TextSpan(text: ' and '),
+                                        TextSpan(
+                                          text: 'Privacy Policy',
+                                          style: const TextStyle(
+                                            color: FreezmeColors.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          recognizer: TapGestureRecognizer()
+                                            ..onTap = () => _openUrl(_kPrivacyUrl),
+                                        ),
+                                        const TextSpan(text: ' (Required).'),
+                                      ],
                                     ),
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () => _openUrl(_kPrivacyUrl),
+                                    textAlign: TextAlign.left,
                                   ),
-                                  const TextSpan(text: '.'),
-                                ],
-                              ),
-                              textAlign: TextAlign.center,
+                                ),
+                              ],
                             ),
 
                             const SizedBox(height: 24),

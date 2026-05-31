@@ -9,6 +9,7 @@ import '../../models/paths.dart';
 import '../design_system.dart';
 import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
+import '../components/skeleton_loaders.dart';
 
 // ── Activity intents ──────────────────────────────────────────────────────────
 const _kActivities = [
@@ -546,11 +547,35 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
       );
     }
     if (flow.pathsLoading) {
-      return const SliverFillRemaining(
-        child: Center(child: CircularProgressIndicator(color: FreezmeDesignSystem.primary)),
+      return SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) => const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: PathsUserSkeleton(),
+            ),
+            childCount: 4,
+          ),
+        ),
       );
     }
     if (flow.pathsError != null) {
+      if (flow.pathsError!.contains('Location permission denied') || flow.pathsError!.contains('Location services disabled')) {
+        return SliverFillRemaining(
+          hasScrollBody: false,
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: EmptyStateView(
+              icon: Icons.location_disabled_rounded,
+              title: 'Location Required',
+              subtitle: 'Paths needs your location to show nearby people. Please enable it in Settings.',
+              actionLabel: 'Open Settings',
+              onAction: () => Geolocator.openAppSettings(),
+            ),
+          ),
+        );
+      }
       return SliverFillRemaining(
         hasScrollBody: false,
         child: ErrorStateView(message: flow.pathsError!, onRetry: () => _refresh(flow)),

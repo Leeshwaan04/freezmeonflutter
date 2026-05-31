@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
 /// Push notification service — keeps firebase_messaging for APNs/FCM delivery,
-/// but reports the FCM token to the EC2 API instead of Firestore.
+/// reports the FCM token to the EC2 API, and routes taps to the correct screen.
 class PushNotificationService {
   static final PushNotificationService _instance =
       PushNotificationService._internal();
@@ -13,6 +13,14 @@ class PushNotificationService {
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final _client = ApiClient.instance;
+
+  /// Routes a push payload to the relevant in-app screen. Wired from main.dart
+  /// once the AppFlowController is ready. Receives `data` map from RemoteMessage.
+  static void Function(Map<String, dynamic> data)? onNotificationTap;
+
+  /// Payload captured before [onNotificationTap] was assigned (e.g. cold start
+  /// from a tapped notification). Consumed once on registration.
+  Map<String, dynamic>? _pendingPayload;
 
   Future<void> initialize() async {
     try {
@@ -27,10 +35,22 @@ class PushNotificationService {
         await _saveFcmToken();
         _setupTokenRefresh();
         _setupForegroundHandler();
+        await _handleColdStart();
         await _sendLevelUpNudge();
       }
     } catch (e) {
       debugPrint('[Push] initialization failed: $e');
+    }
+  }
+
+  Future<void> _handleColdStart() async {
+    try {
+      final initial = await _messaging.getInitialMessage();
+      if (initial != null && initial.data.isNotEmpty) {
+        _dispatchTap(_normalizeData(initial.data));
+      }
+    } catch (e) {
+      debugPrint('[Push] cold-start handler failed: $e');
     }
   }
 
@@ -66,8 +86,35 @@ class PushNotificationService {
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('[Push] opened: ${message.data}');
+      debugPrint('[Push] tapped (warm): ${message.data}');
+      _dispatchTap(_normalizeData(message.data));
     });
+  }
+
+  void _dispatchTap(Map<String, dynamic> data) {
+    final cb = onNotificationTap;
+    if (cb == null) {
+      // App not yet ready — stash and replay on registration.
+      _pendingPayload = data;
+      return;
+    }
+    cb(data);
+  }
+
+  /// Called by main.dart once the AppFlowController is available so any pending
+  /// cold-start payload can be routed.
+  void registerTapHandler(void Function(Map<String, dynamic>) handler) {
+    onNotificationTap = handler;
+    final pending = _pendingPayload;
+    if (pending != null) {
+      _pendingPayload = null;
+      handler(pending);
+    }
+  }
+
+  Map<String, dynamic> _normalizeData(Map<String, dynamic> data) {
+    // FCM data values arrive as strings — keep them as-is.
+    return Map<String, dynamic>.from(data);
   }
 
   Future<void> subscribeToTopic(String topic) =>

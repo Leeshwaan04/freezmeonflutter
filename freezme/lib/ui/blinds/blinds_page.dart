@@ -119,7 +119,7 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
 
     } catch (e) {
       if (mounted) {
-        PremiumSnackBar.show(context, 'Failed to join queue: $e', type: SnackBarType.error);
+        PremiumSnackBar.show(context, 'Unable to join queue at the moment. Please try again.', type: SnackBarType.error);
         setState(() => isSearching = false);
       }
     }

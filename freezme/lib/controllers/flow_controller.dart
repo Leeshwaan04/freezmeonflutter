@@ -336,6 +336,10 @@ class AppFlowController extends ChangeNotifier {
     int? age,
     String? gender,
     String? location,
+    String? intent,
+    String? archetype,
+    String? energyType,
+    List<String>? lookingFor,
   }) async {
     final uid = AuthService.instance.currentUser?.uid;
     if (uid == null) return;
@@ -347,6 +351,12 @@ class AppFlowController extends ChangeNotifier {
       gender: gender,
       location: location,
       interests: interests,
+      intent: intent,
+      archetype: archetype,
+      energyType: energyType,
+      // Persist multi-select lookingFor under genderPrefs for now is wrong —
+      // backend takes singular intent. lookingFor is stored client-side but
+      // also rolls up to intent (first choice) for compatibility scoring.
     );
   }
   Future<void> updateLocalProfileState({
@@ -581,9 +591,11 @@ class AppFlowController extends ChangeNotifier {
 
   Future<void> consumeCredit() async {
     if (_isPremium) return;
+    if (_vibeCredits <= 0) return;
     final prefs = await SharedPreferences.getInstance();
     _vibeCredits = (_vibeCredits - 1).clamp(0, 999);
-    await prefs.setInt('vibeCredits', _vibeCredits);
+    // Persist under the same key that _hydrate() reads — 'vibe_credits'.
+    await prefs.setInt('vibe_credits', _vibeCredits);
     notifyListeners();
   }
 

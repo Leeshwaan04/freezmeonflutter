@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../../controllers/flow_controller.dart';
 import '../../services/photo_upload_service.dart';
 import '../../core/app_stage.dart';
+import '../../services/auth_service.dart';
 import '../../models/blueprint.dart';
 
 // ── Onboarding: 7-step modern flow ───────────────────────────────────────────
@@ -204,9 +205,9 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
         debugPrint('[Onboarding] profile save failed: $e');
         debugPrint('[Onboarding] error detail: $errorDetail');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Save failed: $errorDetail'),
-            duration: const Duration(seconds: 8),
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('We couldn\'t save your profile right now. Please check your connection and try again.'),
+            duration: Duration(seconds: 4),
           ));
         }
         return;
@@ -264,7 +265,25 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
                       ),
                     )
                   else
-                    const SizedBox(width: 40),
+                    GestureDetector(
+                      onTap: () async {
+                         await AuthService.instance.signOut();
+                         if (mounted) flow.replaceStack([AppStage.authGate]);
+                      },
+                      child: Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 8, offset: const Offset(0, 2),
+                          )],
+                        ),
+                        child: const Icon(Icons.logout_rounded,
+                            size: 16, color: FreezmeColors.error),
+                      ),
+                    ),
                   const Spacer(),
                   Row(
                     children: List.generate(_totalSteps, (i) {

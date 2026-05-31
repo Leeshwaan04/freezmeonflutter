@@ -15,8 +15,13 @@ class UploadedPhoto {
   final String? localPath;
 }
 
+enum PhotoSource { gallery, camera }
+
 abstract class PhotoUploadService {
-  Future<UploadedPhoto> pickAndUpload({required int slotIndex});
+  Future<UploadedPhoto> pickAndUpload({
+    required int slotIndex,
+    PhotoSource source = PhotoSource.gallery,
+  });
   Future<String> uploadPhoto(File file,
       {required String userId, required int photoIndex});
 }
@@ -47,9 +52,14 @@ class S3PhotoUploadService implements PhotoUploadService {
   final _s3Dio = Dio();
 
   @override
-  Future<UploadedPhoto> pickAndUpload({required int slotIndex}) async {
+  Future<UploadedPhoto> pickAndUpload({
+    required int slotIndex,
+    PhotoSource source = PhotoSource.gallery,
+  }) async {
     final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
+      source: source == PhotoSource.camera
+          ? ImageSource.camera
+          : ImageSource.gallery,
       imageQuality: 85,
     );
     if (picked == null) throw const PhotoUploadException('picker_cancelled');
@@ -143,11 +153,18 @@ class MockPhotoUploadService implements PhotoUploadService {
   ];
 
   @override
-  Future<UploadedPhoto> pickAndUpload({required int slotIndex}) async {
+  Future<UploadedPhoto> pickAndUpload({
+    required int slotIndex,
+    PhotoSource source = PhotoSource.gallery,
+  }) async {
     await Future<void>.delayed(delay);
     try {
-      final XFile? picked = await ImagePicker()
-          .pickImage(source: ImageSource.gallery, imageQuality: 80);
+      final XFile? picked = await ImagePicker().pickImage(
+        source: source == PhotoSource.camera
+            ? ImageSource.camera
+            : ImageSource.gallery,
+        imageQuality: 80,
+      );
       if (picked != null) {
         return UploadedPhoto(url: picked.path, localPath: picked.path);
       }

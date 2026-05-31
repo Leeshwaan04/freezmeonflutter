@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
+import { getIO } from '../realtime/socket';
 
 const router = Router();
 router.use(requireAuth);
@@ -96,6 +97,11 @@ router.delete('/:chatId/messages/:messageId', async (req: Request, res: Response
       where: { id: messageId },
       data: { text: '[deleted]', deletedAt: new Date() },
     });
+
+    // Notify all members in the chat room about the deletion
+    try {
+      getIO().to(`chat:${chatId}`).emit('chat:message_deleted', { chatId, messageId });
+    } catch (_) { /* io not yet initialized in test env */ }
 
     res.json({ deleted: true, message: updated });
   } catch (err) {

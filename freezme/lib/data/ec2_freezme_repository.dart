@@ -219,9 +219,11 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     }
 
     fetch();
-    // Only refresh on new match — NOT on every message (avoids O(M) refetches per session)
+    // Refresh on new match and on unmatch/removal — NOT on every message
+    // (avoids O(M) refetches per session).
     final sub1 = _ws.onMatchNew.listen((_) => fetch());
-    controller.onCancel = sub1.cancel;
+    final sub2 = _ws.onMatchRemoved.listen((_) => fetch());
+    controller.onCancel = () { sub1.cancel(); sub2.cancel(); };
 
     return controller.stream;
   }
@@ -348,7 +350,11 @@ class Ec2FreezmeRepository implements FreezmeRepository {
 
   @override
   Future<void> markChatAsRead(String chatId) async {
-    // Handled by WebSocket read receipts
+    try {
+      await _client.dio.post<void>('/chats/$chatId/read');
+    } catch (_) {
+      // Best-effort — read receipts are an enhancement, not critical.
+    }
   }
 
   @override
@@ -612,9 +618,11 @@ class Ec2FreezmeRepository implements FreezmeRepository {
     Future<void> load() async {
       try {
         final response = await _client.dio
-            .get<List<dynamic>>('/feed/$postId/comments');
+            .get<Map<String, dynamic>>('/feed/$postId/comments');
         if (!controller.isClosed) {
-          controller.add((response.data ?? []).cast<Map<String, dynamic>>());
+          final data = response.data;
+          final comments = (data?['comments'] as List<dynamic>?) ?? [];
+          controller.add(comments.cast<Map<String, dynamic>>());
         }
       } catch (_) {}
     }
@@ -661,14 +669,119 @@ class Ec2FreezmeRepository implements FreezmeRepository {
   // ── Safety ─────────────────────────────────────────────────────────────────
 
   @override
-  Future<void> reportUser(String targetUid) async {
+  Future<void> reportUser(
+    String targetUid, {
+    String? reason,
+    String? details,
+    String? context,
+    String? contextId,
+  }) async {
+    await _client.dio.post<void>(
+      '/users/$targetUid/report',
+      data: {
+        'reason': reason ?? 'other',
+        if (details != null) 'details': details,
+        if (context != null) 'context': context,
+        if (contextId != null) 'contextId': contextId,
+      },
+    );
+  }
+
+  @override
+  Future<void> blockUser(String targetUid) async {
+    await _client.dio.post<void>('/users/blocked/$targetUid');
+  }
+
+  @override
+  Future<void> unblockUser(String targetUid) async {
+    await _client.dio.delete<void>('/users/blocked/$targetUid');
+  }
+
+  @override
+  Future<List<VibeProfile>> fetchLikes({int limit = 50}) async {
+    final res = await _client.dio.get<List<dynamic>>('/matching/likes', queryParameters: {'limit': limit});
+    if (res.statusCode == 200 && res.data != null) {
+      return res.data!.map((e) => VibeProfile.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    throw Exception('Failed to fetch likes');
+  }
+
+  @override
+  Future<void> unmatchUser(String targetUid) async {
+    await _client.dio.post<void>('/matching/unmatch', data: {'targetUid': targetUid});
+  }
+
+  @override
+  Future<LikedByResult> fetchLikedBy() async {
+    final res = await _client.dio.get<Map<String, dynamic>>('/matching/liked-by');
+    final data = res.data ?? const {};
+    final rawProfiles = (data['profiles'] as List<dynamic>?) ?? const [];
+    return LikedByResult(
+      count: (data['count'] as num?)?.toInt() ?? 0,
+      isPremium: data['isPremium'] as bool? ?? false,
+      profiles: rawProfiles
+          .whereType<Map<String, dynamic>>()
+          .map((e) => VibeProfile.fromJson(e))
+          .toList(),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> exportMyData() async {
+    final res = await _client.dio.get<Map<String, dynamic>>('/users/me/export');
+    return res.data ?? const {};
+  }
+
+  @override
+  Future<void> submitFeedback({
+    required String category,
+    required String message,
+    String? email,
+  }) async {
+    await _client.dio.post<void>('/users/feedback', data: {
+      'category': category,
+      'message': message,
+      if (email != null && email.isNotEmpty) 'email': email,
+      'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+    });
+  }
+
+  @override
+  Future<Map<String, bool>> getNotificationPrefs() async {
+    final res = await _client.dio.get<Map<String, dynamic>>('/users/notification-prefs');
+    final data = res.data ?? const {};
+    return data.map((k, v) => MapEntry(k, v == true));
+  }
+
+  @override
+  Future<void> updateNotificationPrefs(Map<String, bool> prefs) async {
+    await _client.dio.patch<void>('/users/notification-prefs', data: prefs);
+  }
+
+  @override
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    await _client.dio.post<void>('/auth/change-password', data: {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    });
+  }
+
+  @override
+  Future<void> scheduleAccountDeletion() async {
+    await _client.dio.post<void>('/users/me/schedule-deletion');
+  }
+
+  @override
+  Future<List<String>> listBlockedUids() async {
     try {
-      await _client.dio.post<void>(
-        '/users/$targetUid/report',
-        data: {'reason': 'user_reported'},
-      );
-    } catch (e) {
-      debugPrint('[Ec2Repo] reportUser error: $e');
+      final res = await _client.dio.get<List<dynamic>>('/users/blocked');
+      return (res.data ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map((e) => e['blockedUid'] as String? ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const [];
     }
   }
 

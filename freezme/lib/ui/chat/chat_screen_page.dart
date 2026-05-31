@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
@@ -9,9 +10,12 @@ import '../../models/chat_message.dart';
 import '../../services/auth_service.dart';
 import '../../services/websocket_service.dart';
 import '../../models/conversation_energy.dart';
+import '../components/safety_actions_sheet.dart';
+import '../shared/safe_image.dart';
 import '../design_system.dart';
 import 'freeze_modal.dart' as modal;
 import 'typing_indicator.dart';
+import '../components/skeleton_loaders.dart';
 
 enum MessageStatus { pending, sent, delivered, read, failed }
 
@@ -64,9 +68,12 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
   StreamSubscription<List<ChatMessage>>? _msgSub;
   StreamSubscription<Map<String, dynamic>>? _ackSub;
   StreamSubscription<Map<String, dynamic>>? _statusSub;
+  StreamSubscription<Map<String, dynamic>>? _errorSub;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
   Stream<List<ChatMessage>>? _messagesStream;
   String? _messagesStreamChatId;
   bool _sending = false;
+  bool _isOffline = false;
   final bool _simulatedTyping = false;
 
   // Dedup: track server IDs already shown to avoid double-display from HTTP + WS
@@ -87,6 +94,16 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
     // Listen for server ACKs to update local message status
     _ackSub = WebSocketService.instance.onChatAck.listen(_handleAck);
     _statusSub = WebSocketService.instance.onChatStatus.listen(_handleStatusUpdate);
+    // Surface server-side send rejections (blocked / rate-limited) instead of
+    // leaving the bubble stuck in "sent" forever.
+    _errorSub = WebSocketService.instance.onChatError.listen(_handleChatError);
+    // Monitor connectivity for offline banner
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      final offline = results.every((r) => r == ConnectivityResult.none);
+      if (mounted && offline != _isOffline) {
+        setState(() => _isOffline = offline);
+      }
+    });
   }
 
   @override
@@ -96,6 +113,8 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
     _msgSub?.cancel();
     _ackSub?.cancel();
     _statusSub?.cancel();
+    _errorSub?.cancel();
+    _connectivitySub?.cancel();
     super.dispose();
   }
 
@@ -137,6 +156,28 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
       case 'failed':    return MessageStatus.failed;
       default:          return MessageStatus.sent;
     }
+  }
+
+  void _handleChatError(Map<String, dynamic> event) {
+    if (!mounted) return;
+    final code = event['code'] as String?;
+    // Mark the most recent pending/sent outgoing message as failed.
+    setState(() {
+      for (final m in _messages.reversed) {
+        if (m.isMe &&
+            (m.status == MessageStatus.pending ||
+                m.status == MessageStatus.sent)) {
+          m.status = MessageStatus.failed;
+          break;
+        }
+      }
+    });
+    final msg = switch (code) {
+      'BLOCKED' => 'You can no longer message this person.',
+      'RATE_LIMITED' => "You're sending messages too fast. Slow down a moment.",
+      _ => 'Message could not be delivered.',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _handleSend() async {
@@ -222,8 +263,15 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
     if (_messagesStreamChatId != chatId) {
       _messagesStreamChatId = chatId;
       _messagesStream = flow.repository.messagesForChat(chatId);
+      // Send a single HTTP read receipt on open; subsequent reads happen via
+      // the WS handler in _handleIncomingMessage below.
+      flow.repository.markChatAsRead(chatId);
     }
     return _messagesStream!;
+  }
+
+  void _markIncomingRead(String chatId, String messageId) {
+    WebSocketService.instance.markChatRead(chatId: chatId, messageId: messageId);
   }
 
   @override
@@ -272,13 +320,10 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                         shape: BoxShape.circle,
                         color: FreezmeDesignSystem.primary.withValues(alpha: 0.1),
                       ),
-                      child: CircleAvatar(
+                      child: SafeAvatar(
                         radius: 22,
                         backgroundColor: FreezmeDesignSystem.surfaceAlt,
-                        backgroundImage: CachedNetworkImageProvider(
-                          profile?.imageUrl ??
-                              'https://images.unsplash.com/photo-1546961329-78bef0414d7c?fit=crop&w=320',
-                        ),
+                        url: profile?.imageUrl,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -319,6 +364,20 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                         modal.showFreezeModal(context);
                       },
                       icon: const Icon(Icons.ac_unit, color: FreezmeDesignSystem.primary),
+                    ),
+                    IconButton(
+                      tooltip: 'Block or report',
+                      onPressed: profile == null
+                          ? null
+                          : () => SafetyActionsSheet.show(
+                                context,
+                                targetUid: profile.uid,
+                                targetName: profile.name,
+                                context_: 'chat',
+                                contextId: chatId,
+                              ),
+                      icon: const Icon(Icons.more_vert,
+                          color: FreezmeDesignSystem.primary),
                     ),
                   ],
                 ),
@@ -361,6 +420,39 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                   ),
                 ),
 
+              // Offline connectivity banner
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: _isOffline
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 18),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'Offline — messages will send when you reconnect',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+
               // Chat Area
               Expanded(
                 child: chatId == null
@@ -377,8 +469,7 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                         builder: (context, snapshot) {
                           if (snapshot.connectionState ==
                               ConnectionState.waiting) {
-                            return const Center(
-                                child: CircularProgressIndicator(color: FreezmeDesignSystem.primary));
+                            return const ChatListSkeleton(itemCount: 6);
                           }
                           if (snapshot.hasError) {
                             return const Center(
@@ -388,6 +479,15 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                           final msgs = snapshot.data ?? const [];
                           final uid =
                               AuthService.instance.currentUser?.uid ?? '';
+
+                          // Mark the latest unread incoming message as read.
+                          for (final m in msgs.reversed) {
+                            if (m.senderId != uid && m.status != 'read' && m.documentId != null) {
+                              _markIncomingRead(chatId, m.documentId!);
+                              break;
+                            }
+                          }
+
                           final mapped = msgs
                               .map(
                                 (m) => ChatMessageItem(
@@ -600,13 +700,6 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                   top: false,
                   child: Row(
                     children: [
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.emoji_emotions_outlined,
-                          color: FreezmeDesignSystem.textSecondary,
-                        ),
-                      ),
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
@@ -617,6 +710,15 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                             controller: _controller,
                             onSubmitted: (_) => _handleSend(),
                             style: FreezmeDesignSystem.body,
+                            // Mirror the server's 2000-char cap so the message
+                            // can never be silently dropped.
+                            maxLength: 2000,
+                            maxLengthEnforcement:
+                                MaxLengthEnforcement.enforced,
+                            minLines: 1,
+                            maxLines: 5,
+                            textInputAction: TextInputAction.send,
+                            textCapitalization: TextCapitalization.sentences,
                             decoration: InputDecoration(
                               hintText: 'Type a message...',
                               hintStyle: FreezmeDesignSystem.body.copyWith(
@@ -625,20 +727,12 @@ class _ChatScreenPageState extends State<ChatScreenPage> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                               border: InputBorder.none,
                               isDense: true,
+                              counterText: '', // hide the 0/2000 counter
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Mic icon if text empty, Send if not
-                      // _controller logic would be better with setState listener but using simple logic here
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.mic_none,
-                          color: FreezmeDesignSystem.textSecondary,
-                        ),
-                      ),
                       GestureDetector(
                         onTap: _handleSend,
                         child: Container(

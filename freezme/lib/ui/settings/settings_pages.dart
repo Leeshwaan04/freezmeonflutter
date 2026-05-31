@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../main.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
@@ -29,7 +32,7 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
   bool _hideLastSeen = false;
   bool _hideReadReceipts = false;
   bool _incognitoMode = false;
-  final List<String> _blockedUsers = [];
+  List<String> _blockedUsers = [];
   bool _isLoading = false;
 
   @override
@@ -43,12 +46,15 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
     try {
       final flow = AppFlowScope.of(context, listen: false);
       final prefs = await flow.repository.fetchUserPreferences();
+      // Load the blocked-users list from the server (previously always empty).
+      final blocked = await flow.repository.listBlockedUids();
       if (mounted) {
         setState(() {
           _hideOnlineStatus = prefs['hideOnlineStatus'] ?? false;
           _hideLastSeen = prefs['hideLastSeen'] ?? false;
           _hideReadReceipts = prefs['hideReadReceipts'] ?? false;
           _incognitoMode = prefs['incognitoMode'] ?? false;
+          _blockedUsers = blocked;
           _isLoading = false;
         });
       }
@@ -117,6 +123,76 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
       } catch (e) {
         if (!mounted) return;
         PremiumSnackBar.show(context, 'Error unblocking user', type: SnackBarType.error);
+      }
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: currentCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Current password'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: newCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'New password (min 8 chars)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Update')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) {
+      currentCtrl.dispose();
+      newCtrl.dispose();
+      return;
+    }
+    try {
+      final flow = AppFlowScope.of(context, listen: false);
+      await flow.repository.changePassword(
+        currentPassword: currentCtrl.text,
+        newPassword: newCtrl.text,
+      );
+      if (mounted) PremiumSnackBar.show(context, 'Password updated', type: SnackBarType.success);
+    } catch (e) {
+      if (mounted) PremiumSnackBar.show(context, 'Could not change password. Check your current password.', type: SnackBarType.error);
+    } finally {
+      currentCtrl.dispose();
+      newCtrl.dispose();
+    }
+  }
+
+  Future<void> _exportData() async {
+    final flow = AppFlowScope.of(context, listen: false);
+    PremiumSnackBar.show(context, 'Preparing your data…');
+    try {
+      final data = await flow.repository.exportMyData();
+      final pretty = const JsonEncoder.withIndent('  ').convert(data);
+      final dir = Directory.systemTemp;
+      final file = File('${dir.path}/freezme-data-export.json');
+      await file.writeAsString(pretty);
+      if (!mounted) return;
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: 'Your Freezme data export',
+      );
+    } catch (e) {
+      if (mounted) {
+        PremiumSnackBar.show(context, 'Could not export data. Please try again.', type: SnackBarType.error);
       }
     }
   }
@@ -275,16 +351,17 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
                   child: Column(
                     children: [
                       _buildActionTile(
+                        icon: Icons.lock_outline,
+                        title: 'Change Password',
+                        subtitle: 'For email sign-in accounts',
+                        onTap: _changePassword,
+                      ),
+                      const Divider(color: FreezmeDesignSystem.border),
+                      _buildActionTile(
                         icon: Icons.download,
                         title: 'Download My Data',
-                        subtitle: 'Get a copy of your data',
-                        onTap: () {
-                          PremiumSnackBar.show(
-                            context,
-                            'Data download link sent to your email',
-                            type: SnackBarType.success,
-                          );
-                        },
+                        subtitle: 'Export a copy of your Freezme data',
+                        onTap: _exportData,
                       ),
                       const Divider(color: FreezmeDesignSystem.border),
                       _buildActionTile(
@@ -365,16 +442,24 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
 
     setState(() => _isSubmitting = true);
     try {
+      final flow = AppFlowScope.of(context, listen: false);
+      await flow.repository.submitFeedback(
+        category: 'general',
+        message: _messageController.text.trim(),
+        email: AuthService.instance.currentUser?.email,
+      );
+      if (!mounted) return;
       PremiumSnackBar.show(
         context,
-        'Thank you for your feedback!',
+        'Thank you for your feedback! Our team will review it.',
         type: SnackBarType.success,
       );
       _messageController.clear();
     } catch (e) {
+      if (!mounted) return;
       PremiumSnackBar.show(
         context,
-        'Error submitting feedback',
+        'Could not submit feedback. Please try again.',
         type: SnackBarType.error,
       );
     } finally {

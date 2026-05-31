@@ -1,0 +1,58 @@
+appId: com.freezme.app
+name: "Paths — Location Permission Denied"
+tags:
+  - paths
+  - permissions
+  - edge-case
+---
+# Test: Verify the app handles denied location permission gracefully.
+# Edge case: User taps "Don't Allow" on the iOS location permission dialog.
+# Expected: Show a friendly fallback dialog with "Open Settings" button
+# instead of crashing or showing an empty/broken screen.
+
+- launchApp
+- assertVisible: "FREEZME"
+
+# Skip auth (dev-only button)
+- tapOn: "Skip (Dev only)"
+
+# Complete minimal onboarding to get to home screen
+- tapOn: "Serious Dating"
+- tapOn: "Next"
+- tapOn: "Adventurous"
+- tapOn: "Next"
+- tapOn: "Active"
+- tapOn: "Next"
+- tapOn: "Traveling"
+- tapOn: "Next"
+- inputText: "Maestro test user bio"
+- tapOn: "Next"
+
+# Should now be on the home screen
+- assertVisible: "Paths"
+
+# Navigate to Paths tab
+- tapOn: "Paths"
+
+# Select an activity
+- tapOn: "Coffee"
+
+# Turn on visibility — this triggers location permission request
+- tapOn: "Show me on Paths"
+
+# Deny location permission when the OS dialog appears
+- tapOn:
+    text: "Don't Allow"
+    optional: true
+
+# Verify the permission denied dialog appears with helpful message
+- assertVisible: "Location Required"
+- assertVisible: "Paths needs your location"
+
+# Verify the dialog has a retry/settings button
+- assertVisible: "Try Again"
+- tapOn: "Cancel"
+
+# Verify the app doesn't crash — user is still on Paths page
+- assertVisible: "Paths"
+- assertVisible: "You are hidden"

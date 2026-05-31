@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../services/api_client.dart';
 import '../../services/websocket_service.dart';
+import '../shared/humanize_error.dart';
 import '../design_system.dart';
 class FreezeRoomPage extends StatefulWidget {
   const FreezeRoomPage({super.key});
@@ -96,7 +97,7 @@ class _FreezeRoomPageState extends State<FreezeRoomPage>
       WebSocketService.instance.joinFreezeRoom(_room!['id'] as String);
       if (_myAnswer != null) await _loadParticipants();
     } catch (e) {
-      setState(() { _loading = false; _error = e.toString(); });
+      setState(() { _loading = false; _error = humanizeError(e); });
     }
   }
 

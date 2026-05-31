@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'package:isar/isar.dart';
 
 import 'websocket_service.dart';
+import '../core/database.dart';
+import '../models/isar_chat_message.dart';
 
 class ChatMessage {
   const ChatMessage({
@@ -56,21 +59,77 @@ class ChatMessage {
 class ChatMessageService {
   ChatMessageService();
 
-  /// Returns a stream of messages for [sessionId] bridged from WebSocket events.
+  /// Returns a stream of messages for [sessionId] bridged from WebSocket events and cached in Isar.
   Stream<List<ChatMessage>> watchMessages(String sessionId) {
+    final isar = LocalDatabase.instance;
     final controller = StreamController<List<ChatMessage>>();
-    final List<ChatMessage> buffer = [];
+    StreamSubscription? wsSub;
+    StreamSubscription? isarSub;
 
-    final sub = WebSocketService.instance.chatMessages(sessionId).listen((event) {
-      final msgData = event['message'] as Map<String, dynamic>?;
-      if (msgData != null) {
-        final msg = ChatMessage.fromJson(msgData, sessionId: sessionId);
-        buffer.add(msg);
-        if (!controller.isClosed) controller.add(List.from(buffer));
+    controller.onListen = () async {
+      // 1. Initial immediate local cache yield
+      final initialLocal = await isar.isarChatMessages
+          .filter()
+          .chatIdEqualTo(sessionId)
+          .sortBySentAt()
+          .findAll();
+
+      if (!controller.isClosed) {
+        controller.add(initialLocal.map((m) => ChatMessage(
+          id: m.documentId ?? m.id.toString(),
+          sessionId: m.chatId,
+          senderUid: m.senderId,
+          text: m.text,
+          status: m.status ?? 'sent',
+          createdAt: m.sentAt,
+        )).toList());
       }
-    });
 
-    controller.onCancel = sub.cancel;
+      // 2. Setup WebSocket listener to sink into Isar
+      wsSub = WebSocketService.instance.chatMessages(sessionId).listen((event) async {
+        final msgData = event['message'] as Map<String, dynamic>?;
+        if (msgData != null) {
+          final domainMsg = ChatMessage.fromJson(msgData, sessionId: sessionId);
+          
+          final isarMsg = IsarChatMessage()
+            ..chatId = domainMsg.sessionId
+            ..senderId = domainMsg.senderUid
+            ..text = domainMsg.text
+            ..sentAt = domainMsg.createdAt
+            ..documentId = domainMsg.id
+            ..status = domainMsg.status;
+
+          await isar.writeTxn(() async {
+            await isar.isarChatMessages.put(isarMsg);
+          });
+        }
+      });
+
+      // 3. Watch Isar database for changes
+      isarSub = isar.isarChatMessages
+          .filter()
+          .chatIdEqualTo(sessionId)
+          .sortBySentAt()
+          .watch(fireImmediately: true)
+          .listen((records) {
+        if (!controller.isClosed) {
+          controller.add(records.map((m) => ChatMessage(
+            id: m.documentId ?? m.id.toString(),
+            sessionId: m.chatId,
+            senderUid: m.senderId,
+            text: m.text,
+            status: m.status ?? 'sent',
+            createdAt: m.sentAt,
+          )).toList());
+        }
+      });
+    };
+
+    controller.onCancel = () {
+      wsSub?.cancel();
+      isarSub?.cancel();
+    };
+
     return controller.stream;
   }
 

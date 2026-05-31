@@ -1,0 +1,67 @@
+appId: com.freezme.app
+name: "Paths — Full Invite Wave Flow"
+tags:
+  - paths
+  - invite
+  - wave
+  - core-flow
+---
+# Test: Verify the full Paths invite/wave flow works end-to-end.
+# This is the core discovery mechanic of the app.
+# Edge case: Daily wave limit (5/day), empty nearby list, and invite status tracking.
+
+- launchApp
+- assertVisible: "FREEZME"
+
+# Skip auth
+- tapOn: "Skip (Dev only)"
+
+# Navigate to Paths
+- assertVisible: "Paths"
+
+# Verify wave counter is visible
+- assertVisible: "left"
+
+# Select activities
+- tapOn: "Coffee"
+- tapOn: "Gym"
+
+# Verify distance controls
+- assertVisible: "Distance"
+
+# Toggle visibility on
+- tapOn: "Show me on Paths"
+
+# Allow location if prompted
+- tapOn:
+    text: "Allow While Using App"
+    optional: true
+
+- tapOn:
+    text: "Allow"
+    optional: true
+
+# Verify distance selector is visible after going live
+- assertVisible: "km"
+
+# Try different radius buttons
+- tapOn: "5km"
+- tapOn: "25km"
+
+# Verify nearby section
+- assertVisible: "Nearby"
+
+# If there are nearby users, verify card structure
+- assertVisible:
+    text: ".*Wave.*"
+    optional: true
+
+# Clear activity selection
+- tapOn: "Clear"
+
+# Verify empty state
+- assertVisible: "Pick at least one"
+    
+# Toggle visibility off
+- tapOn: "Show me on Paths"
+- assertVisible: "You are hidden"

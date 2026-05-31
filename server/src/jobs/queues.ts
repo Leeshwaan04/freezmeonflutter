@@ -167,6 +167,47 @@ new Worker(
       logger.info({ msg: 'old_presence_events_pruned', count: deleted.count });
     }
 
+    if (type === 'expired_matches') {
+      // Find matches older than 7 days that have NO messages sent in their chat.
+      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const staleMatches = await prisma.match.findMany({
+        where: {
+          status: 'active',
+          createdAt: { lt: cutoff },
+          chats: {
+            some: {
+              messages: {
+                none: {} // True if no messages exist
+              }
+            }
+          }
+        },
+        include: { chats: true }
+      });
+
+      if (staleMatches.length > 0) {
+        let totalExpired = 0;
+        for (const match of staleMatches) {
+          await prisma.$transaction(async (tx) => {
+            await tx.match.update({ where: { id: match.id }, data: { status: 'expired' } });
+            await tx.chat.deleteMany({ where: { matchId: match.id } });
+            if (match.members.length === 2) {
+              await tx.like.deleteMany({
+                where: {
+                  OR: [
+                    { senderUid: match.members[0], targetUid: match.members[1] },
+                    { senderUid: match.members[1], targetUid: match.members[0] },
+                  ]
+                }
+              });
+            }
+          });
+          totalExpired++;
+        }
+        logger.info({ msg: 'expired_matches_pruned', count: totalExpired });
+      }
+    }
+
     // Open a new Freeze Room (rolls every 2 hours)
     if (type === 'freeze_room_open') {
       const types: Array<'reflective' | 'playful' | 'values'> = ['reflective', 'playful', 'values'];
@@ -322,6 +363,13 @@ export async function scheduleRecurringJobs(): Promise<void> {
     'old_blind_sessions',
     { type: 'old_blind_sessions' },
     { repeat: { every: 24 * 60 * 60 * 1000 }, jobId: 'old_blind_sessions_daily' }
+  );
+
+  // Expire 7-day stale matches with no messages — daily
+  await cleanupQueue.add(
+    'expired_matches',
+    { type: 'expired_matches' },
+    { repeat: { every: 24 * 60 * 60 * 1000 }, jobId: 'expired_matches_daily' }
   );
 
   // Prune PresenceEvents older than 90 days — weekly

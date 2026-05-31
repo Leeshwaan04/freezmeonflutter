@@ -218,3 +218,32 @@ class LiveCardSkeleton extends StatelessWidget {
     );
   }
 }
+
+/// Likes Grid Skeleton
+class LikesGridSkeleton extends StatelessWidget {
+  const LikesGridSkeleton({super.key, this.itemCount = 6});
+  
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.75,
+      ),
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        return const SkeletonLoader(
+          width: double.infinity,
+          height: double.infinity,
+          borderRadius: 16,
+        );
+      },
+    );
+  }
+}
+

@@ -8,6 +8,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'api_client.dart';
+import 'push_notification_service.dart';
 
 /// Holds the signed-in user's basic info derived from the JWT and /profiles/me.
 class AuthUser {
@@ -103,7 +104,13 @@ class AuthUser {
 
 /// Replacement for FirebaseAuth — issues and stores JWTs via the EC2 API.
 class AuthService {
-  AuthService._();
+  AuthService._() {
+    // When ApiClient's refresh fails, drop the in-memory user so listeners
+    // (FlowController._listenToAuth) route back to the auth gate.
+    ApiClient.onSessionExpired = () {
+      _setUser(null);
+    };
+  }
 
   static final AuthService instance = AuthService._();
 
@@ -228,9 +235,17 @@ class AuthService {
       );
     }
 
+    // Apple only provides name on FIRST authorization — capture it now
+    final displayName = [credential.givenName, credential.familyName]
+        .where((s) => s != null && s.isNotEmpty)
+        .join(' ');
+
     final response = await _client.dio.post(
       '/auth/apple',
-      data: {'identityToken': identityToken},
+      data: {
+        'identityToken': identityToken,
+        if (displayName.isNotEmpty) 'displayName': displayName,
+      },
     );
 
     return _handleAuthResponse(response.data as Map<String, dynamic>);
@@ -309,6 +324,12 @@ class AuthService {
 
   Future<void> signOut() async {
     try {
+      // Clear the FCM token server-side FIRST so the next user on this device
+      // doesn't receive push notifications meant for the current user (A9).
+      try {
+        await PushNotificationService().clearToken();
+      } catch (_) { /* best-effort */ }
+
       final refreshToken = await _client.getRefreshToken();
       if (refreshToken != null) {
         await _client.dio.post(
@@ -332,6 +353,22 @@ class AuthService {
     final userJson = data['user'] as Map<String, dynamic>;
 
     await _client.saveTokens(accessToken: accessToken, refreshToken: refreshToken);
+
+    // If server says a profile exists, fetch the full profile immediately so
+    // the flow controller gets displayName/age/gender in the first auth event.
+    // This avoids an extra round-trip and makes onboarding skip instant for
+    // returning users.
+    final hasProfile = data['hasProfile'] as bool? ?? false;
+    if (hasProfile) {
+      try {
+        final profileRes = await _client.dio.get('/profiles/me');
+        final fullUser = AuthUser.fromJson(profileRes.data as Map<String, dynamic>);
+        _setUser(fullUser);
+        return fullUser;
+      } catch (_) {
+        // Fall through to basic user if profile fetch fails
+      }
+    }
 
     final user = AuthUser.fromJson(userJson);
     _setUser(user);

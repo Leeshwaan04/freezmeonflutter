@@ -38,11 +38,17 @@ router.post('/', async (req: Request, res: Response) => {
     const safeContent = sanitizeText(String(content).trim());
     if (!safeContent) { res.status(400).json({ error: 'Invalid content' }); return; }
 
+    const safePhotoUrls: string[] = Array.isArray(photoUrls) ? photoUrls.slice(0, 10) : [];
+    for (const url of safePhotoUrls) {
+      if (typeof url !== 'string' || url.length > 2048) {
+        res.status(400).json({ error: 'Invalid photoUrl' }); return;
+      }
+    }
     const post = await prisma.feedPost.create({
       data: {
         authorUid: req.uid,
         content: safeContent,
-        photoUrls: photoUrls ?? [],
+        photoUrls: safePhotoUrls,
         visibility: ['public', 'matches_only', 'private'].includes(visibility) ? visibility : 'public',
       },
     });
@@ -93,8 +99,22 @@ router.delete('/:id/like', async (req: Request, res: Response) => {
 // GET /feed/:id/comments?limit=50&after=<createdAt ISO cursor>
 router.get('/:id/comments', async (req: Request, res: Response) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit as string ?? '50'), 100);
+    const limit = Math.min(parseInt(req.query.limit as string ?? '50'), 50);
     const after = req.query.after as string | undefined;
+
+    // Visibility gate — private posts only visible to author
+    const post = await prisma.feedPost.findUnique({ where: { id: req.params.id }, select: { visibility: true, authorUid: true } });
+    if (!post) { res.status(404).json({ error: 'Post not found' }); return; }
+    if (post.visibility === 'private' && post.authorUid !== req.uid) {
+      res.status(403).json({ error: 'Forbidden' }); return;
+    }
+    if (post.visibility === 'matches_only' && post.authorUid !== req.uid) {
+      // Only allow if viewer is matched with author
+      const match = await prisma.match.findFirst({
+        where: { members: { hasEvery: [req.uid, post.authorUid] }, status: 'active' },
+      });
+      if (!match) { res.status(403).json({ error: 'Forbidden' }); return; }
+    }
 
     const comments = await prisma.postComment.findMany({
       where: {

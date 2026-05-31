@@ -149,8 +149,44 @@ class FakeFreezmeRepository implements FreezmeRepository {
   Future<void> deleteComment({required String postId, required String commentId}) async {}
 
   @override
-  Future<void> reportUser(String targetUid) async {}
+  Future<void> reportUser(String targetUid, {String? reason, String? details, String? context, String? contextId}) async {}
+
+  @override
+  Future<void> blockUser(String targetUid) async {}
+
+  @override
+  Future<void> unblockUser(String targetUid) async {}
+
+  @override
+  Future<List<String>> listBlockedUids() async => [];
+
+  @override
+  Future<void> unmatchUser(String targetUid) async {}
+
+  @override
+  Future<List<VibeProfile>> fetchLikes({int limit = 50}) async => [];
 
   @override
   Future<Map<String, dynamic>> fetchPoolSession() async => {'isOpen': false};
+
+  @override
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {}
+
+  @override
+  Future<Map<String, dynamic>> exportMyData() async => {};
+
+  @override
+  Future<void> submitFeedback({required String category, required String message, String? email}) async {}
+
+  @override
+  Future<void> scheduleAccountDeletion() async {}
+
+  @override
+  Future<LikedByResult> fetchLikedBy() async => LikedByResult(profiles: [], count: 0, isPremium: false);
+
+  @override
+  Future<Map<String, bool>> getNotificationPrefs() async => {};
+
+  @override
+  Future<void> updateNotificationPrefs(Map<String, dynamic> prefs) async {}
 }

@@ -20,14 +20,20 @@ router.post('/presence', async (req: Request, res: Response) => {
     if (visibleForMinutes < 1 || visibleForMinutes > 480) {
       res.status(400).json({ error: 'visibleForMinutes must be 1–480' }); return;
     }
+    // Clamp discovery radius — prevents continent-wide stalking via radius=99999.
+    const safeRadius = Math.min(Math.max(typeof radiusKm === 'number' ? radiusKm : 5, 0.1), 50);
+    // Validate intents shape
+    const safeIntents = Array.isArray(intents)
+      ? intents.filter((s) => typeof s === 'string' && s.length <= 32).slice(0, 8)
+      : [];
 
     const geohash = geohashForCoords(lat, lng);
     const visibleUntil = new Date(Date.now() + visibleForMinutes * 60 * 1000);
 
     const presence = await prisma.pathsPresence.upsert({
       where: { uid: req.uid },
-      update: { lat, lng, geohash, intents: intents ?? [], radiusKm: radiusKm ?? 5, visibleUntil },
-      create: { uid: req.uid, lat, lng, geohash, intents: intents ?? [], radiusKm: radiusKm ?? 5, visibleUntil },
+      update: { lat, lng, geohash, intents: safeIntents, radiusKm: safeRadius, visibleUntil },
+      create: { uid: req.uid, lat, lng, geohash, intents: safeIntents, radiusKm: safeRadius, visibleUntil },
     });
 
     res.json(presence);
@@ -79,14 +85,42 @@ router.get('/nearby', async (req: Request, res: Response) => {
     // Filter by exact distance
     const filtered = nearby.filter((p) => kmBetween(lat, lng, p.lat, p.lng) <= radiusKm);
 
+    // Exclude blocked users
+    const candidateUids = filtered.map((p) => p.uid);
+    const blocks = await prisma.block.findMany({
+      where: { OR: [
+        { blockerUid: req.uid, blockedUid: { in: candidateUids } },
+        { blockedUid: req.uid, blockerUid: { in: candidateUids } },
+      ] },
+    });
+    const blockedSet = new Set(blocks.map((b) => b.blockerUid === req.uid ? b.blockedUid : b.blockerUid));
+    const unblocked = filtered.filter((p) => !blockedSet.has(p.uid));
+
     // Batch-fetch all profiles in one query (avoids N+1)
-    const uids = filtered.map((p) => p.uid);
+    const uids = unblocked.map((p) => p.uid);
     const profiles = await prisma.profile.findMany({ where: { userId: { in: uids } } });
     const profileByUid = Object.fromEntries(profiles.map((pr) => [pr.userId, pr]));
 
-    const enriched = filtered.map((p) => ({ ...p, profile: profileByUid[p.uid] ?? null }));
+    // PRIVACY: never expose raw lat/lng/geohash of other users. Return only the
+    // distance from the requester (snapped to ~100m) so the client can render a
+    // proximity indicator without enabling stalking.
+    const page = parseInt(req.query.page as string ?? '1', 10);
+    const limit = parseInt(req.query.limit as string ?? '50', 10);
+    const safePage = Math.max(page, 1);
+    const safeLimit = Math.min(Math.max(limit, 1), 100);
 
-    res.json(enriched);
+    const enriched = unblocked.map((p) => {
+      const distanceKm = kmBetween(lat, lng, p.lat, p.lng);
+      const distanceRoundedKm = Math.round(distanceKm * 10) / 10; // 100m granularity
+      const { lat: _lat, lng: _lng, geohash: _geo, ...safe } = p as any;
+      return { ...safe, distanceKm: distanceRoundedKm, profile: profileByUid[p.uid] ?? null };
+    });
+
+    // Sort by distance and paginate
+    enriched.sort((a, b) => a.distanceKm - b.distanceKm);
+    const paginated = enriched.slice((safePage - 1) * safeLimit, safePage * safeLimit);
+
+    res.json(paginated);
   } catch (err) {
     logger.error({ msg: 'paths_nearby_error', err });
     res.status(500).json({ error: 'Failed to fetch nearby paths' });
@@ -146,6 +180,8 @@ router.post('/invite/:id/respond', async (req: Request, res: Response) => {
 
     const invite = await prisma.pathInvite.findUnique({ where: { id: req.params.id } });
     if (!invite) { res.status(404).json({ error: 'Invite not found' }); return; }
+    if (invite.status !== 'pending') { res.status(409).json({ error: 'Invite already responded to' }); return; }
+    if (invite.expiresAt < new Date()) { res.status(410).json({ error: 'Invite has expired' }); return; }
 
     // Only receiver can accept/decline; only sender can cancel
     if (status === 'cancelled' && invite.senderUid !== req.uid) {

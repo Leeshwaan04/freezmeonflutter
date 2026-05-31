@@ -66,3 +66,6 @@ xcode_raw_error.txt
 # Signing keys
 /android/key.properties
 *.jks
+
+# Stray Finder-duplicated build symlink
+build 3

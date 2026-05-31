@@ -28,7 +28,9 @@ class WebSocketService {
   final _chatAckCtrl        = StreamController<Map<String, dynamic>>.broadcast();
   final _chatStatusCtrl     = StreamController<Map<String, dynamic>>.broadcast();
   final _chatReadCtrl       = StreamController<Map<String, dynamic>>.broadcast();
+  final _chatErrorCtrl      = StreamController<Map<String, dynamic>>.broadcast();
   final _matchNewCtrl       = StreamController<Map<String, dynamic>>.broadcast();
+  final _matchRemovedCtrl   = StreamController<Map<String, dynamic>>.broadcast();
   final _meltInviteCtrl     = StreamController<Map<String, dynamic>>.broadcast();
   final _meltStatusCtrl     = StreamController<Map<String, dynamic>>.broadcast();
   final _blindSessionCtrl   = StreamController<Map<String, dynamic>>.broadcast();
@@ -43,7 +45,9 @@ class WebSocketService {
   Stream<Map<String, dynamic>> get onChatAck        => _chatAckCtrl.stream;
   Stream<Map<String, dynamic>> get onChatStatus     => _chatStatusCtrl.stream;
   Stream<Map<String, dynamic>> get onChatRead       => _chatReadCtrl.stream;
+  Stream<Map<String, dynamic>> get onChatError      => _chatErrorCtrl.stream;
   Stream<Map<String, dynamic>> get onMatchNew       => _matchNewCtrl.stream;
+  Stream<Map<String, dynamic>> get onMatchRemoved   => _matchRemovedCtrl.stream;
   Stream<Map<String, dynamic>> get onMeltInvite     => _meltInviteCtrl.stream;
   Stream<Map<String, dynamic>> get onMeltStatus     => _meltStatusCtrl.stream;
   Stream<Map<String, dynamic>> get onBlindSession   => _blindSessionCtrl.stream;
@@ -108,7 +112,9 @@ class WebSocketService {
       ..on('chat:ack',     (data) => _chatAckCtrl.add(_cast(data)))
       ..on('chat:status',  (data) => _chatStatusCtrl.add(_cast(data)))
       ..on('chat:read',    (data) => _chatReadCtrl.add(_cast(data)))
+      ..on('chat:error',   (data) => _chatErrorCtrl.add(_cast(data)))
       ..on('match:new',    (data) => _matchNewCtrl.add(_cast(data)))
+      ..on('match:removed', (data) => _matchRemovedCtrl.add(_cast(data)))
       ..on('melt:invite',  (data) => _meltInviteCtrl.add(_cast(data)))
       ..on('melt:status',  (data) => _meltStatusCtrl.add(_cast(data)))
       ..on('blind:session_created', (data) => _blindSessionCtrl.add(_cast(data)))
@@ -219,7 +225,9 @@ class WebSocketService {
     _chatAckCtrl.close();
     _chatStatusCtrl.close();
     _chatReadCtrl.close();
+    _chatErrorCtrl.close();
     _matchNewCtrl.close();
+    _matchRemovedCtrl.close();
     _meltInviteCtrl.close();
     _meltStatusCtrl.close();
     _blindSessionCtrl.close();

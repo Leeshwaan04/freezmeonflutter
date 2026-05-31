@@ -54,9 +54,13 @@
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>maps</string>
+		<string>mailto</string>
+		<string>tel</string>
+		<string>https</string>
+		<string>http</string>
 	</array>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Freezme stores the photos you upload to complete your profile.</string>
+	<string>Freezme saves a copy of your verification selfie or profile photo to your photo library only when you choose to download it.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Freezme needs access to your photo library so you can upload vibe photos for your profile.</string>
 	<key>UIApplicationSceneManifest</key>
@@ -89,8 +93,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

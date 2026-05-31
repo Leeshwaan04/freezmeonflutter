@@ -1,0 +1,55 @@
+appId: com.freezme.app
+name: "Settings — Account Deletion (Soft Delete)"
+tags:
+  - settings
+  - gdpr
+  - account-deletion
+  - privacy
+---
+# Test: Verify the 30-day soft delete account flow works.
+# Edge case: Apple requires apps to have a clearly visible account deletion
+# option. GDPR requires data erasure on request.
+# Expected: User can find "Delete Account" in settings and gets a
+# confirmation dialog with a 30-day grace period warning.
+
+- launchApp
+- assertVisible: "FREEZME"
+
+# Skip auth
+- tapOn: "Skip (Dev only)"
+
+# Wait for home page
+- assertVisible: "Paths"
+
+# Navigate to Profile/Settings
+- tapOn:
+    index: 4  # Profile tab (last in bottom nav)
+    optional: true
+
+# Look for settings gear icon
+- tapOn:
+    id: ".*settings.*"
+    retryTapIfNoChange: true
+    optional: true
+
+# Scroll down to find Delete Account
+- scrollUntilVisible:
+    element: "Delete Account"
+    direction: DOWN
+    timeout: 5000
+
+# Verify Delete Account is visible
+- assertVisible: "Delete Account"
+
+# Tap Delete Account
+- tapOn: "Delete Account"
+
+# Verify confirmation dialog appears with 30-day warning
+- assertVisible: "Delete"
+- assertVisible: "30 days"
+
+# Cancel the deletion (don't actually delete in test)
+- tapOn: "Cancel"
+
+# Verify we're still on settings page
+- assertVisible: "Settings"

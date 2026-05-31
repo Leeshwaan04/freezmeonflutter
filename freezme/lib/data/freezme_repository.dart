@@ -3,6 +3,20 @@ import '../models/chat_message.dart';
 import '../models/paths.dart';
 import '../models/blinds.dart';
 
+/// Result of the "Who Liked You" query. For non-premium users [profiles] are
+/// blurred placeholders (no name/photo) and [count] drives the upsell.
+class LikedByResult {
+  const LikedByResult({
+    required this.count,
+    required this.isPremium,
+    required this.profiles,
+  });
+
+  final int count;
+  final bool isPremium;
+  final List<VibeProfile> profiles;
+}
+
 abstract class FreezmeRepository {
   Future<List<VibeProfile>> fetchDailyProfiles();
 
@@ -134,7 +148,35 @@ abstract class FreezmeRepository {
   });
 
   // Safety & Trust
-  Future<void> reportUser(String targetUid);
+  Future<void> reportUser(
+    String targetUid, {
+    String? reason,
+    String? details,
+    String? context,
+    String? contextId,
+  });
+  Future<void> blockUser(String targetUid);
+  Future<void> unblockUser(String targetUid);
+  Future<List<String>> listBlockedUids();
+  Future<void> unmatchUser(String targetUid);
+
+  // Likes
+  Future<List<VibeProfile>> fetchLikes({int limit = 50});
+
+  /// Who-Liked-You. Returns count + premium flag + (blurred for free) profiles.
+  Future<LikedByResult> fetchLikedBy();
+
+  // Account / data management
+  Future<Map<String, dynamic>> exportMyData();
+  Future<void> submitFeedback({
+    required String category,
+    required String message,
+    String? email,
+  });
+  Future<Map<String, bool>> getNotificationPrefs();
+  Future<void> updateNotificationPrefs(Map<String, bool> prefs);
+  Future<void> changePassword({required String currentPassword, required String newPassword});
+  Future<void> scheduleAccountDeletion();
 
   // Pool Session
   Future<Map<String, dynamic>> fetchPoolSession();

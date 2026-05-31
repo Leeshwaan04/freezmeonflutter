@@ -2,10 +2,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../../main.dart';
 import '../components/premium_components.dart';
 import '../components/freezme_logo.dart';
+import '../../services/auth_service.dart';
 
 /// Premium 8-Step Onboarding Flow (Hinge-Style)
 class EnhancedOnboardingFlow extends StatefulWidget {
@@ -34,6 +36,7 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
   String? _vibeType;
   String _bio = '';
   bool _isLoading = false;
+  bool _acceptedTerms = false;
 
   // Interests
   final List<_InterestItem> _interests = const [
@@ -86,16 +89,24 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
   bool _isGeneratingBio = false;
   late TextEditingController _bioController;
 
+  late TextEditingController _nameController;
+
   @override
   void initState() {
     super.initState();
+    // Pre-fill name from server profile (Apple/Google may have seeded it)
+    final existingName = AuthService.instance.currentUser?.displayName ?? '';
+    _name = existingName;
+    _nameController = TextEditingController(text: existingName);
+    _nameController.addListener(() {
+      setState(() => _name = _nameController.text);
+    });
     _bioController = TextEditingController(text: _bio);
     _bioController.addListener(() {
       setState(() {
         _bio = _bioController.text;
       });
     });
-    // ... rest of initState
     _progressController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -110,6 +121,7 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
   @override
   void dispose() {
     _pageController.dispose();
+    _nameController.dispose();
     _bioController.dispose();
     _progressController.dispose();
     _fadeController.dispose();
@@ -124,7 +136,7 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     if (_currentStep < _totalSteps - 1) {
       setState(() => _currentStep++);
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 400),
+        duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
       );
     } else {
@@ -137,7 +149,7 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     if (_currentStep > 0) {
       setState(() => _currentStep--);
       _pageController.previousPage(
-        duration: const Duration(milliseconds: 400),
+        duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
       );
     }
@@ -147,13 +159,19 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     setState(() => _isLoading = true);
     _heavyHaptic();
     final controller = AppFlowScope.of(context);
-    
-    // Calculate age
-    final age = _birthDate != null
-        ? DateTime.now().difference(_birthDate!).inDays ~/ 365
-        : null;
 
-    // Save full profile to backend
+    // Compute age conservatively (handles leap years correctly)
+    int? age;
+    if (_birthDate != null) {
+      final now = DateTime.now();
+      age = now.year - _birthDate!.year;
+      final hadBirthdayThisYear = (now.month > _birthDate!.month) ||
+          (now.month == _birthDate!.month && now.day >= _birthDate!.day);
+      if (!hadBirthdayThisYear) age = age - 1;
+    }
+
+    // Save full profile to backend — include intent (first looking-for choice)
+    // and vibeType (rolled into energyType for backend storage).
     try {
       await controller.updateProfile(
         name: _name,
@@ -161,6 +179,9 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
         interests: _selectedInterests,
         age: age,
         gender: _gender,
+        intent: _lookingFor.isNotEmpty ? _lookingFor.first : null,
+        energyType: _vibeType,
+        lookingFor: _lookingFor,
       );
     } catch (e) {
       if (mounted) {
@@ -179,11 +200,15 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
   bool _canProceed() {
     final controller = AppFlowScope.of(context);
     switch (_currentStep) {
-      case 0: return true; // Welcome
+      case 0: return _acceptedTerms; // Welcome — must accept Terms + 18+
       case 1: return _name.length >= 2; // Name
-      case 2: { // Birthday — must be 18+
+      case 2: { // Birthday — must be 18+ (leap-year-safe calculation)
         if (_birthDate == null) return false;
-        final age = DateTime.now().difference(_birthDate!).inDays ~/ 365;
+        final now = DateTime.now();
+        int age = now.year - _birthDate!.year;
+        final hadBirthday = (now.month > _birthDate!.month) ||
+            (now.month == _birthDate!.month && now.day >= _birthDate!.day);
+        if (!hadBirthday) age -= 1;
         return age >= 18;
       }
       case 3: return _gender.isNotEmpty; // Gender
@@ -387,9 +412,54 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
           _buildWelcomeFeature(Icons.photo_library_rounded, 'Add 2+ photos', active: true),
           const SizedBox(height: 16),
           _buildWelcomeFeature(Icons.edit_note_rounded, 'Write a short bio', active: true),
+          const SizedBox(height: 24),
+          _buildTermsAcceptance(),
         ],
       ),
     );
+  }
+
+  Widget _buildTermsAcceptance() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Checkbox(
+          value: _acceptedTerms,
+          activeColor: FreezmeColors.primary,
+          onChanged: (v) => setState(() => _acceptedTerms = v ?? false),
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Wrap(
+              children: [
+                const Text('I confirm I am 18+ and agree to the ',
+                    style: TextStyle(fontSize: 13, color: Colors.black54)),
+                GestureDetector(
+                  onTap: () => _openLegal('https://api.freezme.in/terms'),
+                  child: const Text('Terms',
+                      style: TextStyle(fontSize: 13, color: FreezmeColors.primary, fontWeight: FontWeight.w600)),
+                ),
+                const Text(' and ', style: TextStyle(fontSize: 13, color: Colors.black54)),
+                GestureDetector(
+                  onTap: () => _openLegal('https://api.freezme.in/privacy'),
+                  child: const Text('Privacy Policy',
+                      style: TextStyle(fontSize: 13, color: FreezmeColors.primary, fontWeight: FontWeight.w600)),
+                ),
+                const Text('.', style: TextStyle(fontSize: 13, color: Colors.black54)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openLegal(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _buildWelcomeFeature(IconData icon, String text, {bool active = false}) {
@@ -437,7 +507,7 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
           const SizedBox(height: 40),
           _buildTitle("What's your name?", "This is how you'll appear to others."),
           TextField(
-            onChanged: (value) => setState(() => _name = value),
+            controller: _nameController,
             textCapitalization: TextCapitalization.words,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
@@ -672,9 +742,9 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
                       // Force rebuild to check _canProceed
                       setState(() {});
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Failed to upload photo: $e')),
+                          const SnackBar(content: Text('Unable to upload photo. Please try a different one.')),
                         );
                       }
                     }
@@ -765,14 +835,14 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
             Center(child: _buildTitle("Written Bio", "Tell us a bit about yourself.")),
             const SizedBox(height: 24),
       
-            // AI Generator Button
+            // Bio inspiration button — picks a starter template based on interests
             Center(
               child: OutlinedButton.icon(
                 onPressed: _isGeneratingBio ? null : _generateAiBio,
-                icon: _isGeneratingBio 
+                icon: _isGeneratingBio
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.auto_awesome, size: 18),
-                label: Text(_isGeneratingBio ? "Writing..." : "Generate with AI"),
+                  : const Icon(Icons.lightbulb_outline, size: 18),
+                label: Text(_isGeneratingBio ? "Picking…" : "Inspire me"),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: FreezmeColors.primary,
                   side: const BorderSide(color: FreezmeColors.primary),
@@ -859,27 +929,21 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     );
   }
 
-  Future<void> _generateAiBio() async {
-    setState(() => _isGeneratingBio = true);
-    
-    // Simulate Backend AI Call
-    await Future.delayed(const Duration(seconds: 2));
-    
-    // Mock Logic based on state
+  void _generateAiBio() {
+    // Pick a starter template based on the user's interests.
     final interests = _selectedInterests.take(3).toList();
-    
-    String interestStr = interests.isNotEmpty ? "I love ${interests.join(', ')}." : "I love trying new things.";
-    
-    // Simple template generator
+    final interestStr = interests.isNotEmpty
+        ? "I love ${interests.join(', ')}."
+        : "I love trying new things.";
+
     final templates = [
-      "Running on caffeine and $interestStr Swipe right if you're into spontaneous trips!",
+      "Running on caffeine and $interestStr Down for spontaneous trips!",
       "$interestStr Looking for someone to share good vibes and better food.",
       "Professional over-thinker. $interestStr Let's skip the small talk.",
     ];
-    
+
     setState(() {
       _bioController.text = templates[DateTime.now().millisecond % templates.length];
-      _isGeneratingBio = false;
     });
   }
 

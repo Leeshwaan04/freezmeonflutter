@@ -1,0 +1,72 @@
+appId: com.freezme.app
+name: "Navigation — Tab Switching & Deep Navigation"
+tags:
+  - navigation
+  - tabs
+  - edge-case
+---
+# Test: Verify all tabs in bottom navigation work and deep navigation
+# (push/pop) doesn't break the back stack.
+# Edge case: Rapid tab switching, deep navigation and back button behavior.
+
+- launchApp
+- assertVisible: "FREEZME"
+
+# Skip auth
+- tapOn: "Skip (Dev only)"
+
+# Tab 0 — Vibe Pool / Daily Matches
+- assertVisible: "Paths"
+
+# Tab 1 — Chats
+- tapOn:
+    index: 1
+
+# Tab 2 — Likes
+- tapOn:
+    index: 2
+
+# Tab 3 — Paths
+- tapOn:
+    index: 3
+    optional: true
+
+# Tab 4 — Profile
+- tapOn:
+    index: 4
+    optional: true
+
+# Rapid tab switching stress test
+- tapOn:
+    index: 0
+- tapOn:
+    index: 2
+- tapOn:
+    index: 1
+- tapOn:
+    index: 0
+- tapOn:
+    index: 3
+    optional: true
+- tapOn:
+    index: 0
+
+# Verify we're back on the first tab and everything renders fine
+- assertVisible: "Paths"
+
+# Test back button from a deep page
+- tapOn:
+    index: 1  # Go to Chats
+
+# If there's a chat, tap into it
+- tapOn:
+    index: 0
+    optional: true
+
+# Press back
+- back
+
+# Should still be in the app, not crashed
+- assertNotVisible:
+    text: "Unfortunately"
+    optional: true

@@ -4,6 +4,7 @@ import '../../models/vibe_profile.dart';
 import '../../main.dart'; // For AppFlowScope
 import '../design_system.dart';
 import '../components/premium_components.dart';
+import '../components/safety_actions_sheet.dart';
 
 class ProfileDetailPage extends StatelessWidget {
   final VibeProfile profile;
@@ -61,6 +62,23 @@ class ProfileDetailPage extends StatelessWidget {
                 ),
               ),
             ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: CircleAvatar(
+                  backgroundColor: Colors.white.withValues(alpha: 0.8),
+                  child: IconButton(
+                    icon: const Icon(Icons.more_horiz, color: Colors.black),
+                    onPressed: () => SafetyActionsSheet.show(
+                      context,
+                      targetUid: profile.uid,
+                      targetName: profile.name,
+                      context_: 'profile',
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           SliverToBoxAdapter(
             child: Padding(

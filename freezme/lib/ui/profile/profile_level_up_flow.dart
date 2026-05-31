@@ -568,25 +568,26 @@ class _ProfileLevelUpFlowState extends State<ProfileLevelUpFlow> {
         const SizedBox(height: 12),
         ...(isWomanOrNB
             ? [
-                ('🔒', 'Only matched with other verified users'),
-                ('🚫', 'Bots and fake profiles can\'t reach you'),
-                ('✅', 'Verified badge shown on your profile'),
-                ('⬆️', 'Priority in the daily pool'),
+                'Only matched with other verified users',
+                'Bots and fake profiles can\'t reach you',
+                'Verified badge shown on your profile',
+                'Priority in the daily pool',
               ]
             : [
-                ('✅', 'Verified badge on your profile'),
-                ('📈', '2× higher visibility in the daily pool'),
-                ('🔒', 'Access to the verified-only match tier'),
-                ('⚡', 'Faster matching — verified-first algorithm'),
+                'Verified badge on your profile',
+                '2× higher visibility in the daily pool',
+                'Access to the verified-only match tier',
+                'Faster matching — verified-first algorithm',
               ])
-            .map((item) => Padding(
+            .map((label) => Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.$1, style: const TextStyle(fontSize: 18)),
-                      const SizedBox(width: 12),
+                      const Text('•', style: TextStyle(fontSize: 13, color: FreezmeColors.neutral)),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Text(item.$2,
+                        child: Text(label,
                             style: const TextStyle(
                                 fontSize: 13, color: FreezmeColors.neutral)),
                       ),
@@ -626,7 +627,7 @@ class _ProfileLevelUpFlowState extends State<ProfileLevelUpFlow> {
 
       // Step 3: submit selfieKey to EC2 → sets isVerified = true
       await ApiClient.instance.dio.post<void>(
-        '/verification/submit',
+        '/verification/selfie-submit',
         data: {'selfieKey': selfieKey},
       );
 

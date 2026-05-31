@@ -71,6 +71,9 @@ dependencies:
   flutter_svg: ^2.0.10
   shimmer: ^3.0.0
   rxdart: ^0.28.0
+  isar: ^3.1.0+1
+  isar_flutter_libs: ^3.1.0+1
+  connectivity_plus: ^7.1.1
 
 
 dev_dependencies:
@@ -89,6 +92,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  isar_generator: ^3.1.0+1
+  build_runner: ^2.4.13
 
 flutter:
   generate: true

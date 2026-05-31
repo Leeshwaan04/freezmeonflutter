@@ -1,0 +1,54 @@
+appId: com.freezme.app
+name: "Safety — Block & Report Flow"
+tags:
+  - safety
+  - trust
+  - block
+  - report
+---
+# Test: Verify the block & report safety flow works end-to-end.
+# Edge case: User encounters harassment — they should be able to block
+# and report from the chat screen in < 3 taps (Apple guideline).
+
+- launchApp
+- assertVisible: "FREEZME"
+
+# Skip auth
+- tapOn: "Skip (Dev only)"
+
+# Wait for home page
+- assertVisible: "Paths"
+
+# Navigate to Chats tab
+- tapOn:
+    index: 1
+
+# Tap into a chat (first available)
+- tapOn:
+    index: 0
+    optional: true
+
+# Tap the more menu (safety actions)
+- tapOn:
+    id: ".*more_vert.*"
+    retryTapIfNoChange: true
+
+# Verify safety actions sheet appears
+- assertVisible: "Block"
+- assertVisible: "Report"
+
+# Test the Block flow
+- tapOn: "Block"
+
+# Should show confirmation dialog
+- assertVisible: "Block"
+- assertVisible: "Are you sure"
+
+# Confirm block
+- tapOn: "Block"
+    
+# Verify block confirmation
+- assertVisible: "blocked"
+
+# Go back
+- back

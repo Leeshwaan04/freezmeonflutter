@@ -27,10 +27,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   if (!payload.jti) {
-    // Legacy tokens without jti — still accepted
-    req.uid = payload.uid;
-    req.jwtPayload = payload;
-    next();
+    // All access tokens issued by this server include a jti. A missing jti means
+    // the token was either forged or issued under a previous code path that no
+    // longer applies. Reject — the user can simply re-authenticate.
+    res.status(401).json({ error: 'Invalid token — please log in again' });
     return;
   }
 

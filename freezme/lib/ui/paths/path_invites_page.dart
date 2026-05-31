@@ -3,7 +3,9 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../main.dart';
 import '../../models/paths.dart';
 import '../design_system.dart';
+import '../shared/humanize_error.dart';
 import '../components/premium_components.dart';
+import '../components/skeleton_loaders.dart';
 
 class PathInvitesPage extends StatefulWidget {
   const PathInvitesPage({super.key});
@@ -31,7 +33,7 @@ class _PathInvitesPageState extends State<PathInvitesPage> {
       final invites = await flow.repository.fetchPendingPathsInvites();
       if (mounted) setState(() { _invites = invites; _loading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted) setState(() { _error = humanizeError(e); _loading = false; });
     }
   }
 
@@ -85,7 +87,7 @@ class _PathInvitesPageState extends State<PathInvitesPage> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: FreezmeDesignSystem.primary))
+          ? const ChatListSkeleton(itemCount: 4)
           : _error != null
               ? Center(
                   child: Column(

@@ -22,6 +22,7 @@ class VibeProfile {
     this.lastActive,
     this.timezone,
     this.isPremium = false,
+    this.isVerified = false,
     this.archetypes = const <LifestyleArchetype>[],
     // Calibration fields
     this.energyType,
@@ -51,6 +52,7 @@ class VibeProfile {
   final DateTime? lastActive;
   final String? timezone;
   final bool isPremium;
+  final bool isVerified;
   final List<LifestyleArchetype> archetypes;
   // Calibration fields from algorithm
   final EnergyType? energyType;
@@ -134,6 +136,7 @@ class VibeProfile {
       lastActive: lastActive,
       timezone: json['timezone'] as String?,
       isPremium: json['isPremium'] as bool? ?? false,
+      isVerified: json['isVerified'] as bool? ?? false,
       energyType: EnergyType.fromString(json['energyType'] as String?),
       paceSignal: PaceSignal.fromString(json['paceSignal'] as String?),
       promptAnswer: json['promptAnswer'] != null
@@ -165,6 +168,7 @@ class VibeProfile {
     if (lastActive != null) 'lastActive': lastActive!.toIso8601String(),
     if (timezone != null) 'timezone': timezone,
     'isPremium': isPremium,
+    'isVerified': isVerified,
     if (energyType != null) 'energyType': energyType!.name,
     if (paceSignal != null) 'paceSignal': paceSignal!.name,
     if (promptAnswer != null) 'promptAnswer': promptAnswer!.toJson(),
@@ -193,6 +197,7 @@ class VibeProfile {
     DateTime? lastActive,
     String? timezone,
     bool? isPremium,
+    bool? isVerified,
     List<LifestyleArchetype>? archetypes,
     EnergyType? energyType,
     PaceSignal? paceSignal,
@@ -221,6 +226,7 @@ class VibeProfile {
       lastActive: lastActive ?? this.lastActive,
       timezone: timezone ?? this.timezone,
       isPremium: isPremium ?? this.isPremium,
+      isVerified: isVerified ?? this.isVerified,
       archetypes: archetypes ?? this.archetypes,
       energyType: energyType ?? this.energyType,
       paceSignal: paceSignal ?? this.paceSignal,

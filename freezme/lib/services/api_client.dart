@@ -13,19 +13,23 @@ const _kBaseUrl = String.fromEnvironment(
 const _kAccessTokenKey = 'access_token';
 const _kRefreshTokenKey = 'refresh_token';
 
-/// Token storage that tries SecureStorage first, falls back to SharedPreferences.
-/// SecureStorage silently fails on iOS Simulator (no Keychain entitlements).
+/// Token storage using FlutterSecureStorage (Keychain on iOS, Keystore on Android).
+/// In debug mode only, falls back to SharedPreferences when SecureStorage fails
+/// (iOS Simulator has no Keychain entitlements). Release builds fail hard on error.
 class _TokenStorage {
   final FlutterSecureStorage _secure = const FlutterSecureStorage();
 
   Future<void> write(String key, String value) async {
     try {
       await _secure.write(key: key, value: value);
-      // Verify the write actually stuck (simulator keychain bug)
       final check = await _secure.read(key: key);
       if (check == value) return;
-    } catch (_) {}
-    // Fallback to SharedPreferences
+      // Write didn't stick — only tolerate in debug (simulator)
+      if (!kDebugMode) throw Exception('SecureStorage write verification failed');
+    } catch (_) {
+      if (!kDebugMode) rethrow;
+    }
+    // Debug-only fallback for iOS Simulator
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(key, value);
   }
@@ -34,23 +38,30 @@ class _TokenStorage {
     try {
       final val = await _secure.read(key: key);
       if (val != null && val.isNotEmpty) return val;
-    } catch (_) {}
-    // Fallback to SharedPreferences
+    } catch (_) {
+      if (!kDebugMode) rethrow;
+    }
+    // Debug-only fallback
+    if (!kDebugMode) return null;
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(key);
   }
 
   Future<void> delete(String key) async {
     try { await _secure.delete(key: key); } catch (_) {}
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(key);
+    if (kDebugMode) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(key);
+    }
   }
 
   Future<void> deleteAll() async {
     try { await _secure.deleteAll(); } catch (_) {}
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kAccessTokenKey);
-    await prefs.remove(_kRefreshTokenKey);
+    if (kDebugMode) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kAccessTokenKey);
+      await prefs.remove(_kRefreshTokenKey);
+    }
   }
 }
 
@@ -62,7 +73,9 @@ class ApiClient {
       receiveTimeout: const Duration(seconds: 15),
       headers: {'Content-Type': 'application/json'},
     ));
-    _authInterceptor = _AuthInterceptor(_storage, _dio);
+    _authInterceptor = _AuthInterceptor(_storage, _dio, () {
+      _onSessionExpired?.call();
+    });
     _dio.interceptors.add(_authInterceptor);
   }
 
@@ -73,6 +86,14 @@ class ApiClient {
   final _TokenStorage _storage = _TokenStorage();
 
   Dio get dio => _dio;
+
+  /// Called when the refresh token is rejected by the server, so AuthService
+  /// can clear in-memory user state and notify listeners (e.g. FlowController)
+  /// to route back to the auth gate.
+  static void Function()? _onSessionExpired;
+  static set onSessionExpired(void Function() cb) {
+    _onSessionExpired = cb;
+  }
 
   // ── Token management ────────────────────────────────────────────────────────
 
@@ -105,10 +126,11 @@ class ApiClient {
 }
 
 class _AuthInterceptor extends Interceptor {
-  _AuthInterceptor(this._storage, this._dio);
+  _AuthInterceptor(this._storage, this._dio, this._onSessionExpired);
 
   final _TokenStorage _storage;
   final Dio _dio;
+  final void Function() _onSessionExpired;
 
   // In-memory cache — eliminates a secure storage read on every API call.
   String? _cachedAccessToken;
@@ -151,6 +173,7 @@ class _AuthInterceptor extends Interceptor {
       await _storage.deleteAll();
       clearCache();
       _refreshFuture = null;
+      _onSessionExpired();
       handler.next(err);
       return;
     }
@@ -164,7 +187,10 @@ class _AuthInterceptor extends Interceptor {
       _refreshFuture = null;
 
       if (newToken == null) {
-        // Refresh failed (no refresh token or server rejected it) — propagate.
+        // Refresh failed (server rejected it or no refresh token present).
+        // Notify AuthService so it can clear the in-memory user and the flow
+        // controller can route back to the auth gate.
+        _onSessionExpired();
         handler.next(err);
         return;
       }
@@ -175,6 +201,7 @@ class _AuthInterceptor extends Interceptor {
       handler.resolve(retried);
     } catch (_) {
       _refreshFuture = null;
+      _onSessionExpired();
       handler.next(err);
     }
   }

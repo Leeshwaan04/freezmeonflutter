@@ -1,0 +1,41 @@
+appId: com.freezme.app
+name: "Auth Gate — EULA Checkbox Enforcement"
+tags:
+  - auth
+  - eula
+  - launch-blocker
+---
+# Test: Verify auth buttons are disabled until EULA checkbox is checked.
+# Edge case: Prevents Apple App Store rejection for UGC compliance.
+
+- launchApp
+- assertVisible: "FREEZME"
+
+# Buttons should be visible but dimmed (disabled) before EULA check
+- assertVisible: "Continue with Apple"
+- assertVisible: "Continue with Google"
+- assertVisible: "Continue with Email"
+- assertVisible: "I agree to the"
+
+# Try tapping Apple button WITHOUT checking EULA — should show error
+- tapOn: "Continue with Apple"
+- assertVisible: "Please agree to the Terms of Service to continue."
+
+# Try tapping Google button WITHOUT checking EULA — should show error
+- tapOn: "Continue with Google"
+- assertVisible: "Please agree to the Terms of Service to continue."
+
+# Now check the EULA checkbox
+- tapOn:
+    id: ".*Checkbox.*"
+    retryTapIfNoChange: true
+
+# After checking, buttons should be tappable
+# (We don't proceed to actual auth because that requires real credentials)
+- assertVisible: "Continue with Apple"
+- assertVisible: "Continue with Google"
+- assertVisible: "Continue with Email"
+
+# Verify Terms and Privacy links are tappable
+- assertVisible: "Terms of Service"
+- assertVisible: "Privacy Policy"

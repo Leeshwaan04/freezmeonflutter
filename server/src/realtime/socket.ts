@@ -1,13 +1,20 @@
 import { Server, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { redisPub, redisSub } from '../db/redis';
-import { verifyAccessToken } from '../services/jwt';
+import { verifyAccessToken, isTokenBlacklisted } from '../services/jwt';
 import { prisma } from '../db/client';
 import { enqueuePush } from '../jobs/queues';
 import { logger } from '../services/logger';
 import { sanitizeText } from '../utils/validate';
 
+let _io: Server | null = null;
+export function getIO(): Server {
+  if (!_io) throw new Error('Socket.IO not initialized');
+  return _io;
+}
+
 export function applyRedisAdapter(io: Server): void {
+  _io = io;
   io.adapter(createAdapter(redisPub, redisSub));
   logger.info('[Socket] Redis adapter attached — multi-node ready');
 }
@@ -27,13 +34,17 @@ async function socketRateLimit(uid: string, event: string, maxPerWindow: number,
 }
 
 export function setupSocket(io: Server): void {
-  // JWT auth middleware
-  io.use((socket, next) => {
+  // JWT auth middleware — verifies signature, requires jti, and checks blacklist
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) { next(new Error('Authentication required')); return; }
     try {
       const payload = verifyAccessToken(token);
+      if (!payload.jti) { next(new Error('Invalid token')); return; }
+      const blacklisted = await isTokenBlacklisted(payload.jti).catch(() => false);
+      if (blacklisted) { next(new Error('Token revoked')); return; }
       (socket as any).uid = payload.uid;
+      (socket as any).jti = payload.jti;
       next();
     } catch {
       next(new Error('Invalid token'));
@@ -55,15 +66,47 @@ export function setupSocket(io: Server): void {
       clientMsgId,
     }: { chatId: string; text: string; clientMsgId?: string }) => {
       try {
-        if (!await socketRateLimit(uid, 'chat:send', 20, 60_000)) return; // 20 messages/min
+        if (!await socketRateLimit(uid, 'chat:send', 20, 60_000)) {
+          socket.emit('chat:error', { chatId, code: 'RATE_LIMITED', message: 'Slow down a moment' });
+          return; // 20 messages/min
+        }
         if (!text || typeof text !== 'string' || text.trim().length === 0 || text.length > 2000) return;
         const safeText = sanitizeText(text.trim());
         if (!safeText) return;
         const chat = await prisma.chat.findUnique({ where: { id: chatId } });
         if (!chat || !chat.members.includes(uid)) return;
 
+        // Idempotency: if this exact clientMsgId was already persisted (retry
+        // after a lost ACK), re-ACK the existing row instead of duplicating.
+        if (clientMsgId) {
+          const existing = await prisma.message.findUnique({
+            where: { chatId_senderUid_clientMsgId: { chatId, senderUid: uid, clientMsgId } },
+          }).catch(() => null);
+          if (existing) {
+            socket.emit('chat:ack', { clientMsgId, messageId: existing.id, status: existing.status });
+            return;
+          }
+        }
+
+        // Block check — reject sends if either party has blocked the other.
+        // The chat stays intact (so history is preserved), but new messages are
+        // silently dropped from the sender's side.
+        const otherUids = chat.members.filter((m) => m !== uid);
+        if (otherUids.length > 0) {
+          const block = await prisma.block.findFirst({
+            where: { OR: [
+              { blockerUid: uid, blockedUid: { in: otherUids } },
+              { blockedUid: uid, blockerUid: { in: otherUids } },
+            ] },
+          });
+          if (block) {
+            socket.emit('chat:error', { chatId, code: 'BLOCKED', message: 'Cannot message this user' });
+            return;
+          }
+        }
+
         const message = await prisma.message.create({
-          data: { chatId, senderUid: uid, text: safeText, status: 'sent' },
+          data: { chatId, senderUid: uid, text: safeText, status: 'sent', clientMsgId: clientMsgId ?? null },
         });
 
         await prisma.chat.update({ where: { id: chatId }, data: { updatedAt: new Date() } });
@@ -71,27 +114,29 @@ export function setupSocket(io: Server): void {
         // ACK back to sender: server received + stored
         socket.emit('chat:ack', { clientMsgId, messageId: message.id, status: 'sent' });
 
-        // Deliver to ALL members
+        // Broadcast to all members
         for (const member of chat.members) {
-          const room = `user:${member}`;
-          io.to(room).emit('chat:message', { chatId, message });
+          io.to(`user:${member}`).emit('chat:message', { chatId, message });
+        }
 
-          // Mark delivered when the recipient is online
-          if (member !== uid) {
+        // Handle delivery status + push for other members (batch-fetch first)
+        const otherMembers = chat.members.filter((m) => m !== uid);
+        if (otherMembers.length > 0) {
+          const [users, senderProfile] = await Promise.all([
+            prisma.user.findMany({ where: { id: { in: otherMembers } } }),
+            prisma.profile.findUnique({ where: { userId: uid } }),
+          ]);
+
+          let anyOnline = false;
+          for (const member of otherMembers) {
+            const room = `user:${member}`;
             const memberSockets = await io.in(room).fetchSockets();
             if (memberSockets.length > 0) {
-              // Recipient is online — mark delivered immediately
-              const delivered = await prisma.message.update({
-                where: { id: message.id },
-                data: { status: 'delivered', deliveredAt: new Date() },
-              });
-              socket.emit('chat:ack', { messageId: message.id, status: 'delivered' });
-              io.to(room).emit('chat:status', { chatId, messageId: message.id, status: 'delivered' });
+              anyOnline = true;
             } else {
               // Recipient offline — send push
-              const recipientUser = await prisma.user.findUnique({ where: { id: member } });
+              const recipientUser = users.find((u) => u.id === member);
               if (recipientUser?.fcmToken) {
-                const senderProfile = await prisma.profile.findUnique({ where: { userId: uid } });
                 const pushPreview = safeText.length > 80 ? `${safeText.slice(0, 80)}…` : safeText;
                 await enqueuePush(
                   recipientUser.fcmToken,
@@ -100,6 +145,17 @@ export function setupSocket(io: Server): void {
                   { type: 'chat_message', chatId, messageId: message.id }
                 );
               }
+            }
+          }
+
+          if (anyOnline) {
+            await prisma.message.update({
+              where: { id: message.id },
+              data: { status: 'delivered', deliveredAt: new Date() },
+            });
+            socket.emit('chat:ack', { messageId: message.id, status: 'delivered' });
+            for (const member of otherMembers) {
+              io.to(`user:${member}`).emit('chat:status', { chatId, messageId: message.id, status: 'delivered' });
             }
           }
         }
@@ -114,6 +170,10 @@ export function setupSocket(io: Server): void {
       try {
         const chat = await prisma.chat.findUnique({ where: { id: chatId } });
         if (!chat || !chat.members.includes(uid)) return; // must be a member
+
+        // Verify message belongs to this chat
+        const existing = await prisma.message.findUnique({ where: { id: messageId } });
+        if (!existing || existing.chatId !== chatId) return;
 
         const message = await prisma.message.update({
           where: { id: messageId },
@@ -149,6 +209,19 @@ export function setupSocket(io: Server): void {
         const session = await prisma.blindsSession.findUnique({ where: { id: sessionId } });
         if (!session || session.phase === 'ended') return;
         if (session.userA !== uid && session.userB !== uid) return;
+
+        // Block check — reveal must not force a blocked user to be revealed.
+        const otherUid = session.userA === uid ? session.userB : session.userA;
+        const block = await prisma.block.findFirst({
+          where: { OR: [
+            { blockerUid: uid, blockedUid: otherUid },
+            { blockerUid: otherUid, blockedUid: uid },
+          ] },
+        });
+        if (block) {
+          socket.emit('blind:error', { sessionId, code: 'BLOCKED' });
+          return;
+        }
 
         const isA = session.userA === uid;
         // Idempotent: only update if not already revealed by this user

@@ -6,7 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:async'; // Added
 import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
+import '../../services/auth_service.dart';
 import '../../services/location_service.dart';
+import '../../services/websocket_service.dart';
 import '../../models/paths.dart';
 import '../design_system.dart';
 import '../components/premium_components.dart';
@@ -19,6 +21,7 @@ import '../paths/paths_page.dart';
 import '../blinds/blinds_page.dart';
 import '../components/aurora_background.dart';
 import '../settings/freezme_plus_page.dart';
+import '../likes/likes_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -41,12 +44,15 @@ class _HomePageState extends State<HomePage> {
   double? _locationLat;
   double? _locationLng;
   bool _disposed = false;
+  StreamSubscription<Map<String, dynamic>>? _matchSub;
 
   @override
   void initState() {
     super.initState();
     _startTimer();
     _loadData();
+    // Listen for real-time match events instead of polling after each like.
+    _matchSub = WebSocketService.instance.onMatchNew.listen(_handleMatchEvent);
     // Fetch pool session after first frame so context is ready
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshPoolSession());
   }
@@ -55,7 +61,27 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    _matchSub?.cancel();
     super.dispose();
+  }
+
+  void _handleMatchEvent(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final members = (data['members'] as List<dynamic>?)?.whereType<String>().toList() ?? const [];
+    final myUid = AuthService.instance.currentUser?.uid;
+    if (members.isEmpty || myUid == null) return;
+    // The "other" user is the one we matched with.
+    final otherUid = members.firstWhere((m) => m != myUid, orElse: () => '');
+    if (otherUid.isEmpty) return;
+    final flow = AppFlowScope.of(context, listen: false);
+    models.VibeProfile? pooled;
+    for (final p in _tonightPool) {
+      if (p.uid == otherUid) { pooled = p; break; }
+    }
+    pooled ??= flow.activeProfile;
+    if (pooled == null) return; // can't display match cleanly without a profile
+    flow.activeProfile = pooled;
+    flow.push(AppStage.matchSuccess);
   }
 
   void _startTimer() {
@@ -226,18 +252,8 @@ class _HomePageState extends State<HomePage> {
     try {
       await flow.repository.likeProfile(profile.uid);
     } catch (_) {}
-    // Give server a moment to process, then check for a mutual match
-    await Future.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
-    final matches = await flow.repository.fetchMatches();
-    final isMatch = matches.any((m) {
-      final members = m['members'] as List<dynamic>?;
-      return members != null && members.contains(profile.uid);
-    });
-    if (isMatch && mounted) {
-      flow.activeProfile = profile;
-      flow.push(AppStage.matchSuccess);
-    }
+    // Mutual-match detection is driven by `match:new` over WebSocket — see
+    // _handleMatchEvent above. No polling needed.
   }
 
   Future<void> _manualLocationSearch() async {
@@ -294,6 +310,7 @@ class _HomePageState extends State<HomePage> {
         index: flow.currentTabIndex,
         children: [
           _buildFeedTab(flow),
+          const LikesPage(),
           const ChatListPage(),
           const PathsPage(),
           const BlindsPage(),
@@ -2103,8 +2120,10 @@ class _TonightProfileCardState extends State<_TonightProfileCard>
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (widget.profile.isPremium)
-                          _TrustBadge(tier: _TrustTier.verified),
+                        if (widget.profile.isVerified)
+                          _TrustBadge(tier: _TrustTier.verified)
+                        else if (widget.profile.isPremium)
+                          _TrustBadge(tier: _TrustTier.elite),
                       ],
                     ),
                     if (widget.profile.bio.isNotEmpty)

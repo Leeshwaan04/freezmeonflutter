@@ -58,10 +58,21 @@ android {
 
     buildTypes {
         release {
+            // Fail-loud: refuse to silently fall back to the debug keystore for
+            // a release build. The Play Store rejects debug-signed APKs anyway,
+            // but a local "release" build that's actually debug-signed is a
+            // pernicious source of confusion.
+            val allowDebugSigning = (project.findProperty("allowDebugSigning") as String?)?.toBoolean() ?: false
             signingConfig = if (hasReleaseKeystore) {
                 signingConfigs.getByName("release")
-            } else {
+            } else if (allowDebugSigning) {
+                logger.warn("[release] No key.properties — using debug keystore because -PallowDebugSigning=true")
                 signingConfigs.getByName("debug")
+            } else {
+                throw GradleException(
+                    "Release build requires android/key.properties. " +
+                    "Create it from key.properties.example or pass -PallowDebugSigning=true for local-only debug-signed builds."
+                )
             }
             isMinifyEnabled = true
             isShrinkResources = true

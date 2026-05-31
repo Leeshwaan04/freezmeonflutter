@@ -58,6 +58,11 @@ post_install do |installer|
       config.build_settings['OTHER_SWIFT_FLAGS'] = '$(inherited) -suppress-warnings'
       config.build_settings['OTHER_CFLAGS'] = '$(inherited) -Wno-quoted-include-in-framework-header'
       
+      # Fix Firebase 12.x public header search paths (umbrella header moved in 12.x)
+      config.build_settings['HEADER_SEARCH_PATHS'] ||= '$(inherited)'
+      config.build_settings['HEADER_SEARCH_PATHS'] << ' ${PODS_ROOT}/FirebaseInstallations/FirebaseInstallations/Source/Library/Public'
+      config.build_settings['HEADER_SEARCH_PATHS'] << ' ${PODS_ROOT}/FirebaseMessaging/FirebaseInstallations/Source/Library/Public'
+
       # Fix for Xcode 15+ "OS_CODE macro redefined" and other lexical issues
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
       if target.name.start_with?('gRPC-')

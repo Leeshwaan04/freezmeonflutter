@@ -7,6 +7,7 @@ import '../components/freezme_logo.dart';
 import '../components/aurora_background.dart';
 import '../settings/preferences_page.dart';
 import '../settings/settings_pages.dart';
+import '../settings/notification_prefs_page.dart';
 import 'edit_profile_page.dart';
 
 
@@ -128,6 +129,12 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         label: 'Freezme+',
         description: 'See who likes you & more',
         action: () => flow.push(AppStage.freezmePlus), // Using proper flow push
+      ),
+      (
+        icon: Icons.notifications_outlined,
+        label: 'Notifications',
+        description: 'Choose what you get notified about',
+        action: () => Navigator.of(context).push(SmoothPageRoute(page: const NotificationPrefsPage())),
       ),
       (
         icon: Icons.security,
