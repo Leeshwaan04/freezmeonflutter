@@ -66,6 +66,7 @@ model Profile {
   bio              String?
   imageUrl         String?
   isPremium        Boolean   @default(false)
+  isVerified       Boolean   @default(false)
   interests        String[]
   lat              Float?
   lng              Float?
@@ -130,11 +131,15 @@ model Skip {
 }
 
 model Match {
-  id        String   @id @default(cuid())
-  members   String[]
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  chats     Chat[]
+  id             String   @id @default(cuid())
+  members        String[]
+  status         String   @default("active")
+  // Sorted "uidA_uidB" key, unique while active, NULL once unmatched so the pair
+  // can re-match. Enforces one active match per pair + prevents the concurrent-
+  // mutual-like double-match race.
+  activeMatchKey String?  @unique
+  createdAt      DateTime @default(now())
+  chats          Chat[]
 
   @@index([members])
 }
@@ -158,6 +163,8 @@ model Message {
   chatId        String
   senderUid     String
   text          String
+  // Client-generated idempotency key — prevents duplicate persists on retry.
+  clientMsgId   String?
   // ACK lifecycle: sending → sent → delivered → read
   status        String    @default("sent")
   deliveredAt   DateTime?
@@ -166,6 +173,7 @@ model Message {
   createdAt     DateTime  @default(now())
   chat          Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
+  @@unique([chatId, senderUid, clientMsgId])
   @@index([chatId, createdAt])
   @@index([chatId, senderUid])
   @@index([senderUid])
