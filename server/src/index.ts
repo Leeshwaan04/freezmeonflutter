@@ -6,7 +6,9 @@ const REQUIRED_ENV_VARS = [
   'JWT_SECRET',
   'JWT_REFRESH_SECRET',
   'REDIS_URL',
-  'AWS_BUCKET_NAME',
+  // S3 bucket — must match the name the S3 service actually reads
+  // (services/s3.ts uses process.env.S3_BUCKET_NAME).
+  'S3_BUCKET_NAME',
 ];
 const missingVars = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
 if (missingVars.length > 0) {

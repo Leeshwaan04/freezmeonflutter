@@ -1,20 +1,25 @@
 import winston from 'winston';
 
-const { combine, timestamp, json, colorize, simple, errors, format } = winston.format;
+// `winston.format` is itself the formatter factory; the named combinators hang
+// off it. Destructuring `format` from it is wrong (there is no
+// winston.format.format) — capture the factory separately.
+const formatFactory = winston.format;
+const { combine, timestamp, json, colorize, simple, errors } = winston.format;
 
 const isProd = process.env.NODE_ENV === 'production';
 
-// PII Scrubbing Formatter
-const scrubPii = format((info) => {
+// PII Scrubbing Formatter — redacts sensitive keys before anything is written.
+const scrubPii = formatFactory((info) => {
   const piiKeys = ['email', 'phone', 'password', 'token', 'name', 'ip', 'fcmToken', 'location'];
-  
-  const scrub = (obj: any) => {
+
+  const scrub = (obj: unknown): void => {
     if (!obj || typeof obj !== 'object') return;
-    for (const key of Object.keys(obj)) {
+    const record = obj as Record<string, unknown>;
+    for (const key of Object.keys(record)) {
       if (piiKeys.includes(key.toLowerCase()) || piiKeys.includes(key)) {
-        obj[key] = '[REDACTED]';
-      } else if (typeof obj[key] === 'object') {
-        scrub(obj[key]);
+        record[key] = '[REDACTED]';
+      } else if (typeof record[key] === 'object') {
+        scrub(record[key]);
       }
     }
   };
