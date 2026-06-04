@@ -12,9 +12,20 @@ export const expiryQueue = new Queue('expiry', { connection });
 export const pushQueue = new Queue('push', { connection });
 export const cleanupQueue = new Queue('cleanup', { connection });
 
+// ── Worker isolation ─────────────────────────────────────────────────────────
+// Under PM2 cluster mode (instances: 'max'), this module loads in EVERY worker.
+// We must run the BullMQ workers + recurring-job scheduler in exactly ONE
+// process, or every cron fires N× (N = CPU cores) and heavy jobs run
+// concurrently. PM2 sets NODE_APP_INSTANCE per cluster worker ('0','1',...).
+// A dedicated worker process (no PM2 cluster) leaves it undefined → also runs.
+// Set DISABLE_WORKERS=true on API-only instances when you split the worker out.
+const RUN_WORKERS =
+  process.env.DISABLE_WORKERS !== 'true' &&
+  (process.env.NODE_APP_INSTANCE === undefined || process.env.NODE_APP_INSTANCE === '0');
+
 // ── Expiry worker — melt sessions, blind sessions, memberships ───────────────
 
-new Worker(
+if (RUN_WORKERS) new Worker(
   'expiry',
   async (job: Job) => {
     const { type } = job.data;
@@ -92,7 +103,7 @@ new Worker(
 
 // ── Push worker — reliable push with retry ───────────────────────────────────
 
-new Worker(
+if (RUN_WORKERS) new Worker(
   'push',
   async (job: Job) => {
     const { fcmToken, title, body, data } = job.data;
@@ -107,7 +118,7 @@ new Worker(
 
 // ── Cleanup worker — prune old data ─────────────────────────────────────────
 
-new Worker(
+if (RUN_WORKERS) new Worker(
   'cleanup',
   async (job: Job) => {
     const { type } = job.data;
@@ -399,6 +410,14 @@ new Worker(
 // ── Scheduled recurring jobs ─────────────────────────────────────────────────
 
 export async function scheduleRecurringJobs(): Promise<void> {
+  // Only the worker-owning process schedules repeatable jobs. Without this guard
+  // every PM2 cluster worker re-registers the same repeat keys and the jobs
+  // fire N× (and BullMQ repeat de-dupe by jobId only partially saves us).
+  if (!RUN_WORKERS) {
+    logger.info('[Jobs] scheduling skipped on this process (workers run elsewhere)');
+    return;
+  }
+
   // Prune expired refresh tokens — every hour
   await cleanupQueue.add(
     'expired_tokens',
