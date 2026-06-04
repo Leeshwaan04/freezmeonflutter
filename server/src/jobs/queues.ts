@@ -302,6 +302,96 @@ new Worker(
       const count = await prisma.profile.count();
       logger.info({ msg: 'presence_scores_updated', count });
     }
+
+    // Sweep ALL expired subscriptions — revoke premium when membership.expiry
+    // has passed. This is the safety net behind Apple Server Notifications:
+    // even if a webhook is missed, premium is revoked within the sweep interval.
+    if (type === 'expire_subscriptions') {
+      const now = new Date();
+      const expired = await prisma.membership.findMany({
+        where: { active: true, expiry: { lt: now } },
+        select: { userId: true },
+      });
+      if (expired.length > 0) {
+        const uids = expired.map((m) => m.userId);
+        await prisma.$transaction([
+          prisma.membership.updateMany({ where: { userId: { in: uids } }, data: { active: false } }),
+          prisma.profile.updateMany({ where: { userId: { in: uids } }, data: { isPremium: false } }),
+        ]);
+      }
+      logger.info({ msg: 'expire_subscriptions_swept', count: expired.length });
+    }
+
+    // GDPR: permanently purge accounts that were soft-deleted (status='deleted')
+    // more than 30 days ago. Until then the user can still recover by logging in.
+    if (type === 'purge_deleted_accounts') {
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const toPurge = await prisma.user.findMany({
+        where: { status: 'deleted', lastActiveAt: { lt: cutoff } },
+        select: { id: true, selfieKey: true },
+      });
+      let purged = 0;
+      for (const u of toPurge) {
+        const uid = u.id;
+        try {
+          // Collect S3 keys (profile photo, feed photos, selfie) before deletion
+          const s3Keys: string[] = [];
+          if (u.selfieKey) s3Keys.push(u.selfieKey);
+          const [profile, feedPosts] = await Promise.all([
+            prisma.profile.findUnique({ where: { userId: uid }, select: { imageUrl: true } }),
+            prisma.feedPost.findMany({ where: { authorUid: uid }, select: { photoUrls: true } }),
+          ]);
+          const extractKey = (url: string): string | null => {
+            try {
+              const p = new URL(url).pathname.replace(/^\//, '');
+              return p.startsWith('uploads/') ? p : null;
+            } catch { return null; }
+          };
+          if (profile?.imageUrl) { const k = extractKey(profile.imageUrl); if (k) s3Keys.push(k); }
+          for (const post of feedPosts) for (const url of post.photoUrls) { const k = extractKey(url); if (k) s3Keys.push(k); }
+
+          await prisma.$transaction(async (tx) => {
+            await tx.like.deleteMany({ where: { OR: [{ senderUid: uid }, { targetUid: uid }] } });
+            await tx.skip.deleteMany({ where: { OR: [{ senderUid: uid }, { targetUid: uid }] } });
+            await tx.pathInvite.deleteMany({ where: { OR: [{ senderUid: uid }, { receiverUid: uid }] } });
+            await tx.blindsQueue.deleteMany({ where: { uid } });
+            await tx.meltSession.deleteMany({ where: { OR: [{ hostUid: uid }, { targetUid: uid }] } });
+            await tx.pathsPresence.deleteMany({ where: { uid } });
+            await tx.presenceEvent.deleteMany({ where: { uid } });
+            await tx.feedPost.deleteMany({ where: { authorUid: uid } });
+            await tx.postLike.deleteMany({ where: { uid } });
+            await tx.postComment.deleteMany({ where: { authorUid: uid } });
+            await tx.refreshToken.deleteMany({ where: { userId: uid } });
+            await tx.freezeMatch.deleteMany({ where: { OR: [{ userA: uid }, { userB: uid }] } });
+            await tx.freezeRoomParticipant.deleteMany({ where: { uid } });
+            await tx.block.deleteMany({ where: { OR: [{ blockerUid: uid }, { blockedUid: uid }] } });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await (tx as any).report.deleteMany({ where: { OR: [{ reporterUid: uid }, { reportedUid: uid }] } }).catch(() => {});
+            await tx.passwordResetToken.deleteMany({ where: { userId: uid } });
+            await tx.emailVerificationToken.deleteMany({ where: { userId: uid } });
+            const chats = await tx.chat.findMany({ where: { members: { has: uid } }, select: { id: true } });
+            const chatIds = chats.map((c) => c.id);
+            if (chatIds.length > 0) {
+              await tx.message.deleteMany({ where: { chatId: { in: chatIds } } });
+              await tx.chat.deleteMany({ where: { id: { in: chatIds } } });
+            }
+            await tx.message.deleteMany({ where: { senderUid: uid } });
+            await tx.match.deleteMany({ where: { members: { has: uid } } });
+            await tx.user.delete({ where: { id: uid } }); // Profile + Membership cascade
+          });
+          // Fire-and-forget S3 cleanup
+          if (s3Keys.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const { deleteS3Object } = await import('../services/s3');
+            Promise.allSettled(s3Keys.map((k) => deleteS3Object(k))).catch(() => {});
+          }
+          purged++;
+        } catch (err) {
+          logger.error({ msg: 'purge_deleted_account_failed', uid, err });
+        }
+      }
+      logger.info({ msg: 'purge_deleted_accounts_complete', purged, candidates: toPurge.length });
+    }
   },
   { connection, concurrency: 1 }  // Only one cleanup job at a time to avoid DB overload
 );
@@ -391,6 +481,20 @@ export async function scheduleRecurringJobs(): Promise<void> {
 
   // Run pool reset immediately on startup
   await expiryQueue.add('pool_reset', { type: 'pool_reset' }, { jobId: 'pool_reset_boot' });
+
+  // Sweep expired subscriptions — every hour (safety net behind Apple webhook)
+  await cleanupQueue.add(
+    'expire_subscriptions',
+    { type: 'expire_subscriptions' },
+    { repeat: { every: 60 * 60 * 1000 }, jobId: 'expire_subscriptions_hourly' }
+  );
+
+  // GDPR purge of accounts soft-deleted >30 days ago — daily
+  await cleanupQueue.add(
+    'purge_deleted_accounts',
+    { type: 'purge_deleted_accounts' },
+    { repeat: { every: 24 * 60 * 60 * 1000 }, jobId: 'purge_deleted_accounts_daily' }
+  );
 
   logger.info('[Jobs] recurring jobs scheduled');
 }

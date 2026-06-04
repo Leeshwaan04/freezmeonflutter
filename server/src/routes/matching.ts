@@ -316,4 +316,52 @@ router.post('/unmatch', async (req: Request, res: Response) => {
   }
 });
 
+// GET /matching/liked-by — "Who Liked You". Returns the count always; returns
+// the actual profiles only to premium users (free users see a blurred teaser
+// driven by `count` + `isPremium:false` on the client).
+router.get('/liked-by', async (req: Request, res: Response) => {
+  try {
+    // Incoming likes where I have NOT already liked them back and we're not blocked.
+    const [incoming, myLikes, myMatches, blocks, membership] = await Promise.all([
+      prisma.like.findMany({ where: { targetUid: req.uid }, orderBy: { likedAt: 'desc' } }),
+      prisma.like.findMany({ where: { senderUid: req.uid }, select: { targetUid: true } }),
+      prisma.match.findMany({ where: { members: { has: req.uid }, status: 'active' }, select: { members: true } }),
+      prisma.block.findMany({ where: { OR: [{ blockerUid: req.uid }, { blockedUid: req.uid }] } }),
+      prisma.membership.findUnique({ where: { userId: req.uid } }),
+    ]);
+
+    const likedBack = new Set(myLikes.map((l) => l.targetUid));
+    const matchedUids = new Set(myMatches.flatMap((m) => m.members).filter((u) => u !== req.uid));
+    const blockedUids = new Set(blocks.map((b) => (b.blockerUid === req.uid ? b.blockedUid : b.blockerUid)));
+
+    const pendingAdmirers = incoming
+      .map((l) => l.senderUid)
+      .filter((uid) => !likedBack.has(uid) && !matchedUids.has(uid) && !blockedUids.has(uid));
+
+    const isPremium = !!(membership?.active);
+    const count = pendingAdmirers.length;
+
+    if (!isPremium) {
+      // Free tier: reveal the count, withhold identities (upsell).
+      res.json({ count, isPremium: false, profiles: [] });
+      return;
+    }
+
+    // Premium: return the actual profiles.
+    const profiles = await prisma.profile.findMany({
+      where: { userId: { in: pendingAdmirers } },
+    });
+    const byUid = Object.fromEntries(profiles.map((p) => [p.userId, p]));
+    const ordered = pendingAdmirers
+      .map((uid) => byUid[uid])
+      .filter(Boolean)
+      .map((p) => ({ ...p, uid: p.userId }));
+
+    res.json({ count, isPremium: true, profiles: ordered });
+  } catch (err) {
+    console.error('[matching/liked-by]', err);
+    res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to fetch liked-by' });
+  }
+});
+
 export default router;

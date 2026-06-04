@@ -213,12 +213,12 @@ router.post('/feedback', async (req: Request, res: Response) => {
     const { category, message, email, platform } = req.body;
     if (!message) { res.status(400).json({ error: 'Message required' }); return; }
 
-    await prisma.feedback.create({
+    await db.feedback.create({
       data: {
         uid: req.uid,
         email,
         category: category ?? 'general',
-        message,
+        message: String(message).slice(0, 4000),
         platform,
       },
     });
@@ -226,6 +226,68 @@ router.post('/feedback', async (req: Request, res: Response) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to submit feedback' });
+  }
+});
+
+// GET /users/notification-prefs — per-type push preferences (with defaults)
+router.get('/notification-prefs', async (req: Request, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.uid },
+      select: { notificationPrefs: true },
+    });
+    const defaults = { matches: true, messages: true, likes: true, marketing: false };
+    const stored = (user?.notificationPrefs as Record<string, boolean> | null) ?? {};
+    res.json({ ...defaults, ...stored });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch notification preferences' });
+  }
+});
+
+// PATCH /users/notification-prefs — update preferences (whitelisted keys only)
+router.patch('/notification-prefs', async (req: Request, res: Response) => {
+  try {
+    const allowed = ['matches', 'messages', 'likes', 'marketing'];
+    const incoming = req.body ?? {};
+    const existing = await prisma.user.findUnique({
+      where: { id: req.uid },
+      select: { notificationPrefs: true },
+    });
+    const merged: Record<string, boolean> = {
+      ...((existing?.notificationPrefs as Record<string, boolean> | null) ?? {}),
+    };
+    for (const key of allowed) {
+      if (typeof incoming[key] === 'boolean') merged[key] = incoming[key];
+    }
+    await prisma.user.update({
+      where: { id: req.uid },
+      data: { notificationPrefs: merged },
+    });
+    res.json(merged);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update notification preferences' });
+  }
+});
+
+// POST /users/me/schedule-deletion — soft-delete (30-day recoverable window).
+// The purge_deleted_accounts cron permanently removes the account after 30 days
+// of inactivity; logging back in before then reactivates it.
+router.post('/me/schedule-deletion', async (req: Request, res: Response) => {
+  try {
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: req.uid },
+        data: { status: 'deleted', fcmToken: null, lastActiveAt: new Date() },
+      }),
+      // Log them out everywhere and pull them from discovery immediately.
+      prisma.refreshToken.deleteMany({ where: { userId: req.uid } }),
+      prisma.pathsPresence.deleteMany({ where: { uid: req.uid } }),
+      prisma.blindsQueue.deleteMany({ where: { uid: req.uid } }),
+    ]);
+    res.json({ success: true, status: 'scheduled', recoverableUntilDays: 30 });
+  } catch (err) {
+    console.error('[users/schedule-deletion]', err);
+    res.status(500).json({ error: 'Failed to schedule deletion' });
   }
 });
 

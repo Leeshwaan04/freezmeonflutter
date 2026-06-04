@@ -50,7 +50,8 @@ router.post('/google', async (req: Request, res: Response) => {
 
     const user = await prisma.user.upsert({
       where: { id: googleUser.uid },
-      update: { email: googleUser.email, lastActiveAt: new Date() },
+      // Logging back in within the 30-day window reactivates a scheduled deletion.
+      update: { email: googleUser.email, lastActiveAt: new Date(), status: 'active' },
       create: { id: googleUser.uid, email: googleUser.email },
     });
 
@@ -107,6 +108,8 @@ router.post('/apple', async (req: Request, res: Response) => {
       update: {
         ...(appleUser.email ? { email: appleUser.email } : {}),
         lastActiveAt: new Date(),
+        // Logging back in within the 30-day window reactivates a scheduled deletion.
+        status: 'active',
       },
       create: { id: appleUser.uid, email: appleUser.email },
     });
@@ -172,7 +175,8 @@ router.post('/email', async (req: Request, res: Response) => {
       const valid = await bcrypt.compare(password, user.passwordHash);
       if (!valid) { res.status(401).json({ code: 'INVALID_CREDENTIALS', error: 'Invalid credentials' }); return; }
 
-      await prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date() } });
+      // Logging back in within the 30-day window reactivates a scheduled deletion.
+      await prisma.user.update({ where: { id: user.id }, data: { lastActiveAt: new Date(), status: 'active' } });
       const tokens = await issueTokenPair(user.id, user.email ?? undefined);
       const profile = await prisma.profile.findUnique({ where: { userId: user.id } });
       res.json({ ...tokens, user: safeUser(user), hasProfile: !!profile });

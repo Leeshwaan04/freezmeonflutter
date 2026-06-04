@@ -169,19 +169,38 @@ class IAPService extends ChangeNotifier {
     try {
       final endpoint = Platform.isIOS ? '/iap/verify-apple' : '/iap/verify-android';
 
-      final response = await _client.dio.post<Map<String, dynamic>>(
-        endpoint,
-        data: {
-          if (purchase != null) ...{
-            'receiptData': purchase.verificationData.serverVerificationData,
-            'productId': purchase.productID,
-            if (!Platform.isIOS)
-              'purchaseToken': purchase.verificationData.serverVerificationData,
-          },
-        },
-      );
+      // Retry verification with backoff so a transient server/network failure
+      // self-heals without an app restart. The server's verify is idempotent
+      // (keyed on originalTransactionId), so retrying is always safe. If all
+      // retries fail, StoreKit keeps the transaction unfinished and re-delivers
+      // it on next launch — premium is never silently lost.
+      Map<String, dynamic>? data;
+      Object? lastErr;
+      for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+          final response = await _client.dio.post<Map<String, dynamic>>(
+            endpoint,
+            data: {
+              if (purchase != null) ...{
+                'receiptData': purchase.verificationData.serverVerificationData,
+                'productId': purchase.productID,
+                if (!Platform.isIOS)
+                  'purchaseToken': purchase.verificationData.serverVerificationData,
+              },
+            },
+          );
+          data = response.data;
+          break;
+        } catch (e) {
+          lastErr = e;
+          if (attempt < 2) {
+            await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
+          }
+        }
+      }
+      if (data == null && lastErr != null) throw lastErr;
 
-      if (response.data?['active'] == true) {
+      if (data?['active'] == true) {
         // Server has already set isPremium on the profile.
         // Re-fetch /profiles/me to sync the AuthUser in memory.
         await AuthService.instance.refreshProfile();

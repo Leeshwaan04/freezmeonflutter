@@ -55,6 +55,7 @@ import usersRouter from './routes/users';
 import freezeRoomRouter from './routes/freezeroom';
 import verificationRouter from './routes/verification';
 import poolRouter from './routes/pool';
+import webhooksRouter from './routes/webhooks';
 
 import { prisma } from './db/client';
 import { redisPub } from './db/redis';
@@ -111,6 +112,9 @@ app.use('/users', usersRouter);
 app.use('/freeze-room', freezeRoomRouter);
 app.use('/verification', verificationRouter);
 app.use('/pool', poolRouter);
+// Apple App Store Server Notifications — unauthenticated (JWS-verified). Mounted
+// outside the auth routers; Apple calls this server-to-server.
+app.use('/webhooks', webhooksRouter);
 
 app.get('/health', async (_req, res) => {
   const checks: Record<string, string> = {};
