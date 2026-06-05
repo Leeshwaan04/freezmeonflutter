@@ -15,6 +15,7 @@ import 'services/api_client.dart';
 import 'services/localization_service.dart';
 import 'services/push_notification_service.dart';
 import 'services/websocket_service.dart';
+import 'models/vibe_profile.dart';
 
 // Re-export controller and stages so UI files that import main.dart stay compiling.
 export 'controllers/flow_controller.dart' show AppFlowController, AppFlowScope;
@@ -59,7 +60,9 @@ void main() async {
   };
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     debugPrint('[PlatformError] $error');
-    return true; // marks the error as handled
+    // Return false so the platform crash reporter (TestFlight, Crashlytics) still
+    // receives the signal. Sentry hooks this separately when its DSN is configured.
+    return false;
   };
 
   // Wrap initialization in a fail-safe timeout to prevent white screen hangs
@@ -147,16 +150,41 @@ class _FreezmeAppState extends State<FreezmeApp> {
   }
 
   /// Maps an FCM data payload to a navigation action on the flow controller.
-  /// Server emits {type, chatId|matchId|...}. For now, chat is the most common
-  /// push surface; everything else routes to the daily pool home.
+  /// Server emits { type, chatId, senderUid, senderName, senderPhoto } for chat
+  /// pushes; everything else routes to the daily pool home.
   void _routePushTap(AppFlowController flow, Map<String, dynamic> data) {
     final type = (data['type'] as String?)?.toLowerCase();
     if (type == null) return;
+
     if (type == 'chat_message' || type == 'chat') {
-      // openChat() pushes the chat stage; activeChatId is already wired when
-      // the user lands on it via the inbox, but for cold-start we route home
-      // and let the matches/chat list populate.
+      final chatId = data['chatId'] as String?;
+      final senderUid = data['senderUid'] as String?;
+      final senderName = data['senderName'] as String? ?? 'Match';
+      final senderPhoto = data['senderPhoto'] as String? ?? '';
+
+      if (chatId != null && senderUid != null) {
+        // Open directly into the correct conversation.
+        flow.openHome();
+        flow.openChatDetail(
+          VibeProfile(
+            uid: senderUid,
+            name: senderName,
+            imageUrl: senderPhoto,
+            age: 0,
+            compatibility: 0,
+            bio: '',
+            distance: '',
+          ),
+          chatId: chatId,
+        );
+        return;
+      }
+      // Fallback: no chatId in payload — open chats tab.
       flow.openHome();
+      flow.openTab(1);
+    } else if (type == 'match') {
+      flow.openHome();
+      flow.openTab(1);
     } else {
       flow.openHome();
     }

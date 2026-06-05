@@ -11,7 +11,10 @@ class PushNotificationService {
   factory PushNotificationService() => _instance;
   PushNotificationService._internal();
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  // Lazy access — touching FirebaseMessaging.instance at construction time
+  // throws when Firebase isn't initialised (e.g. in widget tests), which would
+  // crash any screen that constructs this singleton. Resolve it on first use.
+  FirebaseMessaging get _messaging => FirebaseMessaging.instance;
   final _client = ApiClient.instance;
 
   /// Routes a push payload to the relevant in-app screen. Wired from main.dart

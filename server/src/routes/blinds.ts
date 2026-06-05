@@ -10,6 +10,7 @@ const router = Router();
 router.use(requireAuth);
 
 const BLIND_SESSION_MINUTES = 12;
+const DAILY_ENQUEUE_LIMIT = 5;
 
 // POST /blinds/enqueue — replaces enqueueBlind Cloud Function
 router.post('/enqueue', async (req: Request, res: Response) => {
@@ -17,6 +18,20 @@ router.post('/enqueue', async (req: Request, res: Response) => {
     const { intent, distanceBucket, interests } = req.body;
     if (!intent || !distanceBucket) {
       res.status(400).json({ code: 'MISSING_FIELD', error: 'intent and distanceBucket required' }); return;
+    }
+
+    // Daily rate limit: max DAILY_ENQUEUE_LIMIT blind sessions per user per UTC day
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const todayCount = await prisma.blindsSession.count({
+      where: {
+        OR: [{ userA: req.uid }, { userB: req.uid }],
+        createdAt: { gte: dayStart },
+      },
+    });
+    if (todayCount >= DAILY_ENQUEUE_LIMIT) {
+      res.status(429).json({ code: 'DAILY_LIMIT_REACHED', error: `You can start up to ${DAILY_ENQUEUE_LIMIT} blind sessions per day. Come back tomorrow!` });
+      return;
     }
     if (!isValidIntent(intent)) {
       res.status(400).json({ code: 'INVALID_INTENT', error: 'Invalid intent value' }); return;

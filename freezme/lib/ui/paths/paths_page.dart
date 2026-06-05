@@ -43,6 +43,8 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
   Position? _lastPosition;
   static const _wavesKey = 'paths_waves_left';
   static const _wavesDateKey = 'paths_waves_date';
+  static const _activitiesKey = 'paths_selected_activities';
+  static const _radiusKey = 'paths_radius';
   final Map<String, String> _inviteStatusByUser = {};
   final Map<String, StreamSubscription<PathsInvite>> _inviteSubs = {};
   late final AnimationController _radarController;
@@ -58,6 +60,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
     )..repeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadWaves();
+      _loadActivityPrefs();
     });
   }
 
@@ -100,6 +103,26 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
     setState(() => _wavesLeft = n);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_wavesKey, n);
+  }
+
+  // ── Activity & radius persistence ─────────────────────────────────────────
+
+  Future<void> _loadActivityPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_activitiesKey) ?? const [];
+    final radius = prefs.getDouble(_radiusKey) ?? 10.0;
+    if (mounted) {
+      setState(() {
+        _selectedActivities.addAll(saved);
+        _radius = radius;
+      });
+    }
+  }
+
+  Future<void> _saveActivityPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_activitiesKey, _selectedActivities.toList());
+    await prefs.setDouble(_radiusKey, _radius);
   }
 
   // ── GPS + Presence ────────────────────────────────────────────────────────
@@ -326,7 +349,10 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
                   const Spacer(),
                   if (_selectedActivities.isNotEmpty)
                     GestureDetector(
-                      onTap: () { setState(() => _selectedActivities.clear()); },
+                      onTap: () {
+                        setState(() => _selectedActivities.clear());
+                        _saveActivityPrefs();
+                      },
                       child: const Text('Clear', style: TextStyle(fontSize: 12, color: FreezmeDesignSystem.primary)),
                     ),
                 ],
@@ -343,6 +369,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
                       setState(() {
                         selected ? _selectedActivities.remove(a.key) : _selectedActivities.add(a.key);
                       });
+                      _saveActivityPrefs();
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
@@ -482,6 +509,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
                       onTap: () {
                         HapticFeedback.selectionClick();
                         setState(() => _radius = km);
+                        _saveActivityPrefs();
                         _refresh(flow);
                       },
                       child: Container(
@@ -521,7 +549,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
                     max: 50,
                     divisions: 49,
                     onChanged: (v) => setState(() => _radius = v),
-                    onChangeEnd: (_) => _refresh(flow),
+                    onChangeEnd: (_) { _saveActivityPrefs(); _refresh(flow); },
                   ),
                 ),
               ],

@@ -242,9 +242,11 @@ model BlindsSession {
   revealB      Boolean  @default(false)
   reported     Boolean  @default(false)
   reportReason String?
+  createdAt    DateTime @default(now())
 
   @@index([userA])
   @@index([userB])
+  @@index([createdAt])
 }
 
 model Membership {

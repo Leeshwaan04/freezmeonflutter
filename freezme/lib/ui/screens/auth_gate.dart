@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/flow_controller.dart';
 import '../../core/app_stage.dart';
@@ -32,6 +33,8 @@ class AuthGatePage extends StatefulWidget {
 class _AuthGatePageState extends State<AuthGatePage>
     with SingleTickerProviderStateMixin {
   // Per-button loading so other buttons stay visible while one is in progress
+  static const _kEulaKey = 'eula_accepted';
+
   _AuthMethod? _loadingMethod;
   late final AnimationController _bgController;
   bool _acceptedEula = false;
@@ -45,8 +48,19 @@ class _AuthGatePageState extends State<AuthGatePage>
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat(reverse: true);
-    // Pre-warm Google SDK so there's zero delay when user taps the button
     AuthService.initGoogleSignIn();
+    _loadEulaState();
+  }
+
+  Future<void> _loadEulaState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accepted = prefs.getBool(_kEulaKey) ?? false;
+    if (accepted && mounted) setState(() => _acceptedEula = true);
+  }
+
+  Future<void> _saveEulaState(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kEulaKey, value);
   }
 
   @override
@@ -339,7 +353,9 @@ class _AuthGatePageState extends State<AuthGatePage>
                                     activeColor: FreezmeColors.primary,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                     onChanged: (val) {
-                                      setState(() => _acceptedEula = val ?? false);
+                                      final accepted = val ?? false;
+                                      setState(() => _acceptedEula = accepted);
+                                      _saveEulaState(accepted);
                                     },
                                   ),
                                 ),
@@ -984,8 +1000,6 @@ class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderState
         );
 
       case _AuthButtonVariant.google:
-        // White card with subtle animated Google-colour dots
-        const gColors = [Color(0xFF4285F4), Color(0xFFEA4335), Color(0xFFFBBC04), Color(0xFF34A853)];
         return Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -1003,34 +1017,25 @@ class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Animated 4-dot Google logo or spinner
               if (widget.isLoading)
-                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4285F4)))
-              else SizedBox(
-                width: 20, height: 20,
-                child: Stack(
-                  children: List.generate(4, (i) {
-                    final angle = (i / 4) * math.pi * 2 + t * math.pi * 2;
-                    final dx = math.cos(angle) * 6 + 6;
-                    final dy = math.sin(angle) * 6 + 6;
-                    return Positioned(
-                      left: dx, top: dy,
-                      child: Container(
-                        width: 5, height: 5,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: gColors[i],
-                        ),
-                      ),
-                    );
-                  }),
+                const SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4285F4)),
+                )
+              else
+                // Proper multicolour G badge — instantly recognisable as Google
+                SizedBox(
+                  width: 20, height: 20,
+                  child: CustomPaint(painter: _GoogleGPainter()),
+                ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  widget.label,
+                  style: FreezmeTypography.button.copyWith(color: const Color(0xFF1A1A1A), fontSize: 15),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 12),
-              Flexible(child: Text(widget.label,
-                style: FreezmeTypography.button.copyWith(
-                  color: const Color(0xFF1A1A1A), fontSize: 15),
-                overflow: TextOverflow.ellipsis)),
             ],
           ),
         );
@@ -1116,6 +1121,14 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
     final pass = _passCtrl.text;
     if (email.isEmpty || pass.isEmpty) {
       setState(() => _error = 'Please fill in all fields.');
+      return;
+    }
+    if (!email.contains('@') || !email.contains('.')) {
+      setState(() => _error = 'Please enter a valid email address.');
+      return;
+    }
+    if (_isSignUp && pass.length < 8) {
+      setState(() => _error = 'Password must be at least 8 characters.');
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -1440,4 +1453,51 @@ class _AuthField extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Draws the standard Google "G" logo using four coloured arcs + a horizontal bar.
+/// Renders at any size — pass via CustomPaint(painter: _GoogleGPainter()).
+class _GoogleGPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = size.width / 2;
+    final strokeW = r * 0.28;
+    final halfStroke = strokeW / 2;
+
+    final rect = Rect.fromCircle(center: Offset(cx, cy), radius: r - halfStroke);
+
+    void arc(Color color, double startDeg, double sweepDeg) {
+      final paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeW
+        ..strokeCap = StrokeCap.butt;
+      final startRad = startDeg * math.pi / 180;
+      final sweepRad = sweepDeg * math.pi / 180;
+      canvas.drawArc(rect, startRad, sweepRad, false, paint);
+    }
+
+    // Google colours: blue (right), red (top-left wrapping bottom), yellow (bottom-right), green (right-bottom)
+    arc(const Color(0xFF4285F4), -10,  100); // blue  — top-right → right
+    arc(const Color(0xFFEA4335), 90,   130); // red   — bottom → left → top
+    arc(const Color(0xFFFBBC04), 220,   60); // yellow — bottom-left
+    arc(const Color(0xFF34A853), 280,   70); // green  — bottom-right
+
+    // Horizontal bar through the right side of the G
+    final barPaint = Paint()
+      ..color = const Color(0xFF4285F4)
+      ..style = PaintingStyle.fill;
+    final barY = cy - halfStroke * 0.5;
+    final barLeft = cx;
+    final barRight = cx + r - halfStroke * 0.5;
+    canvas.drawRect(
+      Rect.fromLTWH(barLeft, barY, barRight - barLeft, strokeW * 0.85),
+      barPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

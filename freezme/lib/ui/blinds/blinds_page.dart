@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../main.dart';
+import '../../models/blinds.dart';
+import '../../services/websocket_service.dart';
 import '../design_system.dart';
 import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
@@ -26,6 +29,7 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
 
   late AnimationController _diceController;
   late AnimationController _cardController;
+  StreamSubscription<Map<String, dynamic>>? _blindSessionSub;
 
   @override
   void initState() {
@@ -47,13 +51,43 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 400),
     )..forward();
+
+    // Listen for server-matched blind sessions and open the chat automatically.
+    _blindSessionSub = WebSocketService.instance.onBlindSession.listen(_onBlindSessionCreated);
   }
 
   @override
   void dispose() {
+    _blindSessionSub?.cancel();
     _diceController.dispose();
     _cardController.dispose();
     super.dispose();
+  }
+
+  void _onBlindSessionCreated(Map<String, dynamic> data) {
+    if (!mounted) return;
+    try {
+      // Server emits { session: { id, userA, userB, phase, expiresAt, ... } }
+      // The nested object uses camelCase; normalise to snake_case for fromJson.
+      final raw = (data['session'] as Map<String, dynamic>?) ?? data;
+      final normalised = {
+        'id':            raw['id'],
+        'user_a':        raw['userA'] ?? raw['user_a'],
+        'user_b':        raw['userB'] ?? raw['user_b'],
+        'phase':         raw['phase'],
+        'expires_at':    raw['expiresAt'] ?? raw['expires_at'],
+        'reveal_a':      raw['revealA'] ?? raw['reveal_a'] ?? false,
+        'reveal_b':      raw['revealB'] ?? raw['reveal_b'] ?? false,
+        'reported':      raw['reported'] ?? false,
+        'report_reason': raw['reportReason'] ?? raw['report_reason'],
+      };
+      final session = BlindSession.fromJson(normalised);
+      final flow = AppFlowScope.of(context, listen: false);
+      setState(() => isSearching = false);
+      flow.openBlindChat(session);
+    } catch (e) {
+      debugPrint('[Blinds] failed to parse blind session: $e');
+    }
   }
 
   Future<void> _showConsentDialog() async {

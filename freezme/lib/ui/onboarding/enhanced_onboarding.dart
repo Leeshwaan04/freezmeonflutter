@@ -21,7 +21,7 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     with TickerProviderStateMixin {
   final PageController _pageController = PageController();
   int _currentStep = 0;
-  final int _totalSteps = 9; // Added Gender
+  final int _totalSteps = 8;
 
   // Animation controllers
   late AnimationController _progressController;
@@ -214,9 +214,8 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
       case 3: return _gender.isNotEmpty; // Gender
       case 4: return _selectedInterests.length >= 3; // Interests
       case 5: return controller.uploadedPhotoCount >= 2; // Photos (Require 2)
-      case 6: return _bio.length >= 10; // Bio
-      case 7: return _lookingFor.isNotEmpty; // Looking For
-      case 8: return _vibeType != null; // Vibe Type
+      case 6: return true; // Bio — optional, Skip allowed
+      case 7: return _lookingFor.isNotEmpty && _vibeType != null; // Vibe & Goals (combined)
       default: return true;
     }
   }
@@ -247,12 +246,11 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
                     _buildWelcomeStep(),        // 0
                     _buildNameStep(),           // 1
                     _buildBirthdayStep(),       // 2
-                    _buildGenderStep(),         // 3 (New)
+                    _buildGenderStep(),         // 3
                     _buildInterestsStep(),      // 4
                     _buildPhotosStep(),         // 5
                     _buildBioStep(),            // 6
-                    _buildLookingForStep(),     // 7
-                    _buildVibeTypeStep(),       // 8
+                    _buildVibeAndGoalStep(),    // 7 — Looking For + Vibe (merged)
                   ],
                 ),
               ),
@@ -347,18 +345,41 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     final canProceed = _canProceed();
     final isLastStep = _currentStep == _totalSteps - 1;
 
+    final isBioStep = _currentStep == 6;
+
     return Padding(
-      padding: const EdgeInsets.all(24),
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: PremiumButton(
-          label: isLastStep ? "Complete Profile" : 'Continue',
-          onPressed: canProceed && !_isLoading ? _nextStep : null,
-          icon: isLastStep ? Icons.check_circle : Icons.arrow_forward_rounded,
-          // variant defaults to filled (primary)
-          loading: _isLoading,
-        ),
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: PremiumButton(
+              label: isLastStep ? "Complete Profile" : 'Continue',
+              onPressed: canProceed && !_isLoading ? _nextStep : null,
+              icon: isLastStep ? Icons.check_circle : Icons.arrow_forward_rounded,
+              loading: _isLoading,
+            ),
+          ),
+          if (isBioStep) ...[
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: _isLoading ? null : _nextStep,
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 6),
+                child: Text(
+                  'Skip for now',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF9CA3AF),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -751,11 +772,17 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
                   },
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: slot.status == PhotoSlotStatus.error
+                          ? Colors.red.shade50
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: slot.imageUrl != null ? FreezmeColors.primary : Colors.grey.shade300,
-                        width: slot.imageUrl != null ? 2 : 1,
+                        color: slot.status == PhotoSlotStatus.error
+                            ? Colors.red.shade300
+                            : slot.imageUrl != null
+                                ? FreezmeColors.primary
+                                : Colors.grey.shade300,
+                        width: slot.imageUrl != null || slot.status == PhotoSlotStatus.error ? 2 : 1,
                       ),
                     ),
                     child: Stack(
@@ -778,6 +805,19 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
                           )
                         else if (slot.status == PhotoSlotStatus.uploading)
                           const Center(child: CircularProgressIndicator())
+                        else if (slot.status == PhotoSlotStatus.error)
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 28),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tap to retry',
+                                style: TextStyle(fontSize: 10, color: Colors.red.shade400),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          )
                         else
                           const Icon(Icons.add_a_photo_rounded, color: Colors.grey),
                           
@@ -947,162 +987,146 @@ class _EnhancedOnboardingFlowState extends State<EnhancedOnboardingFlow>
     });
   }
 
-  // Step 6: Looking For
-  Widget _buildLookingForStep() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              _buildTitle("Relationship Goals", "What are you looking for right now?"),
-            ],
+  // Step 7: Vibe & Goals (merged Looking For + Vibe Type)
+  Widget _buildVibeAndGoalStep() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 20),
+          Center(child: _buildTitle("Your Vibe & Goals", "Tell us what you're here for.")),
+
+          // ── Looking For ──────────────────────────────────────────────────
+          const Text(
+            "What are you looking for?",
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
           ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            itemCount: _lookingForOptions.length,
-            itemBuilder: (context, index) {
-              final option = _lookingForOptions[index];
-              final isSelected = _lookingFor.contains(option.id);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: TappableCard(
-                  onTap: () {
-                    setState(() {
-                      _lookingFor.clear(); // Single select usually, but let's keep list logic
-                      _lookingFor.add(option.id);
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: isSelected ? FreezmeColors.primary.withValues(alpha: 0.05) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? FreezmeColors.primary : Colors.grey.shade200,
-                        width: isSelected ? 2 : 1,
-                      ),
+          const SizedBox(height: 12),
+          ..._lookingForOptions.map((option) {
+            final isSelected = _lookingFor.contains(option.id);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: GestureDetector(
+                onTap: () {
+                  _haptic();
+                  setState(() {
+                    _lookingFor.clear();
+                    _lookingFor.add(option.id);
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: isSelected ? FreezmeColors.primary.withValues(alpha: 0.06) : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isSelected ? FreezmeColors.primary : Colors.grey.shade200,
+                      width: isSelected ? 2 : 1,
                     ),
-                    child: Row(
-                      children: [
-                        Text(option.emoji, style: const TextStyle(fontSize: 28)),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                option.label,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                option.description,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(option.emoji, style: const TextStyle(fontSize: 22)),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(option.label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                            Text(option.description, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          ],
                         ),
-                        if (isSelected)
-                          const Icon(Icons.check_circle, color: FreezmeColors.primary),
-                      ],
+                      ),
+                      if (isSelected)
+                        const Icon(Icons.check_circle, color: FreezmeColors.primary, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          const SizedBox(height: 24),
+
+          // ── Vibe Type ────────────────────────────────────────────────────
+          const Text(
+            "What's your energy?",
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
+          ),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.6,
+            ),
+            itemCount: _vibeTypes.length,
+            itemBuilder: (context, index) {
+              final vibe = _vibeTypes[index];
+              final isSelected = _vibeType == vibe.id;
+              return GestureDetector(
+                onTap: () {
+                  _haptic();
+                  setState(() => _vibeType = vibe.id);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isSelected ? FreezmeColors.primary : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? FreezmeColors.primary : Colors.grey.shade200,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Text(vibe.emoji, style: const TextStyle(fontSize: 24)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              vibe.label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              vibe.description,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isSelected ? Colors.white70 : Colors.grey.shade500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
             },
           ),
-        ),
-      ],
-    );
-  }
-
-  // Step 7: Vibe Type
-  Widget _buildVibeTypeStep() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              _buildTitle("What's your vibe?", "Helps us match your energy."),
-            ],
-          ),
-        ),
-        Expanded(
-          child: GridView.builder(
-             padding: const EdgeInsets.symmetric(horizontal: 24),
-             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-               crossAxisCount: 2,
-               crossAxisSpacing: 12,
-               mainAxisSpacing: 12,
-               childAspectRatio: 0.85,
-             ),
-             itemCount: _vibeTypes.length,
-             itemBuilder: (context, index) {
-               final vibe = _vibeTypes[index];
-               final isSelected = _vibeType == vibe.id;
-               return GestureDetector(
-                 onTap: () {
-                   _haptic();
-                   setState(() => _vibeType = vibe.id);
-                 },
-                 child: Container(
-                   padding: const EdgeInsets.all(16),
-                   decoration: BoxDecoration(
-                     color: isSelected ? FreezmeColors.primary : Colors.white,
-                     borderRadius: BorderRadius.circular(20),
-                     border: Border.all(
-                       color: isSelected ? FreezmeColors.primary : Colors.grey.shade200,
-                     ),
-                     boxShadow: [
-                       BoxShadow(
-                         color: Colors.black.withValues(alpha: 0.05),
-                         blurRadius: 8,
-                         offset: const Offset(0, 4),
-                       ),
-                     ],
-                   ),
-                   child: Column(
-                     mainAxisAlignment: MainAxisAlignment.center,
-                     children: [
-                       Text(vibe.emoji, style: const TextStyle(fontSize: 40)),
-                       const SizedBox(height: 16),
-                       Text(
-                         vibe.label,
-                         textAlign: TextAlign.center,
-                         style: TextStyle(
-                           fontSize: 16,
-                           fontWeight: FontWeight.bold,
-                           color: isSelected ? Colors.white : Colors.black87,
-                         ),
-                       ),
-                       const SizedBox(height: 8),
-                       Text(
-                         vibe.description,
-                         textAlign: TextAlign.center,
-                         style: TextStyle(
-                           fontSize: 12,
-                           color: isSelected ? Colors.white70 : Colors.grey.shade500,
-                         ),
-                       ),
-                     ],
-                   ),
-                 ),
-               );
-             },
-          ),
-        ),
-      ],
+          const SizedBox(height: 32),
+        ],
+      ),
     );
   }
 }

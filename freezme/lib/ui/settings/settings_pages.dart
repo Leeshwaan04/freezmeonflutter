@@ -116,13 +116,15 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
 
     if (confirmed == true) {
       if (!mounted) return;
+      // Capture messenger before the async gap to avoid use_build_context_synchronously
+      final messenger = ScaffoldMessenger.of(context);
       try {
         await ApiClient.instance.dio.delete<void>('/users/blocked/$blockedUid');
-        setState(() => _blockedUsers.remove(blockedUid));
-        PremiumSnackBar.show(context, 'User unblocked', type: SnackBarType.success);
-      } catch (e) {
         if (!mounted) return;
-        PremiumSnackBar.show(context, 'Error unblocking user', type: SnackBarType.error);
+        setState(() => _blockedUsers.remove(blockedUid));
+        PremiumSnackBar.showOnMessenger(messenger, 'User unblocked', type: SnackBarType.success);
+      } catch (e) {
+        PremiumSnackBar.showOnMessenger(messenger, 'Error unblocking user', type: SnackBarType.error);
       }
     }
   }

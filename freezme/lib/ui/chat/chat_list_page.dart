@@ -320,16 +320,7 @@ class _ChatListPageState extends State<ChatListPage> {
                 if (visibleConversations.isEmpty) {
                   slivers.add(SliverFillRemaining(
                     hasScrollBody: false,
-                    child: EmptyStateView(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      title: 'No Matches Yet',
-                      subtitle: 'Start exploring to find your perfect match! Your conversations will appear here.',
-                      actionLabel: 'Explore Tonight',
-                      onAction: () {
-                        // Navigate to Tonight tab
-                        flow.openTab(0);
-                      },
-                    ),
+                    child: _EmptyChatState(onExplore: () => flow.openTab(0)),
                   ));
                 } else {
                   slivers.add(SliverList(
@@ -694,6 +685,109 @@ class _ChatListPageState extends State<ChatListPage> {
   }
 }
 
+class _EmptyChatState extends StatelessWidget {
+  final VoidCallback onExplore;
+  const _EmptyChatState({required this.onExplore});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Warm illustrated orb with heart + chat icon
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF7C3AED), Color(0xFFDB2777)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.3),
+                  blurRadius: 32,
+                  spreadRadius: 4,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 52),
+                Positioned(
+                  top: 26,
+                  right: 26,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 6),
+                      ],
+                    ),
+                    child: const Icon(Icons.favorite_rounded, color: Color(0xFFDB2777), size: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+          const Text(
+            'Your matches live here',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: FreezmeDesignSystem.textPrimary,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'When you connect with someone, your\nconversation will appear here.\n\nDon\'t leave them waiting ✨',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              color: FreezmeDesignSystem.textSecondary,
+              height: 1.6,
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: onExplore,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FreezmeDesignSystem.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.explore_rounded, size: 20),
+                  SizedBox(width: 8),
+                  Text('Explore Profiles', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MeltingBadge extends StatelessWidget {
   final DateTime expiresAt;
   const _MeltingBadge({required this.expiresAt});
@@ -701,6 +795,8 @@ class _MeltingBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final remaining = expiresAt.difference(DateTime.now());
+    if (remaining.isNegative) return const SizedBox.shrink();
+
     final hours = remaining.inHours;
 
     Color badgeColor;

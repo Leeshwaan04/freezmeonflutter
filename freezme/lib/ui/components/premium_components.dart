@@ -571,6 +571,33 @@ class PremiumSnackBar {
       ),
     );
   }
+
+  /// Variant that accepts a pre-captured [ScaffoldMessengerState] so it is safe
+  /// to call after an async gap without accessing BuildContext.
+  static void showOnMessenger(
+    ScaffoldMessengerState messenger,
+    String message, {
+    SnackBarType type = SnackBarType.info,
+    Duration duration = const Duration(seconds: 4),
+  }) {
+    final backgroundColor = switch (type) {
+      SnackBarType.success => FreezmeDesignSystem.success,
+      SnackBarType.error => FreezmeDesignSystem.error,
+      SnackBarType.info => FreezmeDesignSystem.surfaceContrast,
+      SnackBarType.warning => FreezmeDesignSystem.warning,
+    };
+    final textColor = type == SnackBarType.info ? FreezmeDesignSystem.background : Colors.white;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message, style: FreezmeDesignSystem.bodyMedium.copyWith(color: textColor)),
+        backgroundColor: backgroundColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusMd)),
+        duration: duration,
+        margin: const EdgeInsets.all(FreezmeDesignSystem.spaceMd),
+      ),
+    );
+  }
 }
 
 enum SnackBarType { success, error, info, warning }
