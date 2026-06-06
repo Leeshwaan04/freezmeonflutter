@@ -395,6 +395,26 @@ model Block {
   @@index([blockedUid])
 }
 
+// User reports (Trust & Safety). Referenced by src/routes/users.ts (db.report).
+// Was previously only defined in a stray "schema 2.prisma", so the live DB never
+// had the table and every report returned 500 — fixed by defining it here.
+model Report {
+  id          String    @id @default(cuid())
+  reporterUid String
+  reportedUid String
+  reason      String
+  details     String?
+  context     String? // chat | profile | feed | melt | blinds | freeze_room
+  contextId   String? // e.g. chatId, postId, sessionId
+  status      String    @default("open") // open | reviewed | actioned | dismissed
+  createdAt   DateTime  @default(now())
+  reviewedAt  DateTime?
+
+  @@index([reportedUid])
+  @@index([reporterUid])
+  @@index([status])
+}
+
 // ── Presence events (for computing presenceScore) ────────────────────────────
 
 model PresenceEvent {
