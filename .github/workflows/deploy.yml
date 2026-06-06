@@ -57,6 +57,14 @@ jobs:
             cd ~/freezme-server
             npm ci --omit=dev
             npx prisma generate
+            # Drift reconcile: an earlier apply left a unique index/constraint on
+            # Membership.originalTransactionId that `db push` keeps trying to recreate
+            # ("relation already exists"). Drop BOTH forms idempotently — a UNIQUE
+            # constraint is constraint-backed (needs DROP CONSTRAINT), a plain @unique
+            # is a standalone index (needs DROP INDEX). db push then recreates it and
+            # takes ownership, so this becomes a no-op on subsequent deploys.
+            echo 'ALTER TABLE "Membership" DROP CONSTRAINT IF EXISTS "Membership_originalTransactionId_key"; DROP INDEX IF EXISTS "Membership_originalTransactionId_key";' \
+              | npx prisma db execute --stdin --schema prisma/schema.prisma || true
             # Schema is managed via db push (migration history diverged from the
             # hand-maintained DB). Additive changes only; serialise deploys.
             flock -w 60 /tmp/freezme-migrate.lock npx prisma db push --skip-generate --accept-data-loss
