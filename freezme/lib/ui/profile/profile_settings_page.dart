@@ -9,6 +9,7 @@ import '../settings/preferences_page.dart';
 import '../settings/settings_pages.dart';
 import '../settings/notification_prefs_page.dart';
 import 'edit_profile_page.dart';
+import '../guides/feature_guides.dart';
 
 
 class ProfileSettingsPage extends StatefulWidget {
@@ -141,6 +142,12 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
         label: 'Safety & Privacy',
         description: 'Manage your data and safety',
         action: () => Navigator.of(context).push(SmoothPageRoute(page: const SafetyPrivacyPage())),
+      ),
+      (
+        icon: Icons.auto_stories_outlined,
+        label: 'How Freezme Works',
+        description: 'Walkthroughs for Tonight, Paths, Blinds & more',
+        action: () => showFeatureGuideHub(context),
       ),
       (
         icon: Icons.help_outline,

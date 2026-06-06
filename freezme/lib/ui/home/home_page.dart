@@ -22,6 +22,7 @@ import '../blinds/blinds_page.dart';
 import '../components/aurora_background.dart';
 import '../settings/freezme_plus_page.dart';
 import '../likes/likes_page.dart';
+import '../guides/feature_guides.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -46,6 +47,20 @@ class _HomePageState extends State<HomePage> {
   bool _disposed = false;
   StreamSubscription<Map<String, dynamic>>? _matchSub;
 
+  // First-run feature guides — auto-show once per tab as the user explores.
+  AppFlowController? _flow;
+  int _lastTabIndex = 0;
+  bool _guidesWired = false;
+
+  // Maps a bottom-nav tab index to its DIY guide (Profile has none).
+  static const Map<int, FreezmeFeature> _tabGuides = {
+    0: FreezmeFeature.tonight,
+    1: FreezmeFeature.likes,
+    2: FreezmeFeature.chats,
+    3: FreezmeFeature.paths,
+    4: FreezmeFeature.blinds,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -58,10 +73,42 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_guidesWired) return;
+    _guidesWired = true;
+    final flow = AppFlowScope.of(context, listen: false);
+    _flow = flow;
+    _lastTabIndex = flow.currentTabIndex;
+    flow.addListener(_onFlowChanged);
+    // Introduce the first tab the user lands on (Tonight).
+    _maybeShowGuide(flow.currentTabIndex);
+  }
+
+  void _onFlowChanged() {
+    final flow = _flow;
+    if (flow == null || !mounted) return;
+    final idx = flow.currentTabIndex;
+    if (idx == _lastTabIndex) return;
+    _lastTabIndex = idx;
+    _maybeShowGuide(idx);
+  }
+
+  /// Auto-shows a feature's DIY guide once, the first time its tab is viewed.
+  void _maybeShowGuide(int tabIndex) {
+    final feature = _tabGuides[tabIndex];
+    if (feature == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) FeatureGuideService.maybeAutoShow(context, feature);
+    });
+  }
+
+  @override
   void dispose() {
     _disposed = true;
     _timer?.cancel();
     _matchSub?.cancel();
+    _flow?.removeListener(_onFlowChanged);
     super.dispose();
   }
 
