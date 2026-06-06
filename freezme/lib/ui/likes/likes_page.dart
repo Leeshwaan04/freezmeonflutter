@@ -75,20 +75,51 @@ class _LikesPageState extends State<LikesPage> {
   }
 
   Widget _buildEmptyState() {
+    // Warm gradient-orb empty state with a CTA — matches the Chats empty-state
+    // language (was a cold grey outline heart with no action).
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.favorite_border, size: 64, color: FreezmeDesignSystem.textTertiary),
-          const SizedBox(height: 16),
-          const Text('No likes yet', style: FreezmeDesignSystem.h2),
-          const SizedBox(height: 8),
-          Text(
-            'When someone likes your profile,\nthey will appear here.',
-            textAlign: TextAlign.center,
-            style: FreezmeDesignSystem.body.copyWith(color: FreezmeDesignSystem.textSecondary),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(FreezmeDesignSystem.spaceLg),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF7C3AED), Color(0xFFDB2777)], // purple → pink
+                ),
+              ),
+              child: const Icon(Icons.favorite, color: Colors.white, size: 44),
+            ),
+            const SizedBox(height: 20),
+            const Text('Your likes will land here', style: FreezmeDesignSystem.h2, textAlign: TextAlign.center),
+            const SizedBox(height: 8),
+            Text(
+              'When someone likes you, they show up here — like them back to match instantly.',
+              textAlign: TextAlign.center,
+              style: FreezmeDesignSystem.body.copyWith(color: FreezmeDesignSystem.textSecondary),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => AppFlowScope.of(context, listen: false).openTab(0),
+              icon: const Icon(Icons.explore_outlined, size: 18),
+              style: FilledButton.styleFrom(
+                backgroundColor: FreezmeDesignSystem.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusLg),
+                ),
+              ),
+              label: const Text('Explore tonight'),
+            ),
+          ],
+        ),
       ),
     );
   }
