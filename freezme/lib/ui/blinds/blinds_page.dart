@@ -36,12 +36,11 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
     super.initState();
     consented = AppFlowScope.of(context, listen: false).blindsConsent;
 
-    // Show consent dialog on first visit if not yet agreed
-    if (!consented) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showConsentDialog();
-      });
-    }
+    // NOTE: don't auto-show the consent dialog here. Home uses an IndexedStack
+    // that eagerly builds every tab, so initState runs on app launch — popping
+    // the dialog over the Tonight screen before the user ever opens Blinds.
+    // Consent is now requested on first dice tap (see _onDiceTap) and is also
+    // settable via the Ground Rules checkbox below.
 
     _diceController = AnimationController(
       vsync: this,
@@ -123,11 +122,12 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
   }
 
   Future<void> _onDiceTap(AppFlowController flow) async {
+    // Request consent at the moment of engagement (not on app launch).
     if (!consented) {
-      PremiumSnackBar.show(context, 'Please agree to the ground rules.');
-      return;
+      await _showConsentDialog();
+      if (!consented) return; // user declined the ground rules
     }
-    
+
     _diceController.forward(from: 0);
     setState(() => isSearching = true);
     

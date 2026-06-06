@@ -37,7 +37,9 @@ class _HomePageState extends State<HomePage> {
   List<models.VibeProfile> _tonightPool = [];
   final Set<String> _likedUids = {};
   Timer? _timer;
-  String _countdown = '00:00:00';
+  // Countdown ticks every second. Held in a ValueNotifier so only the small
+  // clock widget repaints — NOT the whole Tonight tab (was a 1Hz full rebuild).
+  final ValueNotifier<String> _countdown = ValueNotifier<String>('00:00:00');
   bool _poolIsOpen = false;
   DateTime? _poolOpensAt;
   DateTime? _poolClosesAt;
@@ -109,6 +111,7 @@ class _HomePageState extends State<HomePage> {
     _timer?.cancel();
     _matchSub?.cancel();
     _flow?.removeListener(_onFlowChanged);
+    _countdown.dispose();
     super.dispose();
   }
 
@@ -156,7 +159,7 @@ class _HomePageState extends State<HomePage> {
     if (diff.isNegative) {
       // Times have crossed — re-fetch session on next tick after a short delay
       Future.delayed(const Duration(seconds: 5), _refreshPoolSession);
-      if (mounted) setState(() => _countdown = '00:00:00');
+      _countdown.value = '00:00:00';
       return;
     }
 
@@ -164,11 +167,8 @@ class _HomePageState extends State<HomePage> {
     final minutes = (diff.inMinutes % 60).toString().padLeft(2, '0');
     final seconds = (diff.inSeconds % 60).toString().padLeft(2, '0');
 
-    if (mounted) {
-      setState(() {
-        _countdown = '$hours:$minutes:$seconds';
-      });
-    }
+    // No setState — only the ValueListenableBuilder around the clock repaints.
+    _countdown.value = '$hours:$minutes:$seconds';
   }
 
   Future<void> _refreshPoolSession() async {
@@ -291,16 +291,32 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _onLikeProfile(models.VibeProfile profile) async {
     if (_likedUids.contains(profile.uid)) return;
+    // Remember position so we can restore the card if the like fails.
+    final idx = _tonightPool.indexWhere((p) => p.uid == profile.uid);
     setState(() {
       _likedUids.add(profile.uid);
       _tonightPool.removeWhere((p) => p.uid == profile.uid);
     });
     final flow = AppFlowScope.of(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await flow.repository.likeProfile(profile.uid);
-    } catch (_) {}
-    // Mutual-match detection is driven by `match:new` over WebSocket — see
-    // _handleMatchEvent above. No polling needed.
+      // Mutual-match detection is driven by `match:new` over WebSocket — see
+      // _handleMatchEvent above. No polling needed.
+    } catch (_) {
+      if (!mounted) return;
+      // Revert the optimistic removal so the like isn't silently lost.
+      setState(() {
+        _likedUids.remove(profile.uid);
+        if (!_tonightPool.any((p) => p.uid == profile.uid)) {
+          final at = (idx >= 0 && idx <= _tonightPool.length) ? idx : _tonightPool.length;
+          _tonightPool.insert(at, profile);
+        }
+      });
+      messenger.showSnackBar(const SnackBar(
+        content: Text("Couldn't send your like — check your connection and try again."),
+      ));
+    }
   }
 
   Future<void> _manualLocationSearch() async {
@@ -513,12 +529,15 @@ class _HomePageState extends State<HomePage> {
                           color: _poolIsOpen ? FreezmeDesignSystem.success : FreezmeDesignSystem.primary,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          _countdown,
-                          style: FreezmeDesignSystem.small.copyWith(
-                            color: _poolIsOpen ? FreezmeDesignSystem.success : FreezmeDesignSystem.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                        ValueListenableBuilder<String>(
+                          valueListenable: _countdown,
+                          builder: (context, value, _) => Text(
+                            value,
+                            style: FreezmeDesignSystem.small.copyWith(
+                              color: _poolIsOpen ? FreezmeDesignSystem.success : FreezmeDesignSystem.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ],
@@ -794,7 +813,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTrendingFeedSection({Key? key}) {
-    final cards = _PulseCardData.generate(_locationName, _countdown);
+    final cards = _PulseCardData.generate(_locationName, _countdown.value);
     return SliverToBoxAdapter(
       key: key,
       child: Column(
