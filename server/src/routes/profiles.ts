@@ -191,10 +191,15 @@ function mutualGenderMatch(
   const myG = normalizeGender(myGender);
   const theirG = normalizeGender(theirGender);
 
+  // 'other' (Prefer not to say) and unknown ('') are gender-neutral wildcards:
+  // they match with, and are matchable by, everyone — otherwise they'd be invisible.
+  const theyAreWild = theirG === '' || theirG === 'other';
+  const iAmWild = myG === '' || myG === 'other';
+
   // I must want their gender
-  const iWantThem = myPrefs.length === 0 || myPrefs.some(p => normalizeGender(p) === theirG || theirG === '');
+  const iWantThem = myPrefs.length === 0 || theyAreWild || myPrefs.some(p => normalizeGender(p) === theirG);
   // They must want my gender
-  const theyWantMe = theirPrefs.length === 0 || theirPrefs.some(p => normalizeGender(p) === myG || myG === '');
+  const theyWantMe = theirPrefs.length === 0 || iAmWild || theirPrefs.some(p => normalizeGender(p) === myG);
 
   return iWantThem && theyWantMe;
 }
@@ -400,8 +405,11 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
     // 1. Gender filter: only fetch candidates whose gender is in MY prefs
     //    We enforce mutuality in JS (can't do bidirectional array check in Prisma easily)
     const myGenderPrefs = myProfile.genderPrefs ?? [];
+    // Always let 'other' (Prefer not to say) candidates through the DB pre-filter —
+    // they're gender-neutral; mutualGenderMatch (below) decides the actual match.
+    // Without this, prefer-not-to-say users are invisible to everyone.
     const genderFilter = myGenderPrefs.length > 0
-      ? { gender: { in: myGenderPrefs } }
+      ? { gender: { in: [...myGenderPrefs, 'other'] } }
       : {};
 
     // 2. Age filter: candidate's age must be within MY stated range
@@ -425,6 +433,9 @@ router.get('/daily-pool', async (req: Request, res: Response) => {
       where: {
         userId: { notIn: Array.from(excluded) },
         frozen: false,
+        // Exclude deleted/banned/inactive accounts — soft-deleted users
+        // (status='deleted') were still appearing as matchable profiles.
+        user: { status: 'active' },
         ...genderFilter,
         ...ageFilter,
         ...intentFilter,
