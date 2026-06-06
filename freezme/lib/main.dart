@@ -29,7 +29,7 @@ import 'ui/screens/onboarding_flow.dart';
 import 'ui/home/home_page.dart';
 import 'ui/screens/video_date.dart';
 import 'ui/screens/match_success.dart';
-import 'ui/screens/chat_screen.dart';
+import 'ui/chat/chat_screen_page.dart';
 import 'ui/profile/profile_settings_page.dart';
 import 'ui/screens/profile_preview.dart';
 import 'ui/screens/daily_recap.dart';
