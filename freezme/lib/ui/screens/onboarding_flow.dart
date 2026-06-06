@@ -238,7 +238,9 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
   Widget build(BuildContext context) {
     final flow = AppFlowScope.of(context, listen: false);
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F5FF),
+      // Same calm surface token as the in-app tabs (was a hardcoded off-token
+      // near-white) so the backdrop is consistent from onboarding into the app.
+      backgroundColor: FreezmeColors.surface,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
@@ -410,75 +412,142 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
           const Text('Pick a prompt. This is the first thing people see.',
               style: TextStyle(fontSize: 15, color: FreezmeColors.muted)),
           const SizedBox(height: 20),
-          SizedBox(
-            height: 44,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _kPrompts.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, i) {
-                final sel = _kPrompts[i] == _selectedPrompt;
-                return GestureDetector(
-                  onTap: () => setState(() { _selectedPrompt = _kPrompts[i]; _promptAnswerController.clear(); }),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: sel ? FreezmeColors.primary : Colors.white,
-                      borderRadius: BorderRadius.circular(99),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 4, offset: const Offset(0, 1))],
-                    ),
-                    child: Text('Prompt ${i + 1}', style: TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600,
-                        color: sel ? Colors.white : FreezmeColors.neutral)),
+
+          // Vertical prompt list — every prompt visible at once (no hidden
+          // "Prompt N" chips). The selected prompt expands inline to reveal the
+          // answer field. Switching prompts does NOT clear what's been typed.
+          ...List.generate(_kPrompts.length, (i) {
+            final prompt = _kPrompts[i];
+            final sel = prompt == _selectedPrompt;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                decoration: BoxDecoration(
+                  color: sel
+                      ? FreezmeColors.primary.withValues(alpha: 0.07)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: sel
+                        ? FreezmeColors.primary.withValues(alpha: 0.45)
+                        : FreezmeColors.border,
+                    width: sel ? 1.5 : 1,
                   ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: FreezmeColors.primary.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: FreezmeColors.primary.withValues(alpha: 0.15)),
-            ),
-            child: Text('"$_selectedPrompt"',
-                style: const TextStyle(fontSize: 14, fontStyle: FontStyle.italic,
-                    color: FreezmeColors.neutral, height: 1.5)),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _promptAnswerController,
-            maxLines: 5, maxLength: 280,
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: 'Your answer...',
-              hintStyle: TextStyle(color: FreezmeColors.muted.withValues(alpha: 0.6)),
-              filled: true, fillColor: Colors.white,
-              contentPadding: const EdgeInsets.all(16),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(
-                  color: charCount >= 10 ? FreezmeColors.primary.withValues(alpha: 0.4) : Colors.transparent,
-                  width: 1.5,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Tappable prompt row
+                    InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: sel
+                          ? null
+                          : () => setState(() => _selectedPrompt = prompt),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Radio indicator
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: sel
+                                      ? FreezmeColors.primary
+                                      : FreezmeColors.muted.withValues(alpha: 0.4),
+                                  width: 2,
+                                ),
+                                color: sel ? FreezmeColors.primary : Colors.transparent,
+                              ),
+                              child: sel
+                                  ? const Icon(Icons.check, size: 13, color: Colors.white)
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                prompt,
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  height: 1.4,
+                                  fontStyle: FontStyle.italic,
+                                  fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
+                                  color: sel
+                                      ? FreezmeColors.neutral
+                                      : FreezmeColors.neutral.withValues(alpha: 0.7),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Inline answer field — only under the selected prompt
+                    if (sel)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _promptAnswerController,
+                              maxLines: 5,
+                              maxLength: 280,
+                              autofocus: false,
+                              onChanged: (_) => setState(() {}),
+                              decoration: InputDecoration(
+                                hintText: 'Your answer...',
+                                hintStyle: TextStyle(
+                                    color: FreezmeColors.muted.withValues(alpha: 0.6)),
+                                filled: true,
+                                fillColor: Colors.white,
+                                contentPadding: const EdgeInsets.all(16),
+                                border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(color: FreezmeColors.border)),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(
+                                    color: charCount >= 10
+                                        ? FreezmeColors.primary.withValues(alpha: 0.4)
+                                        : FreezmeColors.border,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                        color: FreezmeColors.primary, width: 2)),
+                                counterStyle: const TextStyle(
+                                    fontSize: 11, color: FreezmeColors.muted),
+                              ),
+                            ),
+                            if (charCount >= 10)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 10),
+                                child: _InsightBanner(
+                                    text: 'This shows on your profile exactly as written.',
+                                    icon: Icons.visibility_outlined))
+                            else if (_hasAttemptedNext)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: _ValidationHint(
+                                    text: '$charCount/10 characters minimum')),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: FreezmeColors.primary, width: 2)),
-              counterStyle: const TextStyle(fontSize: 11, color: FreezmeColors.muted),
-            ),
-          ),
-          if (charCount >= 10)
-            const Padding(padding: EdgeInsets.only(top: 10),
-              child: _InsightBanner(text: 'This shows on your profile exactly as written.',
-                  icon: Icons.visibility_outlined))
-          else if (_hasAttemptedNext)
-            Padding(padding: const EdgeInsets.only(top: 8),
-              child: _ValidationHint(text: '$charCount/10 characters minimum')),
+            );
+          }),
           const SizedBox(height: 16),
         ],
       ),

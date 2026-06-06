@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/vibe_profile.dart';
 import '../../main.dart';
 import '../design_system.dart';
+import '../components/aurora_background.dart';
 import '../components/skeleton_loaders.dart';
 
 class LikesPage extends StatefulWidget {
@@ -52,17 +53,23 @@ class _LikesPageState extends State<LikesPage> {
     }
 
     return Scaffold(
-      backgroundColor: FreezmeDesignSystem.background,
+      // Transparent so the shared AuroraBackground shows through — keeps the
+      // backdrop consistent with Tonight/Chats/Paths/Blinds/Profile (Likes was
+      // the only main tab on a flat white background).
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Likes You', style: FreezmeDesignSystem.h3),
-        backgroundColor: FreezmeDesignSystem.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
-          ? const LikesGridSkeleton()
-          : _likes.isEmpty
-              ? _buildEmptyState()
-              : _buildGrid(flow),
+      body: AuroraBackground(
+        isPremium: _isPremium,
+        child: _isLoading
+            ? const LikesGridSkeleton()
+            : _likes.isEmpty
+                ? _buildEmptyState()
+                : _buildGrid(flow),
+      ),
     );
   }
 

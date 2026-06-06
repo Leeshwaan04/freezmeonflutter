@@ -21,10 +21,12 @@ class FreezmeDesignSystem {
   static const Color secondaryLight = Color(0xFFF0EBF8); // Same as primaryLight
   static const Color secondaryDark = Color(0xFF2E1A47); // Same as primaryDark
   
-  // Accent - Warm tone
-  static const Color accent = Color(0xFFF59E0B);
-  static const Color accentLight = Color(0xFFFEF3C7);
-  static const Color accentDark = Color(0xFFD97706);
+  // Accent - Brand purple (single source of truth). Was amber (0xFFF59E0B),
+  // which conflicted with theme.dart's purple accent and was unused; amber now
+  // lives only in `warning` so accent stays on-brand everywhere.
+  static const Color accent = Color(0xFF7C3AED);
+  static const Color accentLight = Color(0xFFEDE9FE);
+  static const Color accentDark = Color(0xFF5B21B6);
   
   // Semantic colors (kept simple)
   static const Color success = Color(0xFF10B981);

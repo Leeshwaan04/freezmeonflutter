@@ -1,124 +1,100 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../design_system.dart';
 
-class AuroraBackground extends StatefulWidget {
+/// Shared in-app background: a calm, static **frosted-glass** backdrop.
+///
+/// Glassmorphism that stays on-brand for a "frozen / ice" app — a soft surface
+/// gradient with a few large, heavily-blurred brand-tint orbs, softened under a
+/// translucent frosted veil so they read as gentle pastel frost. It is fully
+/// STATIC (no animation, and no live `BackdropFilter` that would jank behind
+/// scrolling content), so it looks like premium frosted glass while keeping
+/// text contrast high and costing nothing per frame.
+///
+/// Splash + auth keep their own animated entry and do NOT use this widget, so
+/// the first impression still moves while the working app stays calm.
+/// (Named `AuroraBackground` for call-site compatibility; rename to
+/// `AppBackground` in the design-system pass.)
+class AuroraBackground extends StatelessWidget {
   final Widget child;
+
+  /// Kept for call-site compatibility. The backdrop is identical for all users.
   final bool isPremium;
 
   const AuroraBackground({
-    super.key, 
+    super.key,
     required this.child,
     this.isPremium = false,
   });
 
   @override
-  State<AuroraBackground> createState() => _AuroraBackgroundState();
-}
-
-class _AuroraBackgroundState extends State<AuroraBackground>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Stack(
+      fit: StackFit.expand,
       children: [
-        // Background Base
-        Container(color: FreezmeDesignSystem.primaryLight), // Soft Purple Base
-        
-        // Animated Aurora
-        RepaintBoundary(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return CustomPaint(
-                painter: _AuroraPainter(_controller.value, widget.isPremium),
-                size: Size.infinite,
-              );
-            },
+        // 1. Soft surface gradient base.
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                FreezmeDesignSystem.surface, // creamy off-white
+                FreezmeDesignSystem.surfaceAlt, // whisper of purple
+              ],
+            ),
           ),
         ),
-        
-        // Glass Overlay (optional)
-        // Container(color: Colors.white.withOpacity(0.3)),
 
-        // Content
-        widget.child,
+        // 2. Static, heavily-blurred brand orbs — the colour the frost refracts.
+        const CustomPaint(painter: _FrostOrbsPainter()),
+
+        // 3. Frosted veil — translucent white (with a faint top sheen) softens
+        //    the orbs into glass and keeps content legible.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.white.withValues(alpha: 0.46),
+                Colors.white.withValues(alpha: 0.30),
+              ],
+            ),
+          ),
+        ),
+
+        // 4. Content.
+        child,
       ],
     );
   }
 }
 
-class _AuroraPainter extends CustomPainter {
-  final double progress;
-  final bool isPremium;
-
-  _AuroraPainter(this.progress, this.isPremium);
+/// Paints a few large, soft, low-saturation brand orbs. Static (never repaints)
+/// — depth/colour for the frosted veil above, not the old animated rainbow.
+class _FrostOrbsPainter extends CustomPainter {
+  const _FrostOrbsPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..maskFilter = const MaskFilter.blur(BlurStyle.normal, 60);
+    final paint = Paint()
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80);
 
-    void drawBlob(Color color, double x, double y, double radius) {
-      paint.color = color.withAlpha(102);
-      // Animate position slightly based on progress
-      final dx = x + sin(progress * 2 * pi) * 20;
-      final dy = y + cos(progress * 2 * pi) * 20;
-      canvas.drawCircle(Offset(dx, dy), radius, paint);
-    }
-
-    // Top Left - Purple
-    drawBlob(FreezmeDesignSystem.primary, size.width * 0.2, size.height * 0.2, 120);
-
-    // Top Right - Teal/Blue (Ice feel)
-    drawBlob(const Color(0xFF00C6FF), size.width * 0.8, size.height * 0.15, 100);
-
-    // Center - Pink
-    drawBlob(const Color(0xFFFF69B4), size.width * 0.5, size.height * 0.4, 140);
-
-    // Bottom Left - Deep Purple
-    drawBlob(FreezmeDesignSystem.primaryDark, size.width * 0.1, size.height * 0.7, 150);
-
-    // Bottom Right - Soft Lavender
-    drawBlob(const Color(0xFFE0C3FC), size.width * 0.9, size.height * 0.8, 130);
-
-    if (isPremium) {
-      // Extra Premium Blobs - Gold and Vibrant Violet
-      drawBlob(const Color(0xFFFFD700), size.width * 0.6, size.height * 0.65, 100);
-      drawBlob(const Color(0xFF8A2BE2), size.width * 0.3, size.height * 0.85, 120);
-      
-      // Add a subtle glossy overlay
-      final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-      final gradient = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Colors.white.withAlpha(25),
-          Colors.white.withAlpha(0),
-          Colors.white.withAlpha(25),
-        ],
-        stops: const [0.0, 0.5, 1.0],
+    void orb(Color color, double fx, double fy, double radius) {
+      paint.color = color;
+      canvas.drawCircle(
+        Offset(size.width * fx, size.height * fy),
+        radius,
+        paint,
       );
-      canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
     }
+
+    orb(FreezmeDesignSystem.primary.withValues(alpha: 0.16), 0.16, 0.14, 150);
+    orb(const Color(0xFFB39DDB).withValues(alpha: 0.18), 0.88, 0.28, 150); // lavender
+    orb(const Color(0xFF9FD8E8).withValues(alpha: 0.14), 0.28, 0.84, 160); // soft ice-blue
+    orb(FreezmeDesignSystem.primaryDark.withValues(alpha: 0.10), 0.82, 0.88, 150);
   }
 
   @override
-  bool shouldRepaint(covariant _AuroraPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _FrostOrbsPainter oldDelegate) => false;
 }

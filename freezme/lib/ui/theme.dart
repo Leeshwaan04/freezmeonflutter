@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
 import '../core/app_stage.dart';
+// Prefixed to avoid the FreezmeGradients name collision (both files define it).
+import 'design_system.dart' as ds;
 
-/// Central design tokens for consistent styling across the app.
+/// Central design tokens. These are now thin ALIASES over the canonical
+/// [ds.FreezmeDesignSystem] palette so the app has ONE source of truth for
+/// colour. Older screens that import FreezmeColors and newer screens that
+/// import FreezmeDesignSystem therefore resolve to identical values — no more
+/// purple-vs-amber accent drift or duplicate token definitions.
 class FreezmeColors {
   FreezmeColors._();
 
   /// Global low-motion flag; set true to tone down heavy gradients/shadows.
   static const bool lowMotion = false;
 
-  static const Color primary = Color(0xFF4D2C91); // Richer Deep Purple
-  static const Color secondary = Color(0xFF4D2C91); 
-  static const Color accent = Color(0xFF7C3AED);
-  static const Color neutral = Color(0xFF1F2937);
-  static const Color muted = Color(0xFF6B7280);
-  static const Color border = Color(0xFFE5E7EB);
-  static const Color surface = Color(0xFFFAF9FF);
-  static const Color surfaceAlt = Color(0xFFF5F3FF);
-  static const Color background = Color(0xFFFFFFFF);
-  static const Color success = Color(0xFF10B981);
-  static const Color error = Color(0xFFEF4444);
+  static const Color primary = ds.FreezmeDesignSystem.primary;
+  static const Color secondary = ds.FreezmeDesignSystem.secondary;
+  static const Color accent = ds.FreezmeDesignSystem.accent;
+  static const Color neutral = ds.FreezmeDesignSystem.textPrimary;
+  static const Color muted = ds.FreezmeDesignSystem.textSecondary;
+  static const Color border = ds.FreezmeDesignSystem.border;
+  static const Color surface = ds.FreezmeDesignSystem.surface;
+  static const Color surfaceAlt = ds.FreezmeDesignSystem.surfaceAlt;
+  static const Color background = ds.FreezmeDesignSystem.background;
+  static const Color success = ds.FreezmeDesignSystem.success;
+  static const Color error = ds.FreezmeDesignSystem.error;
 
   // Aliases for consistency
   static const Color text = neutral;

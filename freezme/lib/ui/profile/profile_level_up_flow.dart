@@ -141,9 +141,12 @@ class _ProfileLevelUpFlowState extends State<ProfileLevelUpFlow> {
       await flow.completeLevelUp();
     } catch (e) {
       if (mounted) {
+        // Never surface a raw exception to the user. Map to a friendly message;
+        // log the technical detail for debugging only.
+        debugPrint('[LevelUp] save failed: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not save: $e'),
+          const SnackBar(
+            content: Text("Couldn't save your preferences. Please check your connection and try again."),
             backgroundColor: FreezmeColors.error,
           ),
         );

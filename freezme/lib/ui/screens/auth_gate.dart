@@ -185,6 +185,32 @@ class _AuthGatePageState extends State<AuthGatePage>
               children: [
                 // Same floating orbs as splash
                 FloatingOrbs(progress: t),
+                // Bottom scrim — fades the orbs out behind the sign-in footer so
+                // the CTA area sits on a clean, uniform background (no uneven
+                // orb tint / perceived seam under the buttons). Soft vertical
+                // gradient, so there's no hard edge.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: MediaQuery.of(context).size.height * 0.42,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            FreezmeColors.surface.withValues(alpha: 0.0),
+                            FreezmeColors.surface.withValues(alpha: 0.85),
+                            FreezmeColors.surface,
+                          ],
+                          stops: const [0.0, 0.55, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
                 SafeArea(
                   child: SingleChildScrollView(
                     physics: const ClampingScrollPhysics(),
@@ -257,85 +283,98 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 32),
 
-                            // Sign-in buttons — always visible; spinner per button
-                            ...[
-                              _AuthButton(
-                                label: 'Continue with Apple',
-                                icon: Icons.apple,
-                                variant: _AuthButtonVariant.apple,
-                                foreground: Colors.white,
-                                isLoading: _loadingMethod == _AuthMethod.apple,
-                                disabled: (!_acceptedEula) || (_isLoading && _loadingMethod != _AuthMethod.apple),
-                                onTap: () {
-                                  if (!_acceptedEula) {
-                                    _showAuthError('Please agree to the Terms of Service to continue.');
-                                    return;
-                                  }
-                                  _signInWithApple(flow);
-                                },
+                            // "Sign in to continue" label above the icon row
+                            Text(
+                              'Sign in to continue',
+                              style: FreezmeTypography.bodyMuted.copyWith(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
                               ),
-                              const SizedBox(height: 10),
-                              _AuthButton(
-                                label: 'Continue with Google',
-                                icon: Icons.g_mobiledata,
-                                variant: _AuthButtonVariant.google,
-                                foreground: FreezmeColors.neutral,
-                                isLoading: _loadingMethod == _AuthMethod.google,
-                                disabled: (!_acceptedEula) || (_isLoading && _loadingMethod != _AuthMethod.google),
-                                onTap: () {
-                                  if (!_acceptedEula) {
-                                    _showAuthError('Please agree to the Terms of Service to continue.');
-                                    return;
-                                  }
-                                  _signInWithGoogle(flow);
-                                },
-                              ),
-                              const SizedBox(height: 10),
-                              _AuthButton(
-                                label: 'Continue with Email',
-                                icon: Icons.mail_outline,
-                                variant: _AuthButtonVariant.email,
-                                foreground: Colors.white,
-                                isLoading: _loadingMethod == _AuthMethod.email,
-                                disabled: (!_acceptedEula) || (_isLoading && _loadingMethod != _AuthMethod.email),
-                                onTap: () {
-                                  if (!_acceptedEula) {
-                                    _showAuthError('Please agree to the Terms of Service to continue.');
-                                    return;
-                                  }
-                                  _signInWithEmail(flow);
-                                },
-                              ),
-                              // Dev-only skip button — debug/profile builds only
-                              if (!kReleaseMode) ...[
-                                const SizedBox(height: 16),
-                                GestureDetector(
-                                  onTap: () => flow.replaceStack([AppStage.onboarding]),
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.developer_mode, size: 16, color: Colors.grey),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Skip (Dev only)',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.grey,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                            ),
+                            const SizedBox(height: 18),
+
+                            // Sign-in icons — three equal circular buttons with
+                            // captions. Each has a per-method loading spinner; the
+                            // EULA gate still blocks taps until Terms are accepted.
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _AuthIconButton(
+                                  caption: 'Apple',
+                                  variant: _AuthButtonVariant.apple,
+                                  isLoading: _loadingMethod == _AuthMethod.apple,
+                                  disabled: (!_acceptedEula) ||
+                                      (_isLoading && _loadingMethod != _AuthMethod.apple),
+                                  onTap: () {
+                                    if (!_acceptedEula) {
+                                      _showAuthError('Please agree to the Terms of Service to continue.');
+                                      return;
+                                    }
+                                    _signInWithApple(flow);
+                                  },
+                                ),
+                                const SizedBox(width: 28),
+                                _AuthIconButton(
+                                  caption: 'Google',
+                                  variant: _AuthButtonVariant.google,
+                                  isLoading: _loadingMethod == _AuthMethod.google,
+                                  disabled: (!_acceptedEula) ||
+                                      (_isLoading && _loadingMethod != _AuthMethod.google),
+                                  onTap: () {
+                                    if (!_acceptedEula) {
+                                      _showAuthError('Please agree to the Terms of Service to continue.');
+                                      return;
+                                    }
+                                    _signInWithGoogle(flow);
+                                  },
+                                ),
+                                const SizedBox(width: 28),
+                                _AuthIconButton(
+                                  caption: 'Email',
+                                  variant: _AuthButtonVariant.email,
+                                  isLoading: _loadingMethod == _AuthMethod.email,
+                                  disabled: (!_acceptedEula) ||
+                                      (_isLoading && _loadingMethod != _AuthMethod.email),
+                                  onTap: () {
+                                    if (!_acceptedEula) {
+                                      _showAuthError('Please agree to the Terms of Service to continue.');
+                                      return;
+                                    }
+                                    _signInWithEmail(flow);
+                                  },
                                 ),
                               ],
+                            ),
+
+                            // Dev-only skip button — debug/profile builds only
+                            if (!kReleaseMode) ...[
+                              const SizedBox(height: 20),
+                              GestureDetector(
+                                onTap: () => flow.replaceStack([AppStage.onboarding]),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey.shade300),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.developer_mode, size: 16, color: Colors.grey),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Skip (Dev only)',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ],
 
                             const SizedBox(height: 24),
@@ -893,202 +932,146 @@ class _FeatureOrb extends StatelessWidget {
 
 enum _AuthButtonVariant { apple, google, email }
 
-class _AuthButton extends StatefulWidget {
-  const _AuthButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
+/// A single circular sign-in icon with a caption underneath (Apple / Google /
+/// Email). Replaces the old full-width buttons. Shows a per-method spinner
+/// while signing in; dims when disabled (EULA not accepted or another method
+/// is in progress).
+class _AuthIconButton extends StatefulWidget {
+  const _AuthIconButton({
+    required this.caption,
     required this.variant,
-    this.foreground,
+    required this.onTap,
     this.isLoading = false,
     this.disabled = false,
   });
 
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
+  final String caption;
   final _AuthButtonVariant variant;
-  final Color? foreground;
+  final VoidCallback onTap;
   final bool isLoading;
   final bool disabled;
 
   @override
-  State<_AuthButton> createState() => _AuthButtonState();
+  State<_AuthIconButton> createState() => _AuthIconButtonState();
 }
 
-class _AuthButtonState extends State<_AuthButton> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
+class _AuthIconButtonState extends State<_AuthIconButton> {
   bool _pressed = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))
-      ..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  static const double _kCircle = 60;
 
   @override
   Widget build(BuildContext context) {
-    final textColor = widget.foreground ?? Colors.white;
-
     return GestureDetector(
       onTap: (widget.isLoading || widget.disabled) ? null : widget.onTap,
-      onTapDown: (widget.isLoading || widget.disabled) ? null : (_) => setState(() => _pressed = true),
+      onTapDown: (widget.isLoading || widget.disabled)
+          ? null
+          : (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedOpacity(
-        opacity: widget.disabled ? 0.45 : 1.0,
+        opacity: widget.disabled ? 0.4 : 1.0,
         duration: const Duration(milliseconds: 200),
         child: AnimatedScale(
-          scale: _pressed ? 0.96 : 1.0,
+          scale: _pressed ? 0.92 : 1.0,
           duration: const Duration(milliseconds: 100),
-          child: AnimatedBuilder(
-            animation: _ctrl,
-            builder: (context, _) {
-              final t = _ctrl.value;
-              return _buildButton(context, t, textColor);
-            },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: _kCircle,
+                height: _kCircle,
+                child: _buildCircle(),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.caption,
+                style: FreezmeTypography.bodyMuted.copyWith(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: FreezmeColors.neutral.withValues(alpha: 0.75),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildButton(BuildContext context, double t, Color textColor) {
+  Widget _buildCircle() {
     switch (widget.variant) {
       case _AuthButtonVariant.apple:
-        // Dark frosted glass with a soft shimmer sweep
-        final shimmerX = math.cos(t * math.pi * 2);
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment(shimmerX - 1, -0.5),
-              end: Alignment(shimmerX + 1, 0.5),
-              colors: const [
-                Color(0xFF1A1A1A),
-                Color(0xFF2D2D2D),
-                Color(0xFF1A1A1A),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (widget.isLoading)
-                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: textColor))
-              else
-                Icon(widget.icon, color: textColor, size: 20),
-              const SizedBox(width: 12),
-              Flexible(child: Text(widget.label, style: FreezmeTypography.button.copyWith(color: textColor, fontSize: 15), overflow: TextOverflow.ellipsis)),
-            ],
-          ),
+        return _circleShell(
+          color: const Color(0xFF1A1A1A),
+          shadow: Colors.black.withValues(alpha: 0.28),
+          child: widget.isLoading
+              ? const _Spin(color: Colors.white)
+              : const Icon(Icons.apple, color: Colors.white, size: 28),
         );
 
       case _AuthButtonVariant.google:
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFE5E5E5), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (widget.isLoading)
-                const SizedBox(
-                  width: 20, height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF4285F4)),
-                )
-              else
-                // Proper multicolour G badge — instantly recognisable as Google
-                SizedBox(
-                  width: 20, height: 20,
+        return _circleShell(
+          color: Colors.white,
+          border: const Color(0xFFE5E5E5),
+          shadow: Colors.black.withValues(alpha: 0.08),
+          child: widget.isLoading
+              ? const _Spin(color: Color(0xFF4285F4))
+              : SizedBox(
+                  width: 26,
+                  height: 26,
                   child: CustomPaint(painter: _GoogleGPainter()),
                 ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  widget.label,
-                  style: FreezmeTypography.button.copyWith(color: const Color(0xFF1A1A1A), fontSize: 15),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
         );
 
       case _AuthButtonVariant.email:
-        // Aurora gradient with moving shimmer + sliding arrow
-        final auroraAngle = t * math.pi * 2;
-        final arrowSlide = _pressed ? 6.0 : 0.0;
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment(math.cos(auroraAngle) * 0.8, -1),
-              end: Alignment(-math.cos(auroraAngle) * 0.8, 1),
-              colors: const [
-                Color(0xFF4D2C91),
-                Color(0xFF5E35A8),
-                Color(0xFF3D2070),
-                Color(0xFF4D2C91),
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF4D2C91).withValues(alpha: 0.45),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
+        return _circleShell(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF5E35A8), Color(0xFF3D2070)],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (widget.isLoading)
-                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: textColor))
-              else
-                Icon(widget.icon, color: textColor, size: 20),
-              const SizedBox(width: 12),
-              Flexible(child: Text(widget.label,
-                style: FreezmeTypography.button.copyWith(color: textColor, fontSize: 15),
-                overflow: TextOverflow.ellipsis)),
-              const Spacer(),
-              if (!widget.isLoading)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  transform: Matrix4.translationValues(arrowSlide, 0, 0),
-                  child: Icon(Icons.arrow_forward_rounded, color: textColor.withValues(alpha: 0.8), size: 18),
-                ),
-            ],
-          ),
+          shadow: const Color(0xFF4D2C91).withValues(alpha: 0.4),
+          child: widget.isLoading
+              ? const _Spin(color: Colors.white)
+              : const Icon(Icons.mail_outline, color: Colors.white, size: 26),
         );
     }
   }
+
+  Widget _circleShell({
+    Color? color,
+    Gradient? gradient,
+    Color? border,
+    required Color shadow,
+    required Widget child,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        gradient: gradient,
+        border: border != null ? Border.all(color: border, width: 1.5) : null,
+        boxShadow: [
+          BoxShadow(color: shadow, blurRadius: 16, offset: const Offset(0, 6)),
+        ],
+      ),
+      child: Center(child: child),
+    );
+  }
+}
+
+/// Small fixed-size spinner used inside the auth circles.
+class _Spin extends StatelessWidget {
+  const _Spin({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(strokeWidth: 2.2, color: color),
+      );
 }
 
 // ── Email Auth Bottom Sheet ──────────────────────────────────────────────────

@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:freezme/main.dart';
 import 'package:freezme/services/auth_service.dart';
 
-const kTestEmail = 'test@freezme.com';
+const kTestEmail = 'qa_e2e@freezmetest.com';
 const kTestPassword = 'Test1234!';
 
 void main() {
