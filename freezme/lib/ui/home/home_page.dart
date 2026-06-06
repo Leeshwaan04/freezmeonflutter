@@ -510,13 +510,15 @@ class _HomePageState extends State<HomePage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
+                      // On-brand purple in both states (was success-green when
+                      // open); open vs counting-down is shown by the icon + tint.
                       color: _poolIsOpen
-                          ? FreezmeDesignSystem.success.withValues(alpha: 0.1)
+                          ? FreezmeDesignSystem.primaryLight
                           : FreezmeDesignSystem.surface,
                       borderRadius: BorderRadius.circular(FreezmeDesignSystem.radiusFull),
                       border: Border.all(
                         color: _poolIsOpen
-                            ? FreezmeDesignSystem.success.withValues(alpha: 0.4)
+                            ? FreezmeDesignSystem.primary.withValues(alpha: 0.4)
                             : FreezmeDesignSystem.primary.withValues(alpha: 0.2),
                       ),
                     ),
@@ -526,7 +528,7 @@ class _HomePageState extends State<HomePage> {
                         Icon(
                           _poolIsOpen ? Icons.lock_open_outlined : Icons.timer_outlined,
                           size: 14,
-                          color: _poolIsOpen ? FreezmeDesignSystem.success : FreezmeDesignSystem.primary,
+                          color: FreezmeDesignSystem.primary,
                         ),
                         const SizedBox(width: 4),
                         ValueListenableBuilder<String>(
@@ -534,7 +536,7 @@ class _HomePageState extends State<HomePage> {
                           builder: (context, value, _) => Text(
                             value,
                             style: FreezmeDesignSystem.small.copyWith(
-                              color: _poolIsOpen ? FreezmeDesignSystem.success : FreezmeDesignSystem.primary,
+                              color: FreezmeDesignSystem.primary,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),

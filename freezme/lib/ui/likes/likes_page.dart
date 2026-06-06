@@ -58,7 +58,8 @@ class _LikesPageState extends State<LikesPage> {
       // the only main tab on a flat white background).
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Likes You', style: FreezmeDesignSystem.h3),
+        title: const Text('Likes', style: FreezmeDesignSystem.h1),
+        centerTitle: false, // iOS defaults to centered; left-align to match other tabs
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),

@@ -3,7 +3,6 @@ import '../../services/api_client.dart';
 import '../../main.dart'; // For AppFlowScope, AppStage
 import '../design_system.dart';
 import '../components/premium_components.dart';
-import '../components/freezme_logo.dart';
 import '../components/aurora_background.dart';
 import '../settings/preferences_page.dart';
 import '../settings/settings_pages.dart';
@@ -172,38 +171,10 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const FreezmeLogo(
-                      size: LogoSize.sm,
-                      variant: LogoVariant.primary,
-                      showText: true,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        IconButton.filled(
-                          onPressed: flow.pop,
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: FreezmeDesignSystem.primary,
-                            side: const BorderSide(color: FreezmeDesignSystem.border),
-                            elevation: 0,
-                          ),
-                          icon: const Icon(Icons.chevron_left),
-                        ),
-                        const SizedBox(width: 12),
-                        const Flexible(
-                          child: Text(
-                            'Profile & Settings',
-                            style: TextStyle(
-                              color: FreezmeDesignSystem.primary,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
+                    // Left-aligned title, no logo, no back-arrow — Profile is a
+                    // root tab, so a back button navigated to nothing. Matches
+                    // the other tabs' header pattern.
+                    const Text('Profile', style: FreezmeDesignSystem.h1),
                   ],
                 ),
               ),

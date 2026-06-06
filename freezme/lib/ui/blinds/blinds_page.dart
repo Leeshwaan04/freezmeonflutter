@@ -6,7 +6,6 @@ import '../../services/websocket_service.dart';
 import '../design_system.dart';
 import '../components/aurora_background.dart';
 import '../components/premium_components.dart';
-import '../components/freezme_logo.dart';
 
 class BlindsPage extends StatefulWidget {
   const BlindsPage({super.key});
@@ -176,13 +175,7 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
-                      children: [
-                        FreezmeLogo(size: LogoSize.sm, showText: true),
-                        Spacer(),
-                        Text('Blinds', style: FreezmeDesignSystem.h3),
-                      ],
-                    ),
+                    const Text('Blinds', style: FreezmeDesignSystem.h1),
                     const SizedBox(height: FreezmeDesignSystem.spaceXl),
                     
                     // Hero Section: Roll the Dice

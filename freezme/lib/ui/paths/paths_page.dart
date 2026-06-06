@@ -327,7 +327,7 @@ class _PathsPageState extends State<PathsPage> with SingleTickerProviderStateMix
         // Header
         Row(
           children: [
-            const Text('Paths', style: FreezmeDesignSystem.display),
+            const Text('Paths', style: FreezmeDesignSystem.h1),
             const Spacer(),
             _WavesPill(wavesLeft: _wavesLeft),
             const SizedBox(width: 8),
