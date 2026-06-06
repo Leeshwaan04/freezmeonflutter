@@ -82,9 +82,10 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
       await ApiClient.instance.dio.delete<Map<String, dynamic>>('/users/me');
       await flow.signOut();
     } catch (e) {
+      debugPrint('[Account] delete failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          const SnackBar(content: Text("Couldn't delete your account. Please check your connection and try again.")),
         );
       }
     } finally {

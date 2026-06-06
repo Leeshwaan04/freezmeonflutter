@@ -2070,18 +2070,8 @@ class _TonightProfileCardState extends State<_TonightProfileCard>
                     imageUrl: widget.profile.imageUrl,
                     fit: BoxFit.cover,
                     memCacheWidth: 540,
-                    placeholder: (context, _) => Container(
-                      color: FreezmeDesignSystem.primaryLight,
-                      child: const Center(
-                        child: Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 48),
-                      ),
-                    ),
-                    errorWidget: (context, _, e) => Container(
-                      color: FreezmeDesignSystem.primaryLight,
-                      child: const Center(
-                        child: Icon(Icons.person, color: FreezmeDesignSystem.primary, size: 48),
-                      ),
-                    ),
+                    placeholder: (context, _) => const _PhotoFallback(),
+                    errorWidget: (context, _, e) => const _PhotoFallback(),
                   ),
                   // Bottom fade-to-white gradient
                   Positioned(
@@ -2306,6 +2296,29 @@ class _LevelUpNudgeCard extends StatelessWidget {
                 size: 14, color: Colors.white70),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Branded fallback for a missing/loading profile photo — a soft purple
+/// gradient with a low-emphasis person glyph, instead of a flat grey block
+/// that reads as "broken".
+class _PhotoFallback extends StatelessWidget {
+  const _PhotoFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEDE4FF), Color(0xFFF7F2FF)],
+        ),
+      ),
+      child: Center(
+        child: Icon(Icons.person_rounded, color: Color(0x594D2C91), size: 52),
       ),
     );
   }

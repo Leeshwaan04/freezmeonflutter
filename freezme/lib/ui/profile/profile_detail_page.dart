@@ -30,11 +30,8 @@ class ProfileDetailPage extends StatelessWidget {
                   CachedNetworkImage(
                     imageUrl: profile.imageUrl,
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => const ColoredBox(color: FreezmeDesignSystem.surfaceAlt),
-                    errorWidget: (context, url, error) => const ColoredBox(
-                      color: FreezmeDesignSystem.surfaceAlt,
-                      child: Icon(Icons.person, size: 64, color: FreezmeDesignSystem.textTertiary),
-                    ),
+                    placeholder: (context, url) => const _DetailPhotoFallback(),
+                    errorWidget: (context, url, error) => const _DetailPhotoFallback(),
                   ),
                   const DecoratedBox(
                     decoration: BoxDecoration(
@@ -116,13 +113,18 @@ class ProfileDetailPage extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: FreezmeDesignSystem.success.withValues(alpha: 0.1),
+                          // On-brand purple (was off-palette success-green).
+                          color: FreezmeDesignSystem.primaryLight,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${profile.compatibility.round()}% Match',
+                          // Never show a demotivating "0% Match" — low/no-signal
+                          // profiles read as "New" instead.
+                          profile.compatibility.round() <= 0
+                              ? 'New'
+                              : '${profile.compatibility.round()}% Match',
                           style: const TextStyle(
-                            color: FreezmeDesignSystem.success,
+                            color: FreezmeDesignSystem.primary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -293,6 +295,28 @@ class _InfoChip extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                   color: FreezmeDesignSystem.primary)),
         ],
+      ),
+    );
+  }
+}
+
+/// Branded fallback for a missing profile photo on the detail hero — soft
+/// purple gradient + low-emphasis glyph instead of a flat grey block.
+class _DetailPhotoFallback extends StatelessWidget {
+  const _DetailPhotoFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFEDE4FF), Color(0xFFF7F2FF)],
+        ),
+      ),
+      child: Center(
+        child: Icon(Icons.person_rounded, color: Color(0x594D2C91), size: 72),
       ),
     );
   }

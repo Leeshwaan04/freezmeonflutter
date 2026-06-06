@@ -121,7 +121,9 @@ class WebSocketService {
       ..on('blind:phase_change',    (data) => _blindPhaseCtrl.add(_cast(data)))
       ..on('paths:invite', (data) => _pathsInviteCtrl.add(_cast(data)))
       ..on('freeze_room:answer_in', (data) => _freezeRoomAnswerCtrl.add(_cast(data)))
-      ..on('freeze_room:reveal',    (data) => _freezeRoomRevealCtrl.add(_cast(data)))
+      // Server emits 'freeze_room:reveal_received' (was listening for the wrong
+      // name 'freeze_room:reveal', so reveals never reached the client).
+      ..on('freeze_room:reveal_received', (data) => _freezeRoomRevealCtrl.add(_cast(data)))
       ..on('freeze_room:closed',    (data) => _freezeRoomClosedCtrl.add(_cast(data)));
 
     _socket!.connect();

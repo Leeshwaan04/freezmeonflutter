@@ -162,14 +162,29 @@ class AuthService {
             await _client.clearTokens();
             _setUser(null);
           }
-        } else {
-          // 401 / network error / 5xx — treat as logged out and clear tokens.
+        } else if (status == 401) {
+          // Genuine auth failure: access token invalid AND the interceptor's
+          // refresh was rejected. Real session expiry → clear + route to auth.
           await _client.clearTokens();
           _setUser(null);
+        } else {
+          // Transient at launch (offline, timeout, 5xx, no response). Do NOT
+          // log the user out or wipe tokens — restore a minimal session from
+          // the cached token so they stay in the app; refreshProfile() hydrates
+          // the full profile once connectivity returns. This prevents spurious
+          // cold-start logouts on a flaky network.
+          final uid = await _extractUidFromToken();
+          if (uid != null) {
+            _setUser(AuthUser(uid: uid));
+          } else {
+            _setUser(null); // can't read token, but don't nuke storage
+          }
         }
       } catch (_) {
-        await _client.clearTokens();
-        _setUser(null);
+        // Unknown/transient error — preserve tokens; restore from cached token
+        // if possible rather than forcing a logout.
+        final uid = await _extractUidFromToken();
+        _setUser(uid != null ? AuthUser(uid: uid) : null);
       }
     } else {
       _setUser(null);
