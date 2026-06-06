@@ -223,7 +223,7 @@ router.post('/', async (req: Request, res: Response) => {
       name, age, bio, imageUrl, interests,
       intent, personalityTraits, lifestyleFactors, archetype, promptAnswer,
       energyType, paceSignal, presenceWindows,
-      gender, genderPrefs, ageMin, ageMax, messagingPref,
+      gender, genderPrefs, ageMin, ageMax, messagingPref, distanceKm,
       lat, lng,
     } = req.body;
 
@@ -231,11 +231,25 @@ router.post('/', async (req: Request, res: Response) => {
     const safeName = typeof name === 'string' ? sanitizeText(name).trim() : name;
     const safeBio = typeof bio === 'string' ? sanitizeText(bio) : bio;
 
-    if (!safeName || typeof safeName !== 'string' || safeName.trim().length < 1 || safeName.length > 60) {
-      res.status(400).json({ error: 'name must be 1–60 characters' }); return;
+    // Is this a first-time create or a partial update? name/age are REQUIRED only
+    // when creating a profile (onboarding). For an existing profile this route
+    // also serves partial updates (e.g. the Level-Up / preferences flow, which
+    // sends only genderPrefs/ageMin/ageMax/distance) — there, name/age are
+    // optional and only validated when actually provided.
+    const existingProfile = await prisma.profile.findUnique({
+      where: { userId: req.uid }, select: { id: true },
+    });
+    const isCreate = existingProfile === null;
+
+    if (isCreate || name !== undefined) {
+      if (!safeName || typeof safeName !== 'string' || safeName.trim().length < 1 || safeName.length > 60) {
+        res.status(400).json({ error: 'name must be 1–60 characters' }); return;
+      }
     }
-    if (!age || typeof age !== 'number' || age < 18 || age > 100) {
-      res.status(400).json({ error: 'age must be between 18 and 100' }); return;
+    if (isCreate || age !== undefined) {
+      if (!age || typeof age !== 'number' || age < 18 || age > 100) {
+        res.status(400).json({ error: 'age must be between 18 and 100' }); return;
+      }
     }
     if (safeBio && (typeof safeBio !== 'string' || safeBio.length > 500)) {
       res.status(400).json({ error: 'bio must be under 500 characters' }); return;
@@ -283,7 +297,17 @@ router.post('/', async (req: Request, res: Response) => {
       ? genderPrefs.map(normalizeGenderValue).filter((g: string) => VALID_GENDER_PREFS.includes(g))
       : genderPrefs;
 
-    if (messagingPref !== undefined && !VALID_MESSAGING_PREFS.includes(messagingPref)) {
+    // Normalize messagingPref: the app sends 'matches' for the "Matches only"
+    // option; canonical DB value is 'matches_only'. Accept both (+ camelCase).
+    const normalizeMessagingPref = (m: string) => {
+      const lower = m.toLowerCase().replace(/[^a-z]/g, '');
+      if (lower === 'matches' || lower === 'matchesonly') return 'matches_only';
+      if (lower === 'anyone') return 'anyone';
+      return m;
+    };
+    const normalizedMessagingPref = messagingPref !== undefined
+      ? normalizeMessagingPref(messagingPref) : undefined;
+    if (normalizedMessagingPref !== undefined && !VALID_MESSAGING_PREFS.includes(normalizedMessagingPref)) {
       res.status(400).json({ error: `messagingPref must be one of: ${VALID_MESSAGING_PREFS.join(', ')}` }); return;
     }
     if (interests !== undefined && (!Array.isArray(interests) || interests.length > 30)) {
@@ -311,6 +335,9 @@ router.post('/', async (req: Request, res: Response) => {
     if (ageMin !== undefined && ageMax !== undefined && ageMin > ageMax) {
       res.status(400).json({ error: 'ageMin cannot be greater than ageMax' }); return;
     }
+    if (distanceKm !== undefined && (typeof distanceKm !== 'number' || distanceKm < 1 || distanceKm > 500)) {
+      res.status(400).json({ error: 'distanceKm must be 1–500' }); return;
+    }
 
     // Normalize camelCase → snake_case for energyType and paceSignal (Flutter sends camelCase)
     const camelToSnake = (s: string) => s.replace(/([A-Z])/g, '_$1').toLowerCase();
@@ -320,8 +347,13 @@ router.post('/', async (req: Request, res: Response) => {
     const profile = await prisma.profile.upsert({
       where: { userId: req.uid },
       update: {
-        name: safeName, age, bio: safeBio, imageUrl,
-        interests: interests ?? [],
+        // Only touch identity fields when actually provided, so a prefs-only
+        // update (Level-Up flow) doesn't wipe name/age/bio/photo/interests.
+        ...(safeName !== undefined && { name: safeName }),
+        ...(age !== undefined && { age }),
+        ...(bio !== undefined && { bio: safeBio }),
+        ...(imageUrl !== undefined && { imageUrl }),
+        ...(interests !== undefined && { interests }),
         ...(normalizedGender !== undefined && { gender: normalizedGender }),
         ...(intent !== undefined && { intent }),
         ...(personalityTraits !== undefined && { personalityTraits }),
@@ -334,7 +366,8 @@ router.post('/', async (req: Request, res: Response) => {
         ...(normalizedGenderPrefs !== undefined && { genderPrefs: normalizedGenderPrefs }),
         ...(ageMin !== undefined && { ageMin }),
         ...(ageMax !== undefined && { ageMax }),
-        ...(messagingPref !== undefined && { messagingPref }),
+        ...(normalizedMessagingPref !== undefined && { messagingPref: normalizedMessagingPref }),
+        ...(distanceKm !== undefined && { distanceKm }),
         ...(lat !== undefined && { lat }),
         ...(lng !== undefined && { lng }),
         // Keep geohash in sync when lat/lng change so geo-matching stays accurate
@@ -356,7 +389,8 @@ router.post('/', async (req: Request, res: Response) => {
         genderPrefs: normalizedGenderPrefs ?? [],
         ageMin: ageMin ?? 18,
         ageMax: ageMax ?? 99,
-        messagingPref: messagingPref ?? 'anyone',
+        messagingPref: normalizedMessagingPref ?? 'anyone',
+        distanceKm: distanceKm ?? 50,
         lat: lat ?? null,
         lng: lng ?? null,
         geohash: (lat != null && lng != null) ? geohashForCoords(lat, lng) : null,
