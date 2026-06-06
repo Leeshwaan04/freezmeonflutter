@@ -3,7 +3,6 @@ enum AppStage {
   authGate,
   onboarding,
   dailyPool,
-  videoDate,
   matchSuccess,
   chat,
   profileSettings,

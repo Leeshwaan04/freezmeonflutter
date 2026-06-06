@@ -27,7 +27,6 @@ import 'ui/screens/splash_screen.dart';
 import 'ui/screens/auth_gate.dart';
 import 'ui/screens/onboarding_flow.dart';
 import 'ui/home/home_page.dart';
-import 'ui/screens/video_date.dart';
 import 'ui/screens/match_success.dart';
 import 'ui/chat/chat_screen_page.dart';
 import 'ui/profile/profile_settings_page.dart';
@@ -294,8 +293,6 @@ class FlowNavigator extends StatelessWidget {
         return const OnboardingFlowPage();
       case AppStage.dailyPool:
         return const HomePage();
-      case AppStage.videoDate:
-        return const VideoDatePage();
       case AppStage.matchSuccess:
         return const MatchSuccessPage();
       case AppStage.chat:

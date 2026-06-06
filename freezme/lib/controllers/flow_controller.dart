@@ -669,17 +669,6 @@ class AppFlowController extends ChangeNotifier {
     }
   }
 
-  void startVideoDate([VibeProfile? profile]) {
-    if (profile != null) activeProfile = profile;
-    pushIfMissing(AppStage.videoDate);
-  }
-
-  void completeVideoDate() {
-    if (_stack.last == AppStage.videoDate) {
-      pop();
-    }
-  }
-
   Future<void> purchasePremium() async {
     // Try to purchase through the real IAP service
     final product = iapService.monthlyPlan;
