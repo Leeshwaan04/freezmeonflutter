@@ -9,7 +9,12 @@ export function sanitizeText(input: string): string {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const VALID_INTENTS = ['meaningful', 'exploring', 'friendship'];
-const VALID_DISTANCE_BUCKETS = ['10km', '25km', '50km', '100km', 'anywhere'];
+// Blinds has its own intent vocabulary (kind of anonymous connection sought),
+// distinct from the dating/profile intent above. The app's Blinds dropdown
+// sends exactly these values.
+const VALID_BLIND_INTENTS = ['friends', 'dates', 'either'];
+// '5km' added — the app's Blinds distance dropdown offers it.
+const VALID_DISTANCE_BUCKETS = ['5km', '10km', '25km', '50km', '100km', 'anywhere'];
 const VALID_GENDERS = ['man', 'woman', 'nonbinary', 'other'];
 
 export function isValidEmail(email: unknown): email is string {
@@ -30,6 +35,10 @@ export function isValidLng(lng: unknown): lng is number {
 
 export function isValidIntent(intent: unknown): intent is string {
   return typeof intent === 'string' && VALID_INTENTS.includes(intent);
+}
+
+export function isValidBlindIntent(intent: unknown): intent is string {
+  return typeof intent === 'string' && VALID_BLIND_INTENTS.includes(intent);
 }
 
 export function isValidDistanceBucket(bucket: unknown): bucket is string {

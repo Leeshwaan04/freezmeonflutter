@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth';
 import { prisma } from '../db/client';
 import { scheduleBlindExpiry, enqueuePush } from '../jobs/queues';
 import { io } from '../index';
-import { isValidIntent, isValidDistanceBucket, isValidInterests } from '../utils/validate';
+import { isValidBlindIntent, isValidDistanceBucket, isValidInterests } from '../utils/validate';
 import { logger } from '../services/logger';
 
 const router = Router();
@@ -33,8 +33,8 @@ router.post('/enqueue', async (req: Request, res: Response) => {
       res.status(429).json({ code: 'DAILY_LIMIT_REACHED', error: `You can start up to ${DAILY_ENQUEUE_LIMIT} blind sessions per day. Come back tomorrow!` });
       return;
     }
-    if (!isValidIntent(intent)) {
-      res.status(400).json({ code: 'INVALID_INTENT', error: 'Invalid intent value' }); return;
+    if (!isValidBlindIntent(intent)) {
+      res.status(400).json({ code: 'INVALID_INTENT', error: 'intent must be one of: friends, dates, either' }); return;
     }
     if (!isValidDistanceBucket(distanceBucket)) {
       res.status(400).json({ code: 'INVALID_DISTANCE_BUCKET', error: 'Invalid distanceBucket value' }); return;
