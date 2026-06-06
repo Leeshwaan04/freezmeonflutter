@@ -344,9 +344,11 @@ router.post('/', async (req: Request, res: Response) => {
     const normalizedEnergyType = energyType ? camelToSnake(energyType) : energyType;
     const normalizedPaceSignal = paceSignal ? camelToSnake(paceSignal) : paceSignal;
 
-    const profile = await prisma.profile.upsert({
-      where: { userId: req.uid },
-      update: {
+    // Branch explicitly on create-vs-update instead of upsert(): Prisma validates
+    // BOTH branches of an upsert at query-build time, so the create branch's
+    // required `name` would throw "Argument name is missing" on a prefs-only
+    // update (where name is undefined) even though only `update` would run.
+    const updateData = {
         // Only touch identity fields when actually provided, so a prefs-only
         // update (Level-Up flow) doesn't wipe name/age/bio/photo/interests.
         ...(safeName !== undefined && { name: safeName }),
@@ -372,30 +374,37 @@ router.post('/', async (req: Request, res: Response) => {
         ...(lng !== undefined && { lng }),
         // Keep geohash in sync when lat/lng change so geo-matching stays accurate
         ...(lat !== undefined && lng !== undefined && { geohash: geohashForCoords(lat, lng) }),
-      },
-      create: {
-        userId: req.uid,
-        name: safeName, age, bio: safeBio, imageUrl,
-        gender: normalizedGender ?? null,
-        interests: interests ?? [],
-        intent: intent ?? null,
-        personalityTraits: personalityTraits ?? [],
-        lifestyleFactors: lifestyleFactors ?? [],
-        archetype: safeArchetype ?? null,
-        promptAnswer: promptAnswer ?? null,
-        energyType: safeEnergyType ? camelToSnake(safeEnergyType) : null,
-        paceSignal: safePaceSignal ? camelToSnake(safePaceSignal) : null,
-        presenceWindows: presenceWindows ?? null,
-        genderPrefs: normalizedGenderPrefs ?? [],
-        ageMin: ageMin ?? 18,
-        ageMax: ageMax ?? 99,
-        messagingPref: normalizedMessagingPref ?? 'anyone',
-        distanceKm: distanceKm ?? 50,
-        lat: lat ?? null,
-        lng: lng ?? null,
-        geohash: (lat != null && lng != null) ? geohashForCoords(lat, lng) : null,
-      },
-    });
+    };
+
+    const profile = isCreate
+      ? await prisma.profile.create({
+          data: {
+            userId: req.uid,
+            name: safeName, age, bio: safeBio, imageUrl,
+            gender: normalizedGender ?? null,
+            interests: interests ?? [],
+            intent: intent ?? null,
+            personalityTraits: personalityTraits ?? [],
+            lifestyleFactors: lifestyleFactors ?? [],
+            archetype: safeArchetype ?? null,
+            promptAnswer: promptAnswer ?? null,
+            energyType: safeEnergyType ? camelToSnake(safeEnergyType) : null,
+            paceSignal: safePaceSignal ? camelToSnake(safePaceSignal) : null,
+            presenceWindows: presenceWindows ?? null,
+            genderPrefs: normalizedGenderPrefs ?? [],
+            ageMin: ageMin ?? 18,
+            ageMax: ageMax ?? 99,
+            messagingPref: normalizedMessagingPref ?? 'anyone',
+            distanceKm: distanceKm ?? 50,
+            lat: lat ?? null,
+            lng: lng ?? null,
+            geohash: (lat != null && lng != null) ? geohashForCoords(lat, lng) : null,
+          },
+        })
+      : await prisma.profile.update({
+          where: { userId: req.uid },
+          data: updateData,
+        });
 
     res.json({ ...profile, uid: profile.userId });
   } catch (err) {
