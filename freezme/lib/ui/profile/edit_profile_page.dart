@@ -72,15 +72,53 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _existingPhotoUrls = user?.photoUrls.isNotEmpty == true
             ? user!.photoUrls
             : (user?.photoUrl != null ? [user!.photoUrl!] : []);
-        _gender = user?.gender;
+        // The server stores gender normalized + lowercase ('woman'); map it back
+        // to the capitalized chip label so it pre-selects (was comparing
+        // 'woman' == 'Woman' → gender always showed blank in Edit Profile).
+        _gender = _genderToOption(user?.gender);
         _intent = user?.intent;
-        _selectedInterests = List.from(
-          user?.interests.isNotEmpty == true
-              ? user!.interests
-              : flow.profileInterests,
-        );
+        // Canonicalize stored interests to chip labels (case-insensitive) so
+        // they pre-select regardless of stored casing.
+        final storedInterests = user?.interests.isNotEmpty == true
+            ? user!.interests
+            : flow.profileInterests;
+        _selectedInterests = storedInterests.map(_canonicalInterest).toList();
       });
     });
+  }
+
+  /// Map the server's normalized gender ('man'/'woman'/'nonbinary'/'other')
+  /// back to the capitalized display option so the chip pre-selects.
+  String? _genderToOption(String? g) {
+    if (g == null) return null;
+    final k = g.toLowerCase().replaceAll(RegExp('[^a-z]'), '');
+    switch (k) {
+      case 'man':
+      case 'male':
+        return 'Man';
+      case 'woman':
+      case 'female':
+        return 'Woman';
+      case 'nonbinary':
+        return 'Non-binary';
+      case 'other':
+      case 'prefernottosay':
+      case 'prefernot':
+        return 'Prefer not to say';
+      default:
+        return null;
+    }
+  }
+
+  /// Map a stored interest to its canonical chip label (case-insensitive) so
+  /// pre-selection works regardless of stored casing.
+  String _canonicalInterest(String stored) {
+    for (final list in _interestCategories.values) {
+      for (final chip in list) {
+        if (chip.toLowerCase() == stored.toLowerCase()) return chip;
+      }
+    }
+    return stored;
   }
 
   @override
