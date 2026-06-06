@@ -309,6 +309,12 @@ router.post('/unmatch', async (req: Request, res: Response) => {
       });
     });
 
+    // Notify both users in real time so the match + chat disappear immediately
+    // (the client listens for 'match:removed'). Previously never emitted, so an
+    // unmatched/blocked match lingered until a manual refetch.
+    io.to(`user:${req.uid}`).emit('match:removed', { matchId: match.id, otherUid: targetUid });
+    io.to(`user:${targetUid}`).emit('match:removed', { matchId: match.id, otherUid: req.uid });
+
     res.json({ success: true });
   } catch (err) {
     console.error('[matching/unmatch]', err);

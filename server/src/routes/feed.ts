@@ -153,4 +153,24 @@ router.post('/:id/comments', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /feed/:id/comments/:commentId — author deletes their own comment.
+// Was missing entirely, so the client's deleteComment() call 404'd.
+router.delete('/:id/comments/:commentId', async (req: Request, res: Response) => {
+  try {
+    const comment = await prisma.postComment.findUnique({
+      where: { id: req.params.commentId },
+    });
+    if (!comment || comment.postId !== req.params.id) {
+      res.status(404).json({ error: 'Comment not found' }); return;
+    }
+    if (comment.authorUid !== req.uid) {
+      res.status(403).json({ code: 'FORBIDDEN', error: 'You can only delete your own comments' }); return;
+    }
+    await prisma.postComment.delete({ where: { id: req.params.commentId } });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete comment' });
+  }
+});
+
 export default router;

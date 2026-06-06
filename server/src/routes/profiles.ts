@@ -209,8 +209,18 @@ router.get('/me', async (req: Request, res: Response) => {
   try {
     const profile = await prisma.profile.findUnique({ where: { userId: req.uid } });
     if (!profile) { res.status(404).json({ code: 'NOT_FOUND', error: 'Profile not found' }); return; }
-    const membership = await prisma.membership.findUnique({ where: { userId: req.uid } });
-    res.json({ ...profile, isPremium: profile.isPremium || (membership?.active ?? false) });
+    const [membership, user] = await Promise.all([
+      prisma.membership.findUnique({ where: { userId: req.uid } }),
+      // email lives on User, not Profile — include it so the client doesn't
+      // show "Add your email" to a user who signed in with email.
+      prisma.user.findUnique({ where: { id: req.uid }, select: { email: true, emailVerified: true } }),
+    ]);
+    res.json({
+      ...profile,
+      email: user?.email ?? null,
+      emailVerified: user?.emailVerified ?? false,
+      isPremium: profile.isPremium || (membership?.active ?? false),
+    });
   } catch (err) {
     res.status(500).json({ code: 'INTERNAL_ERROR', error: 'Failed to fetch profile' });
   }

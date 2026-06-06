@@ -5,6 +5,7 @@ import { geohashForCoords, getGeohashRanges, kmBetween } from '../services/geo';
 import { sendPushNotification } from '../services/fcm';
 import { isValidLat, isValidLng } from '../utils/validate';
 import { logger } from '../services/logger';
+import { io } from '../index';
 
 const router = Router();
 router.use(requireAuth);
@@ -162,6 +163,14 @@ router.post('/invite', async (req: Request, res: Response) => {
         { type: 'paths_invite', inviteId: invite.id }
       ).catch(() => {});
     }
+
+    // Real-time: notify the receiver immediately so a wave appears live (the
+    // client listens for 'paths:invite'). Previously never emitted — waves only
+    // arrived via polling GET /paths/invites.
+    io.to(`user:${receiverUid}`).emit('paths:invite', {
+      invite,
+      senderName: senderProfile?.name ?? null,
+    });
 
     res.json(invite);
   } catch (err) {
