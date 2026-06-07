@@ -474,11 +474,12 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    // Tap the city = change matching area/radius (the useful
-                    // action). Long-press still opens it in Maps. Replaces the
-                    // separate ↗ corner icon with an inline chevron affordance.
-                    onTap: _manualLocationSearch,
-                    onLongPress: _locationLat != null ? _openInMaps : null,
+                    // Tap the city = open it in Maps (the redirect). When we
+                    // don't have a fix yet, tap lets you set a city instead.
+                    // Long-press = change matching area. The ↗ is inlined with
+                    // the city (one tappable unit), not a separate corner icon.
+                    onTap: _locationLat != null ? _openInMaps : _manualLocationSearch,
+                    onLongPress: _manualLocationSearch,
                     behavior: HitTestBehavior.opaque,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,10 +509,10 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 5),
                             const Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 22,
+                              Icons.north_east_rounded,
+                              size: 17,
                               color: FreezmeDesignSystem.textSecondary,
                             ),
                           ],
