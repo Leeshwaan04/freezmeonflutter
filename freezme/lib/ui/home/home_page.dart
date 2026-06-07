@@ -319,6 +319,13 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Remove a card from the pool optimistically after the user resolves it in
+  /// the detail (passed / liked / blocked / reported) so it doesn't linger.
+  void _removeFromPool(String uid) {
+    if (!mounted) return;
+    setState(() => _tonightPool.removeWhere((p) => p.uid == uid));
+  }
+
   Future<void> _manualLocationSearch() async {
     final city = await showDialog<String>(
       context: context,
@@ -808,10 +815,14 @@ class _HomePageState extends State<HomePage> {
                     ),
                     itemCount: _tonightPool.length,
                     separatorBuilder: (context, i) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) => _TonightProfileCard(
-                      profile: _tonightPool[index],
-                      onLike: () => _onLikeProfile(_tonightPool[index]),
-                    ),
+                    itemBuilder: (context, index) {
+                      final p = _tonightPool[index];
+                      return _TonightProfileCard(
+                        profile: p,
+                        onLike: () => _onLikeProfile(p),
+                        onResolved: () => _removeFromPool(p.uid),
+                      );
+                    },
                   ),
           ),
           const SizedBox(height: FreezmeDesignSystem.spaceMd),
@@ -1995,7 +2006,15 @@ class _TonightProfileCard extends StatefulWidget {
   final models.VibeProfile profile;
   final VoidCallback onLike;
 
-  const _TonightProfileCard({required this.profile, required this.onLike});
+  /// Called when the user resolves this profile in the detail view
+  /// (passed / liked / blocked / reported) so the pool can drop the card.
+  final VoidCallback onResolved;
+
+  const _TonightProfileCard({
+    required this.profile,
+    required this.onLike,
+    required this.onResolved,
+  });
 
   @override
   State<_TonightProfileCard> createState() => _TonightProfileCardState();
@@ -2041,11 +2060,15 @@ class _TonightProfileCardState extends State<_TonightProfileCard>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => ProfileDetailPage(profile: widget.profile),
-        ),
-      ),
+      onTap: () async {
+        final resolved = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (context) => ProfileDetailPage(profile: widget.profile),
+          ),
+        );
+        // Detail returns true when the user passed/liked/blocked/reported.
+        if (resolved == true) widget.onResolved();
+      },
       child: Container(
         width: _cardWidth,
         decoration: BoxDecoration(

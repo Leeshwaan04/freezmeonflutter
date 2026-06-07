@@ -10,6 +10,9 @@ class SafetyActionsSheet {
     required String targetName,
     String? context_,
     String? contextId,
+    // Called after a successful block/report/unmatch so callers (e.g. the
+    // Tonight pool / profile detail) can drop the resolved card.
+    VoidCallback? onResolved,
   }) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -38,7 +41,7 @@ class SafetyActionsSheet {
                 subtitle: const Text("Remove this match and chat history."),
                 onTap: () async {
                   Navigator.pop(sheetCtx);
-                  await _confirmAndUnmatch(context, targetUid, targetName);
+                  await _confirmAndUnmatch(context, targetUid, targetName, onResolved);
                 },
               ),
               ListTile(
@@ -47,7 +50,7 @@ class SafetyActionsSheet {
                 subtitle: Text("You won't see $targetName again."),
                 onTap: () async {
                   Navigator.pop(sheetCtx);
-                  await _confirmAndBlock(context, targetUid, targetName);
+                  await _confirmAndBlock(context, targetUid, targetName, onResolved);
                 },
               ),
               ListTile(
@@ -64,6 +67,7 @@ class SafetyActionsSheet {
                     targetName: targetName,
                     context_: context_,
                     contextId: contextId,
+                    onResolved: onResolved,
                   );
                 },
               ),
@@ -76,7 +80,7 @@ class SafetyActionsSheet {
   }
 
   static Future<void> _confirmAndUnmatch(
-      BuildContext context, String targetUid, String targetName) async {
+      BuildContext context, String targetUid, String targetName, [VoidCallback? onResolved]) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -100,6 +104,7 @@ class SafetyActionsSheet {
     final flow = AppFlowScope.of(context);
     try {
       await flow.repository.unmatchUser(targetUid);
+      onResolved?.call();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Unmatched with $targetName')),
@@ -115,7 +120,7 @@ class SafetyActionsSheet {
   }
 
   static Future<void> _confirmAndBlock(
-      BuildContext context, String targetUid, String targetName) async {
+      BuildContext context, String targetUid, String targetName, [VoidCallback? onResolved]) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -139,6 +144,7 @@ class SafetyActionsSheet {
     final flow = AppFlowScope.of(context);
     try {
       await flow.repository.blockUser(targetUid);
+      onResolved?.call();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$targetName blocked')),
@@ -159,6 +165,7 @@ class SafetyActionsSheet {
     required String targetName,
     String? context_,
     String? contextId,
+    VoidCallback? onResolved,
   }) async {
     const reasons = <Map<String, String>>[
       {'key': 'inappropriate', 'label': 'Inappropriate content'},
@@ -290,6 +297,7 @@ class SafetyActionsSheet {
                                     details: detailsController.text.trim(),
                                     context_: context_,
                                     contextId: contextId,
+                                    onResolved: onResolved,
                                   );
                                 },
                           child: const Text('Submit report'),
@@ -316,6 +324,7 @@ class SafetyActionsSheet {
     required String details,
     String? context_,
     String? contextId,
+    VoidCallback? onResolved,
   }) async {
     final flow = AppFlowScope.of(context);
     try {
@@ -326,6 +335,7 @@ class SafetyActionsSheet {
         context: context_,
         contextId: contextId,
       );
+      onResolved?.call();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

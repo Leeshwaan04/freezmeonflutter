@@ -71,6 +71,13 @@ class ProfileDetailPage extends StatelessWidget {
                       targetUid: profile.uid,
                       targetName: profile.name,
                       context_: 'profile',
+                      // After block/report/unmatch, leave the detail with a
+                      // truthy result so the Tonight pool drops this card.
+                      onResolved: () {
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop(true);
+                        }
+                      },
                     ),
                   ),
                 ),
@@ -143,7 +150,8 @@ class ProfileDetailPage extends StatelessWidget {
                           variant: ButtonVariant.outlined,
                           onPressed: () {
                              flow.repository.skipProfile(profile.uid);
-                             Navigator.of(context).pop();
+                             // pop(true) so the pool drops this card optimistically.
+                             Navigator.of(context).pop(true);
                              PremiumSnackBar.show(context, 'Skipped', type: SnackBarType.info);
                           },
                         ),
@@ -156,7 +164,8 @@ class ProfileDetailPage extends StatelessWidget {
                           variant: ButtonVariant.filled,
                           onPressed: () {
                              flow.repository.likeProfile(profile.uid);
-                             Navigator.of(context).pop();
+                             // pop(true) so the pool drops this card optimistically.
+                             Navigator.of(context).pop(true);
                              PremiumSnackBar.show(context, 'You liked ${profile.name}!', type: SnackBarType.success);
                           },
                         ),
