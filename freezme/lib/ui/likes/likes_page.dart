@@ -125,72 +125,120 @@ class _LikesPageState extends State<LikesPage> {
   }
 
   Widget _buildGrid(AppFlowController flow) {
+    final n = _likes.length;
+    final plural = n == 1 ? 'person likes' : 'people like';
+    final countLabel = _isPremium
+        ? '$n $plural you'
+        : '$n $plural you — tap any to reveal';
     return RefreshIndicator(
       onRefresh: _loadLikes,
       color: FreezmeDesignSystem.primary,
-      child: GridView.builder(
-        padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 0.75,
-        ),
-        itemCount: _likes.length,
-        itemBuilder: (context, index) {
-          final profile = _likes[index];
-          return GestureDetector(
-            onTap: () {
-              if (_isPremium) {
-                flow.activeProfile = profile;
-                flow.push(AppStage.profilePreview);
-              } else {
-                flow.push(AppStage.freezmePlus);
-              }
-            },
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CachedNetworkImage(
-                    imageUrl: profile.imageUrl.isNotEmpty ? profile.imageUrl : (profile.photoUrls.isNotEmpty ? profile.photoUrls.first : ''),
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => const SkeletonLoader(width: double.infinity, height: double.infinity),
-                    errorWidget: (context, url, error) => Container(color: Colors.grey.shade800),
-                  ),
-                  if (!_isPremium) ...[
-                    BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                      child: Container(color: Colors.black.withValues(alpha: 0.2)),
-                    ),
-                    const Center(
-                      child: Icon(Icons.lock_outline, color: Colors.white, size: 48),
-                    ),
-                  ],
-                  if (_isPremium)
-                    Positioned(
-                      bottom: 0, left: 0, right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
-                          ),
-                        ),
-                        child: Text(
-                          profile.name.split(' ').first,
-                          style: FreezmeDesignSystem.h3.copyWith(color: Colors.white, fontSize: 16),
-                        ),
-                      ),
-                    ),
-                ],
+      child: CustomScrollView(
+        slivers: [
+          // Social-proof count — drives the upgrade for non-premium users.
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Text(
+                countLabel,
+                style: FreezmeDesignSystem.body.copyWith(
+                  color: FreezmeDesignSystem.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          );
-        },
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.75,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final profile = _likes[index];
+                  return GestureDetector(
+                    onTap: () {
+                      if (_isPremium) {
+                        flow.activeProfile = profile;
+                        flow.push(AppStage.profilePreview);
+                      } else {
+                        flow.push(AppStage.freezmePlus);
+                      }
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          CachedNetworkImage(
+                            imageUrl: profile.imageUrl.isNotEmpty ? profile.imageUrl : (profile.photoUrls.isNotEmpty ? profile.photoUrls.first : ''),
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => const SkeletonLoader(width: double.infinity, height: double.infinity),
+                            errorWidget: (context, url, error) => const _LikePhotoFallback(),
+                          ),
+                          if (!_isPremium) ...[
+                            BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                              child: Container(color: Colors.black.withValues(alpha: 0.2)),
+                            ),
+                            const Center(
+                              child: Icon(Icons.lock_outline, color: Colors.white, size: 48),
+                            ),
+                          ],
+                          if (_isPremium)
+                            Positioned(
+                              bottom: 0, left: 0, right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
+                                  ),
+                                ),
+                                child: Text(
+                                  profile.name.split(' ').first,
+                                  style: FreezmeDesignSystem.h3.copyWith(color: Colors.white, fontSize: 16),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                childCount: _likes.length,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Branded fallback for a like card with a missing photo — dark purple gradient
+/// + glyph instead of a flat grey block (the grid sits on dark imagery).
+class _LikePhotoFallback extends StatelessWidget {
+  const _LikePhotoFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF4D2C91), Color(0xFF2E1A47)],
+        ),
+      ),
+      child: Center(
+        child: Icon(Icons.person_rounded, color: Colors.white24, size: 48),
       ),
     );
   }

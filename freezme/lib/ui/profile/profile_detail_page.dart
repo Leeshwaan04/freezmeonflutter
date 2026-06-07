@@ -148,11 +148,20 @@ class ProfileDetailPage extends StatelessWidget {
                           label: 'Pass',
                           icon: Icons.close,
                           variant: ButtonVariant.outlined,
-                          onPressed: () {
-                             flow.repository.skipProfile(profile.uid);
+                          onPressed: () async {
+                             // Capture messenger before pop so we can still
+                             // surface an error after the page is gone.
+                             final messenger = ScaffoldMessenger.of(context);
                              // pop(true) so the pool drops this card optimistically.
                              Navigator.of(context).pop(true);
                              PremiumSnackBar.show(context, 'Skipped', type: SnackBarType.info);
+                             try {
+                               await flow.repository.skipProfile(profile.uid);
+                             } catch (_) {
+                               messenger.showSnackBar(const SnackBar(
+                                 content: Text("Couldn't skip — please try again."),
+                               ));
+                             }
                           },
                         ),
                       ),
@@ -162,11 +171,18 @@ class ProfileDetailPage extends StatelessWidget {
                           label: 'Like',
                           icon: Icons.favorite,
                           variant: ButtonVariant.filled,
-                          onPressed: () {
-                             flow.repository.likeProfile(profile.uid);
+                          onPressed: () async {
+                             final messenger = ScaffoldMessenger.of(context);
                              // pop(true) so the pool drops this card optimistically.
                              Navigator.of(context).pop(true);
                              PremiumSnackBar.show(context, 'You liked ${profile.name}!', type: SnackBarType.success);
+                             try {
+                               await flow.repository.likeProfile(profile.uid);
+                             } catch (_) {
+                               messenger.showSnackBar(const SnackBar(
+                                 content: Text("Couldn't send your like — check your connection and try again."),
+                               ));
+                             }
                           },
                         ),
                       ),
