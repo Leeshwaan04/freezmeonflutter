@@ -139,17 +139,17 @@ class _AuthGatePageState extends State<AuthGatePage>
     (
       icon: Icons.favorite_outline,
       label: 'Daily Matches',
-      sub: 'Meet someone who actually gets you',
+      sub: 'People who get you',
     ),
     (
       icon: Icons.explore_outlined,
       label: 'Paths',
-      sub: 'Cross paths with people around you',
+      sub: 'People around you',
     ),
     (
       icon: Icons.visibility_off_outlined,
       label: 'Blinds',
-      sub: 'Feel the vibe before the face',
+      sub: 'Vibe before the face',
     ),
   ];
 
@@ -254,11 +254,12 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 36),
 
-                            // Animated feature highlights — ClipRect prevents
-                            // SlideTransition entrance from overflowing horizontally.
+                            // Animated feature highlights. Vertical padding gives
+                            // the clip region slack for the ±6px levitate so the
+                            // caption's last line isn't clipped while it moves.
                             ClipRect(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                                 child: const _AnimatedHighlights(highlights: _highlights),
                               ),
                             ),
@@ -283,9 +284,11 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 32),
 
-                            // "Sign in to continue" label above the icon row
+                            // Label above the icon row — flips to a hint when the
+                            // EULA (at the bottom) hasn't been accepted yet.
                             Text(
-                              'Sign in to continue',
+                              _acceptedEula ? 'Sign in to continue' : 'Agree to the Terms below to continue',
+                              textAlign: TextAlign.center,
                               style: FreezmeTypography.bodyMuted.copyWith(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
@@ -304,8 +307,8 @@ class _AuthGatePageState extends State<AuthGatePage>
                                   caption: 'Apple',
                                   variant: _AuthButtonVariant.apple,
                                   isLoading: _loadingMethod == _AuthMethod.apple,
-                                  disabled: (!_acceptedEula) ||
-                                      (_isLoading && _loadingMethod != _AuthMethod.apple),
+                                  dimmed: !_acceptedEula,
+                                  disabled: _isLoading && _loadingMethod != _AuthMethod.apple,
                                   onTap: () {
                                     if (!_acceptedEula) {
                                       _showAuthError('Please agree to the Terms of Service to continue.');
@@ -319,8 +322,8 @@ class _AuthGatePageState extends State<AuthGatePage>
                                   caption: 'Google',
                                   variant: _AuthButtonVariant.google,
                                   isLoading: _loadingMethod == _AuthMethod.google,
-                                  disabled: (!_acceptedEula) ||
-                                      (_isLoading && _loadingMethod != _AuthMethod.google),
+                                  dimmed: !_acceptedEula,
+                                  disabled: _isLoading && _loadingMethod != _AuthMethod.google,
                                   onTap: () {
                                     if (!_acceptedEula) {
                                       _showAuthError('Please agree to the Terms of Service to continue.');
@@ -334,8 +337,8 @@ class _AuthGatePageState extends State<AuthGatePage>
                                   caption: 'Email',
                                   variant: _AuthButtonVariant.email,
                                   isLoading: _loadingMethod == _AuthMethod.email,
-                                  disabled: (!_acceptedEula) ||
-                                      (_isLoading && _loadingMethod != _AuthMethod.email),
+                                  dimmed: !_acceptedEula,
+                                  disabled: _isLoading && _loadingMethod != _AuthMethod.email,
                                   onTap: () {
                                     if (!_acceptedEula) {
                                       _showAuthError('Please agree to the Terms of Service to continue.');
@@ -379,7 +382,12 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 24),
 
-                            // Legal — explicit EULA Checkbox for UGC compliance
+                            // Legal — EULA checkbox kept at the BOTTOM. The
+                            // sign-in buttons above stay dimmed-but-tappable until
+                            // it's ticked (a tap surfaces the "agree to Terms"
+                            // hint), and the label flips to "Agree to the Terms
+                            // below to continue" — so it's discoverable without
+                            // sitting above the buttons.
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,36 +407,27 @@ class _AuthGatePageState extends State<AuthGatePage>
                                   ),
                                 ),
                                 const SizedBox(width: 10),
-                                Expanded(
+                                Flexible(
                                   child: Text.rich(
                                     TextSpan(
                                       text: 'I agree to the ',
-                                      style: FreezmeTypography.bodyMuted
-                                          .copyWith(fontSize: 12),
+                                      style: FreezmeTypography.bodyMuted.copyWith(fontSize: 12),
                                       children: [
                                         TextSpan(
                                           text: 'Terms of Service',
-                                          style: const TextStyle(
-                                            color: FreezmeColors.primary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                          recognizer: TapGestureRecognizer()
-                                            ..onTap = () => _openUrl(_kTermsUrl),
+                                          style: const TextStyle(color: FreezmeColors.primary, fontWeight: FontWeight.w600),
+                                          recognizer: TapGestureRecognizer()..onTap = () => _openUrl(_kTermsUrl),
                                         ),
                                         const TextSpan(text: ' and '),
                                         TextSpan(
                                           text: 'Privacy Policy',
-                                          style: const TextStyle(
-                                            color: FreezmeColors.primary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                          recognizer: TapGestureRecognizer()
-                                            ..onTap = () => _openUrl(_kPrivacyUrl),
+                                          style: const TextStyle(color: FreezmeColors.primary, fontWeight: FontWeight.w600),
+                                          recognizer: TapGestureRecognizer()..onTap = () => _openUrl(_kPrivacyUrl),
                                         ),
                                         const TextSpan(text: ' (Required).'),
                                       ],
                                     ),
-                                    textAlign: TextAlign.left,
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               ],
@@ -712,7 +711,9 @@ class _AnimatedHighlightsState extends State<_AnimatedHighlights>
       animation: _loopController,
       builder: (context, _) {
         final t = _loopController.value; // 0..1 looping
-        return Column(
+        // Horizontal row — the three features sit side by side (was stacked).
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: List.generate(widget.highlights.length, (i) {
             final color = _kFeatureColors[i % _kFeatureColors.length];
             final phaseOffset = i / widget.highlights.length;
@@ -725,23 +726,25 @@ class _AnimatedHighlightsState extends State<_AnimatedHighlights>
             // Particle orbit angle
             final particleAngle = loopT * math.pi * 2;
 
-            return FadeTransition(
-              opacity: _entranceFades[i],
-              child: SlideTransition(
-                position: _entranceSlides[i],
-                child: Transform.translate(
-                  offset: Offset(0, levitate),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: _FeatureOrb(
-                      icon: widget.highlights[i].icon,
-                      label: widget.highlights[i].label,
-                      sub: widget.highlights[i].sub,
-                      color: color,
-                      orbScale: orbScale,
-                      particleAngle: particleAngle,
-                      iconIndex: i,
-                      loopT: loopT,
+            return Expanded(
+              child: FadeTransition(
+                opacity: _entranceFades[i],
+                child: SlideTransition(
+                  position: _entranceSlides[i],
+                  child: Transform.translate(
+                    offset: Offset(0, levitate),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: _FeatureOrb(
+                        icon: widget.highlights[i].icon,
+                        label: widget.highlights[i].label,
+                        sub: widget.highlights[i].sub,
+                        color: color,
+                        orbScale: orbScale,
+                        particleAngle: particleAngle,
+                        iconIndex: i,
+                        loopT: loopT,
+                      ),
                     ),
                   ),
                 ),
@@ -799,18 +802,20 @@ class _FeatureOrb extends StatelessWidget {
     // 3 orbiting particles at 120° apart
     final particles = List.generate(3, (p) {
       final angle = particleAngle + p * (math.pi * 2 / 3);
-      final r = 32.0;
+      final r = 27.0;
       return Offset(math.cos(angle) * r, math.sin(angle) * r);
     });
 
-    const orbSize = 64.0;
+    const orbSize = 54.0;
+    const boxSize = orbSize + 20;
 
-    return Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // Orb with particles
         SizedBox(
-          width: orbSize + 24,
-          height: orbSize + 24,
+          width: boxSize,
+          height: boxSize,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -847,8 +852,8 @@ class _FeatureOrb extends StatelessWidget {
                     boxShadow: [
                       BoxShadow(
                         color: color.withValues(alpha: 0.25 + orbScale * 0.08),
-                        blurRadius: 20,
-                        spreadRadius: 2,
+                        blurRadius: 18,
+                        spreadRadius: 1,
                       ),
                     ],
                   ),
@@ -857,7 +862,7 @@ class _FeatureOrb extends StatelessWidget {
                       angle: iconRotation,
                       child: Transform.scale(
                         scale: iconScale,
-                        child: Icon(icon, size: 26, color: color),
+                        child: Icon(icon, size: 24, color: color),
                       ),
                     ),
                   ),
@@ -865,8 +870,8 @@ class _FeatureOrb extends StatelessWidget {
               ),
               // Orbiting particles
               ...particles.map((offset) => Positioned(
-                left: orbSize / 2 + 12 + offset.dx - 3,
-                top: orbSize / 2 + 12 + offset.dy - 3,
+                left: boxSize / 2 + offset.dx - 2.5,
+                top: boxSize / 2 + offset.dy - 2.5,
                 child: Container(
                   width: 5,
                   height: 5,
@@ -885,44 +890,27 @@ class _FeatureOrb extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 16),
-        // Text
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: FreezmeTypography.body.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                  color: FreezmeColors.neutral,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                sub,
-                style: FreezmeTypography.body.copyWith(
-                  fontWeight: FontWeight.w400,
-                  fontSize: 12.5,
-                  color: FreezmeColors.neutral.withValues(alpha: 0.5),
-                  height: 1.4,
-                ),
-              ),
-            ],
+        const SizedBox(height: 10),
+        // Label + sub, centered under the orb
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: FreezmeTypography.body.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+            height: 1.2,
+            color: FreezmeColors.neutral,
           ),
         ),
-        // Accent dot
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color.withValues(alpha: 0.4 + orbScale * 0.2),
-            boxShadow: [
-              BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 6),
-            ],
+        const SizedBox(height: 3),
+        Text(
+          sub,
+          textAlign: TextAlign.center,
+          style: FreezmeTypography.body.copyWith(
+            fontWeight: FontWeight.w400,
+            fontSize: 11,
+            color: FreezmeColors.neutral.withValues(alpha: 0.5),
+            height: 1.3,
           ),
         ),
       ],
@@ -943,13 +931,20 @@ class _AuthIconButton extends StatefulWidget {
     required this.onTap,
     this.isLoading = false,
     this.disabled = false,
+    this.dimmed = false,
   });
 
   final String caption;
   final _AuthButtonVariant variant;
   final VoidCallback onTap;
   final bool isLoading;
+
+  /// Non-tappable (e.g. another method is mid-sign-in).
   final bool disabled;
+
+  /// Greyed but STILL tappable — used when EULA isn't accepted, so a tap can
+  /// surface the "agree to Terms" hint instead of being a silent dead button.
+  final bool dimmed;
 
   @override
   State<_AuthIconButton> createState() => _AuthIconButtonState();
@@ -970,7 +965,7 @@ class _AuthIconButtonState extends State<_AuthIconButton> {
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedOpacity(
-        opacity: widget.disabled ? 0.4 : 1.0,
+        opacity: (widget.disabled || widget.dimmed) ? 0.4 : 1.0,
         duration: const Duration(milliseconds: 200),
         child: AnimatedScale(
           scale: _pressed ? 0.92 : 1.0,
