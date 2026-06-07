@@ -484,10 +484,16 @@ class _HomePageState extends State<HomePage> {
                                   color: FreezmeDesignSystem.textSecondary,
                                 ),
                               ),
-                              Text(
-                                _locationName,
-                                style: FreezmeDesignSystem.display,
-                                overflow: TextOverflow.ellipsis,
+                              // FittedBox scales long city names down to fit
+                              // instead of truncating ("San Franci…").
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  _locationName,
+                                  maxLines: 1,
+                                  style: FreezmeDesignSystem.display,
+                                ),
                               ),
                             ],
                           ),
@@ -2099,30 +2105,37 @@ class _TonightProfileCardState extends State<_TonightProfileCard>
                         child: Text('💜', style: TextStyle(fontSize: 48)),
                       ),
                     ),
-                  // Compatibility badge
-                  if (widget.profile.compatibility > 0)
-                    Positioned(
-                      top: 8, left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: FreezmeDesignSystem.primary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.flash_on, size: 10, color: Colors.white),
-                            Text(
-                              '${widget.profile.compatibility}%',
-                              style: const TextStyle(
+                  // Compatibility badge — always shown; low/no-signal reads
+                  // "New" instead of a demotivating 0% (matches the detail page).
+                  Positioned(
+                    top: 8, left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: FreezmeDesignSystem.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: widget.profile.compatibility > 0
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.flash_on, size: 10, color: Colors.white),
+                                Text(
+                                  '${widget.profile.compatibility}%',
+                                  style: const TextStyle(
+                                    color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : const Text(
+                              'New',
+                              style: TextStyle(
                                 color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
                     ),
+                  ),
                   // Like button top-right
                   Positioned(
                     top: 8, right: 8,
