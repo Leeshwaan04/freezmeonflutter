@@ -242,8 +242,28 @@ router.post('/', async (req: Request, res: Response) => {
       intent, personalityTraits, lifestyleFactors, archetype, promptAnswer,
       energyType, paceSignal, presenceWindows,
       gender, genderPrefs, ageMin, ageMax, messagingPref, distanceKm,
+      hideLastActive, hideReadReceipts, incognitoMode, showExactDistance,
+      verifiedOnly, appearInMenPool, appearInWomenPool, nbOnlyPool,
       lat, lng,
     } = req.body;
+
+    // Privacy/pool flags: coerce to bool only when provided (so a partial
+    // update doesn't reset unspecified flags).
+    const boolField = (v: unknown) => (v === undefined ? undefined : v === true);
+    const privacyFlags = {
+      hideLastActive: boolField(hideLastActive),
+      hideReadReceipts: boolField(hideReadReceipts),
+      incognitoMode: boolField(incognitoMode),
+      showExactDistance: boolField(showExactDistance),
+      verifiedOnly: boolField(verifiedOnly),
+      appearInMenPool: boolField(appearInMenPool),
+      appearInWomenPool: boolField(appearInWomenPool),
+      nbOnlyPool: boolField(nbOnlyPool),
+    };
+    // Strip undefined so we only set what the caller sent.
+    const setPrivacyFlags = Object.fromEntries(
+      Object.entries(privacyFlags).filter(([, v]) => v !== undefined),
+    );
 
     // Sanitize user-supplied text fields to strip HTML/XSS before storing
     const safeName = typeof name === 'string' ? sanitizeText(name).trim() : name;
@@ -392,6 +412,7 @@ router.post('/', async (req: Request, res: Response) => {
         ...(lng !== undefined && { lng }),
         // Keep geohash in sync when lat/lng change so geo-matching stays accurate
         ...(lat !== undefined && lng !== undefined && { geohash: geohashForCoords(lat, lng) }),
+        ...setPrivacyFlags,
     };
 
     const profile = isCreate
@@ -417,6 +438,7 @@ router.post('/', async (req: Request, res: Response) => {
             lat: lat ?? null,
             lng: lng ?? null,
             geohash: (lat != null && lng != null) ? geohashForCoords(lat, lng) : null,
+            ...setPrivacyFlags,
           },
         })
       : await prisma.profile.update({

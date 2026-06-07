@@ -50,10 +50,14 @@ class _SafetyPrivacyPageState extends State<SafetyPrivacyPage> {
       final blocked = await flow.repository.listBlockedUids();
       if (mounted) {
         setState(() {
-          _hideOnlineStatus = prefs['hideOnlineStatus'] ?? false;
-          _hideLastSeen = prefs['hideLastSeen'] ?? false;
-          _hideReadReceipts = prefs['hideReadReceipts'] ?? false;
-          _incognitoMode = prefs['incognitoMode'] ?? false;
+          // Load keys must match what's saved + returned by /me: hideOnline/
+          // hideLastSeen both map to hideLastActive; incognito = NOT appearing
+          // in pools (saved via appearInMenPool). (Was reading non-existent
+          // keys, so every toggle always loaded as off.)
+          _hideOnlineStatus = (prefs['hideLastActive'] as bool?) ?? false;
+          _hideLastSeen = (prefs['hideLastActive'] as bool?) ?? false;
+          _hideReadReceipts = (prefs['hideReadReceipts'] as bool?) ?? false;
+          _incognitoMode = !((prefs['appearInMenPool'] as bool?) ?? true);
           _blockedUsers = blocked;
           _isLoading = false;
         });

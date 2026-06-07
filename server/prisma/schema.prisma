@@ -96,6 +96,18 @@ model Profile {
   distanceKm        Float      @default(50)
   gender            String?
 
+  // ── Privacy & pool visibility (user-controlled safety settings) ─────────────
+  // The app sent these but there were no columns → silently dropped. Added so
+  // the Safety & Privacy + Level-Up toggles actually persist.
+  hideLastActive    Boolean    @default(false)
+  hideReadReceipts  Boolean    @default(false)
+  incognitoMode     Boolean    @default(false)  // don't appear in any pool
+  showExactDistance Boolean    @default(true)
+  verifiedOnly      Boolean    @default(false)  // only match verified users
+  appearInMenPool   Boolean    @default(true)
+  appearInWomenPool Boolean    @default(true)
+  nbOnlyPool        Boolean    @default(false)
+
   presenceScore     Int        @default(50)   // 0-100, computed by cron
   presenceLabel     String     @default("in_the_flow") // in_the_fire | in_the_flow | in_the_quiet | frozen
 
