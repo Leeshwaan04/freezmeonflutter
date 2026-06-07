@@ -54,6 +54,23 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
     ];
   }
 
+  /// Derive the energy type from "The Pull" calibration so it actually feeds
+  /// matching (the algorithm weights energy compatibility 20pts; it was null
+  /// for every user because onboarding never set it).
+  ///   introvert × planner    → deepDiver  (reflective, depth)
+  ///   introvert × spontaneous → quietStorm (calm exterior, inner world)
+  ///   extrovert × planner    → roomIgniter (social, high energy)
+  ///   extrovert × spontaneous → openRoad   (spontaneous, always moving)
+  EnergyType? get _derivedEnergyType {
+    if (_calibrationChoices.length < 4) return null;
+    final extrovert = _calibrationChoices[2] == 1;
+    final spontaneous = _calibrationChoices[1] == 1;
+    if (!extrovert && !spontaneous) return EnergyType.deepDiver;
+    if (!extrovert && spontaneous) return EnergyType.quietStorm;
+    if (extrovert && !spontaneous) return EnergyType.roomIgniter;
+    return EnergyType.openRoad;
+  }
+
   // ── Step 2: The Value ─────────────────────────────────────────────────────
   String _selectedPrompt = _kPrompts[0];
   final TextEditingController _promptAnswerController = TextEditingController();
@@ -126,7 +143,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
   bool _canProceed() {
     switch (_step) {
       case 1: return _calibrationChoices.length == kCalibrationPairs.length;
-      case 2: return _promptAnswerController.text.trim().length >= 10;
+      case 2: return _promptAnswerController.text.trim().length >= 40;
       case 3: return _paceChoice != null;
       case 4: return _nameController.text.trim().length >= 2 && _gender != null;
       case 5: return _photo != null;
@@ -182,6 +199,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
           intent:            _selectedIntent,
           interests:         _selectedInterests.toList(),
           personalityTraits: _derivedTraits,
+          energyType:        _derivedEnergyType,
           lifestyleFactors:  const [],
           imageUrl:          imageUrl,
           bio:               _promptAnswerController.text.trim(),
@@ -515,7 +533,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
                                   borderSide: BorderSide(
-                                    color: charCount >= 10
+                                    color: charCount >= 40
                                         ? FreezmeColors.primary.withValues(alpha: 0.4)
                                         : FreezmeColors.border,
                                     width: 1.5,
@@ -529,7 +547,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
                                     fontSize: 11, color: FreezmeColors.muted),
                               ),
                             ),
-                            if (charCount >= 10)
+                            if (charCount >= 40)
                               const Padding(
                                 padding: EdgeInsets.only(top: 10),
                                 child: _InsightBanner(
@@ -539,7 +557,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
                               Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: _ValidationHint(
-                                    text: '$charCount/10 characters minimum')),
+                                    text: '$charCount/40 characters minimum')),
                           ],
                         ),
                       ),
@@ -752,7 +770,10 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
         const SizedBox(height: 6),
         const Text('Real. No filters. Just you.',
             style: TextStyle(fontSize: 15, color: FreezmeColors.muted)),
-        const SizedBox(height: 20),
+        const SizedBox(height: 6),
+        Text('Helps real people recognize you — you can add more later.',
+            style: TextStyle(fontSize: 12.5, color: FreezmeColors.muted.withValues(alpha: 0.7))),
+        const SizedBox(height: 18),
         Expanded(
           child: GestureDetector(
             onTap: _pickPhoto,
