@@ -32,6 +32,10 @@ dependencies:
     sdk: flutter
   geolocator: ^14.0.2
   http: ^1.2.1
+  # Pure-Dart OSM map (no native plugin / no API key) for the in-app,
+  # view-only "your live location" map.
+  flutter_map: ^8.1.1
+  latlong2: ^0.9.1
 
   flutter_localizations:
     sdk: flutter

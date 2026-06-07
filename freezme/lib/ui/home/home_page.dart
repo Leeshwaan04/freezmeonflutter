@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../screens/location_map_page.dart';
 import 'dart:async'; // Added
 import '../../main.dart';
 import '../../models/vibe_profile.dart' as models;
@@ -348,19 +348,20 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _openInMaps() async {
+  // Open the in-app, view-only map of the user's live location (no external
+  // Maps redirect, no editing). Falls back to a hint if we don't have a fix.
+  void _openLocationMap() {
     final lat = _locationLat;
     final lng = _locationLng;
-    if (lat == null || lng == null) return;
-    final encodedName = Uri.encodeComponent(_locationName);
-    // Try Apple Maps first (maps://), fall back to geo: URI
-    final appleUri = Uri.parse('maps://?ll=$lat,$lng&q=$encodedName');
-    final geoUri = Uri.parse('geo:$lat,$lng?q=$encodedName');
-    if (await canLaunchUrl(appleUri)) {
-      await launchUrl(appleUri);
-    } else if (await canLaunchUrl(geoUri)) {
-      await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+    if (lat == null || lng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Finding your location…')),
+      );
+      return;
     }
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => LocationMapPage(lat: lat, lng: lng, cityName: _locationName),
+    ));
   }
 
   @override
@@ -480,12 +481,10 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    // Tap the city = change your matching area (the useful
-                    // action — opening Maps had no dating value). Long-press
-                    // still opens Maps. The ▾ inlined with the city signals
-                    // "tap to change", one tappable unit.
-                    onTap: _manualLocationSearch,
-                    onLongPress: _locationLat != null ? _openInMaps : null,
+                    // Tap the city = view your live location on an in-app map
+                    // (read-only — you can look around but can't change your
+                    // matching location here).
+                    onTap: _openLocationMap,
                     behavior: HitTestBehavior.opaque,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,10 +514,13 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
+                            // Map pin — tap the city to view your live location
+                            // on an in-app map (read-only). Replaced the dropdown
+                            // (which implied editing).
                             const Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 22,
+                              Icons.map_outlined,
+                              size: 17,
                               color: FreezmeDesignSystem.textSecondary,
                             ),
                           ],
