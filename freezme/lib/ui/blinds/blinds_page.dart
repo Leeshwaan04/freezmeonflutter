@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../../main.dart';
 import '../../models/blinds.dart';
 import '../../services/websocket_service.dart';
@@ -152,7 +153,16 @@ class _BlindsPageState extends State<BlindsPage> with TickerProviderStateMixin {
 
     } catch (e) {
       if (mounted) {
-        PremiumSnackBar.show(context, 'Unable to join queue at the moment. Please try again.', type: SnackBarType.error);
+        // Surface the daily-limit message specifically — "try again" is
+        // misleading when the user has used all 5 blinds for the day.
+        String msg = 'Unable to join queue at the moment. Please try again.';
+        if (e is DioException && e.response?.statusCode == 429) {
+          final data = e.response?.data;
+          msg = (data is Map && data['error'] is String)
+              ? data['error'] as String
+              : "You've used all 5 blinds for today. Come back tomorrow!";
+        }
+        PremiumSnackBar.show(context, msg, type: SnackBarType.error);
         setState(() => isSearching = false);
       }
     }
