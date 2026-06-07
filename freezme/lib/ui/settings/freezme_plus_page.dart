@@ -249,10 +249,11 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                           ),
                         ),
                       ),
-                      if (_selectedPlan == 0) ...[
+                      if (_selectedPlan == 1) ...[
                         const SizedBox(height: FreezmeDesignSystem.spaceSm),
                         const Text(
-                          'Save 25% vs monthly',
+                          'Best value — pay less per week than weekly',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -302,24 +303,40 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                 
                 const SizedBox(height: FreezmeDesignSystem.spaceMd),
                 
-                // Footer
-                const Text(
-                  'Join 10,000+ premium members',
+                // Footer — auto-renew disclosure (App Store 3.1.2) + legal links.
+                const SizedBox(height: FreezmeDesignSystem.spaceXs),
+                Text(
+                  'Subscriptions auto-renew unless cancelled at least 24 hours before '
+                  'the end of the period. Manage or cancel anytime in your App Store '
+                  'account settings.',
                   style: FreezmeDesignSystem.caption,
                   textAlign: TextAlign.center,
                 ),
-                TextButton(
-                  onPressed: () async {
-                    final uri = Uri.parse('https://api.freezme.in/terms');
-                    if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
-                  },
-                  child: Text(
-                    'Terms & Conditions',
-                    style: FreezmeDesignSystem.small.copyWith(
-                      color: FreezmeDesignSystem.textTertiary,
-                      decoration: TextDecoration.underline,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton(
+                      onPressed: () => _openUrl('https://api.freezme.in/terms'),
+                      child: Text(
+                        'Terms',
+                        style: FreezmeDesignSystem.small.copyWith(
+                          color: FreezmeDesignSystem.textTertiary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
                     ),
-                  ),
+                    Text('·', style: FreezmeDesignSystem.small.copyWith(color: FreezmeDesignSystem.textTertiary)),
+                    TextButton(
+                      onPressed: () => _openUrl('https://api.freezme.in/privacy'),
+                      child: Text(
+                        'Privacy Policy',
+                        style: FreezmeDesignSystem.small.copyWith(
+                          color: FreezmeDesignSystem.textTertiary,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -327,6 +344,13 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
         );
       }
     );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _buildPlanTab(String label, int index) {
@@ -355,7 +379,9 @@ class _FreezmePlusPageState extends State<FreezmePlusPage> {
                     : FreezmeDesignSystem.textSecondary,
               ),
             ),
-            if (isSelected && index == 0) ...[
+            // BEST VALUE belongs on Monthly — it's cheaper per week than the
+            // weekly plan (was wrongly on Weekly). Always shown as the nudge.
+            if (index == 1) ...[
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
