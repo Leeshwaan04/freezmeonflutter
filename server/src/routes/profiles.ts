@@ -95,14 +95,22 @@ function traitCompatScore(myTraits: string[], theirTraits: string[]): number {
   return count > 0 ? total / count : 0.5;
 }
 
+// Stored energy/pace values are snake_case ('deep_diver') but the compat
+// matrices above are keyed camelCase ('deepDiver') — normalize so the lookup
+// actually hits. Without this it always fell back to 0.6, making energy- and
+// pace-compatibility effectively dead in the match score.
+function _toCamelKey(s: string): string {
+  return s.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+}
+
 function energyCompatScore(mine: string | null, theirs: string | null): number {
   if (!mine || !theirs) return 0.6; // neutral fallback
-  return ENERGY_COMPAT[mine]?.[theirs] ?? 0.6;
+  return ENERGY_COMPAT[_toCamelKey(mine)]?.[_toCamelKey(theirs)] ?? 0.6;
 }
 
 function paceCompatScore(mine: string | null, theirs: string | null): number {
   if (!mine || !theirs) return 0.6;
-  return PACE_COMPAT[mine]?.[theirs] ?? 0.6;
+  return PACE_COMPAT[_toCamelKey(mine)]?.[_toCamelKey(theirs)] ?? 0.6;
 }
 
 function interestOverlap(a: string[], b: string[]): number {
