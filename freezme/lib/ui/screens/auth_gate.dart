@@ -1324,11 +1324,13 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
             color: Colors.transparent,
             child: InkWell(
               onTap: _loading ? null : _submit,
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(16),
               child: Ink(
                 decoration: BoxDecoration(
                   gradient: FreezmeGradients.primary,
-                  borderRadius: BorderRadius.circular(999),
+                  // Rounded-rect (16) to match the primary CTAs in onboarding /
+                  // Level-Up (was a full pill — inconsistent button shape).
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 17),
                 child: Center(
