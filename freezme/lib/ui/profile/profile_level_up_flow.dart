@@ -55,6 +55,80 @@ class _ProfileLevelUpFlowState extends State<ProfileLevelUpFlow> {
   // ── IPV ──────────────────────────────────────────────────────────────────────
   bool _ipvSubmitted = false;
 
+  // Pre-fill once so this screen reflects the user's EXISTING prefs (set in
+  // onboarding / a prior visit) instead of blank defaults — keeps it in sync
+  // and lets it double as a persistent "edit your discovery prefs" screen.
+  bool _prefsLoaded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_prefsLoaded) return;
+    _prefsLoaded = true;
+    _loadExistingPreferences();
+  }
+
+  Future<void> _loadExistingPreferences() async {
+    final flow = AppFlowScope.of(context, listen: false);
+    try {
+      final p = await flow.repository.fetchUserPreferences();
+      if (!mounted || p.isEmpty) return;
+      setState(() {
+        // Gender prefs — server stores lowercase ('man'/'woman'/'nonbinary');
+        // all three (or 'everyone') maps back to the "Everyone" chip.
+        final raw = (p['genderPrefs'] as List?)
+                ?.map((e) => e.toString().toLowerCase())
+                .toSet() ??
+            <String>{};
+        if (raw.isNotEmpty) {
+          _genderPrefs.clear();
+          const core = {'man', 'woman', 'nonbinary'};
+          if (raw.contains('everyone') || core.every(raw.contains)) {
+            _genderPrefs.add('Everyone');
+          } else {
+            if (raw.contains('man') || raw.contains('men')) _genderPrefs.add('Man');
+            if (raw.contains('woman') || raw.contains('women')) _genderPrefs.add('Woman');
+            if (raw.contains('nonbinary') || raw.contains('non-binary')) _genderPrefs.add('Non-binary');
+          }
+        }
+        final aMin = (p['ageMin'] as num?)?.toDouble();
+        final aMax = (p['ageMax'] as num?)?.toDouble();
+        final dist = (p['distanceKm'] as num?)?.toDouble();
+        if (aMin != null) _ageMin = aMin.clamp(18.0, 65.0).toDouble();
+        if (aMax != null) _ageMax = aMax.clamp(18.0, 65.0).toDouble();
+        if (_ageMax - _ageMin < 2) _ageMax = (_ageMin + 2).clamp(18.0, 65.0).toDouble();
+        if (dist != null) _distanceKm = dist.clamp(5.0, 100.0).toDouble();
+        final mp = p['messagingPref'] as String?;
+        if (mp == 'anyone') {
+          _messagingPref = 'anyone';
+        } else if (mp == 'matches_only' || mp == 'matches') {
+          _messagingPref = 'matches';
+        }
+      });
+    } catch (_) {
+      // Keep defaults on failure — the user can still set prefs from scratch.
+    }
+  }
+
+  /// Map the chip selection to the server's lowercase values, expanding
+  /// "Everyone" → all three. The server filters out the literal 'everyone',
+  /// so sending it raw would silently save an empty pref (no pool).
+  List<String> _resolvedGenderPrefs() {
+    if (_genderPrefs.contains('Everyone')) return ['man', 'woman', 'nonbinary'];
+    return _genderPrefs.map((g) {
+      switch (g) {
+        case 'Man':
+          return 'man';
+        case 'Woman':
+          return 'woman';
+        case 'Non-binary':
+          return 'nonbinary';
+        default:
+          return g.toLowerCase();
+      }
+    }).toList();
+  }
+
   String? get _gender => AuthService.instance.currentUser?.gender;
 
   bool get _isWomanOrNB =>
@@ -125,7 +199,7 @@ class _ProfileLevelUpFlowState extends State<ProfileLevelUpFlow> {
       if (uid != null) {
         await flow.repository.updateProfile(
           uid: uid,
-          genderPrefs: _genderPrefs.toList(),
+          genderPrefs: _resolvedGenderPrefs(),
           ageMin: _ageMin.round(),
           ageMax: _ageMax.round(),
           distanceKm: _distanceKm.round(),
