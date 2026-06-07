@@ -250,6 +250,19 @@ class _ProfileLevelUpFlowState extends State<ProfileLevelUpFlow> {
                   children: [
                     Row(
                       children: [
+                        // Back: previous step, or exit to Tonight on step 1
+                        // (there was no way out of the flow before).
+                        IconButton(
+                          onPressed: () => _step > 0
+                              ? setState(() => _step--)
+                              : flow.pop(),
+                          icon: const Icon(Icons.arrow_back),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                          color: FreezmeColors.neutral,
+                          tooltip: _step > 0 ? 'Back' : 'Back to Tonight',
+                        ),
+                        const SizedBox(width: 8),
                         const FreezmeLogo(size: LogoSize.sm, showText: true),
                         const Spacer(),
                         _LevelUpBadge(),
@@ -291,12 +304,7 @@ class _ProfileLevelUpFlowState extends State<ProfileLevelUpFlow> {
                 padding: const EdgeInsets.all(24),
                 child: Row(
                   children: [
-                    if (_step > 0)
-                      IconButton.outlined(
-                        onPressed: () => setState(() => _step--),
-                        icon: const Icon(Icons.chevron_left),
-                      ),
-                    const SizedBox(width: 12),
+                    // (Back lives in the header now — prev step, or exit on step 1.)
                     Expanded(
                       child: FilledButton(
                         onPressed: _canProceed() && !_saving
