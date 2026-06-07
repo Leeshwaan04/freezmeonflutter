@@ -406,7 +406,10 @@ class _HomePageState extends State<HomePage> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: _LevelUpNudgeCard(onTap: flow.openLevelUp),
+                    child: _LevelUpNudgeCard(
+                      onTap: flow.openLevelUp,
+                      percent: flow.completionPercent,
+                    ),
                   ),
                 ),
               if (_isLoading) ...[
@@ -474,12 +477,12 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    // Tap the city = open it in Maps (the redirect). When we
-                    // don't have a fix yet, tap lets you set a city instead.
-                    // Long-press = change matching area. The ↗ is inlined with
-                    // the city (one tappable unit), not a separate corner icon.
-                    onTap: _locationLat != null ? _openInMaps : _manualLocationSearch,
-                    onLongPress: _manualLocationSearch,
+                    // Tap the city = change your matching area (the useful
+                    // action — opening Maps had no dating value). Long-press
+                    // still opens Maps. The ▾ inlined with the city signals
+                    // "tap to change", one tappable unit.
+                    onTap: _manualLocationSearch,
+                    onLongPress: _locationLat != null ? _openInMaps : null,
                     behavior: HitTestBehavior.opaque,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,10 +512,10 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 5),
+                            const SizedBox(width: 4),
                             const Icon(
-                              Icons.north_east_rounded,
-                              size: 17,
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 22,
                               color: FreezmeDesignSystem.textSecondary,
                             ),
                           ],
@@ -546,23 +549,59 @@ class _HomePageState extends State<HomePage> {
                           size: 14,
                           color: FreezmeDesignSystem.primary,
                         ),
-                        const SizedBox(width: 4),
-                        ValueListenableBuilder<String>(
-                          valueListenable: _countdown,
-                          builder: (context, value, _) => Text(
-                            value,
+                        const SizedBox(width: 5),
+                        // Labelled so the timer isn't a mystery number: "Live
+                        // now" when the pool is open, else "Opens in HH:MM:SS".
+                        if (_poolIsOpen)
+                          Text(
+                            'Live now',
                             style: FreezmeDesignSystem.small.copyWith(
                               color: FreezmeDesignSystem.primary,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
                             ),
+                          )
+                        else ...[
+                          Text(
+                            'Opens in ',
+                            style: FreezmeDesignSystem.small.copyWith(
+                              color: FreezmeDesignSystem.primary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
+                          ValueListenableBuilder<String>(
+                            valueListenable: _countdown,
+                            builder: (context, value, _) => Text(
+                              value,
+                              style: FreezmeDesignSystem.small.copyWith(
+                                color: FreezmeDesignSystem.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
+                // Persistent help — re-opens the "How Tonight works" guide
+                // (otherwise it auto-shows only once on first visit).
+                GestureDetector(
+                  onTap: () => showFeatureGuide(context, FreezmeFeature.tonight),
+                  behavior: HitTestBehavior.opaque,
+                  child: const Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.help_outline_rounded,
+                      size: 22,
+                      color: FreezmeDesignSystem.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
                 Builder(builder: (ctx) {
                   final f = AppFlowScope.of(ctx, listen: false);
                   final name = f.profileName?.trim() ?? '';
@@ -571,7 +610,9 @@ class _HomePageState extends State<HomePage> {
                           .map((p) => p[0].toUpperCase()).join()
                       : null;
                   return GestureDetector(
-                    onTap: () => f.openTab(4),
+                    // Profile is tab 5 (was 4 = Blinds — the avatar opened the
+                    // wrong screen).
+                    onTap: () => f.openTab(5),
                     child: UserAvatar(
                       imageUrl: f.profilePhotoUrl,
                       initials: initials,
@@ -779,9 +820,21 @@ class _HomePageState extends State<HomePage> {
               FreezmeDesignSystem.spaceLg,
               FreezmeDesignSystem.spaceMd,
             ),
-            child: Text(
-              "TONIGHT'S POOL",
-              style: FreezmeDesignSystem.h3.copyWith(fontSize: 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "TONIGHT'S POOL",
+                  style: FreezmeDesignSystem.h3.copyWith(fontSize: 18),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'A few hand-picked people, refreshed every evening.',
+                  style: FreezmeDesignSystem.small.copyWith(
+                    color: FreezmeDesignSystem.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(
@@ -845,14 +898,26 @@ class _HomePageState extends State<HomePage> {
           Padding(
             padding: const EdgeInsets.symmetric(
                 horizontal: FreezmeDesignSystem.spaceLg),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "TONIGHT'S PULSE",
-                  style: FreezmeDesignSystem.h3.copyWith(fontSize: 18),
+                Row(
+                  children: [
+                    Text(
+                      "TONIGHT'S PULSE",
+                      style: FreezmeDesignSystem.h3.copyWith(fontSize: 18),
+                    ),
+                    const SizedBox(width: 8),
+                    _LiveDot(),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _LiveDot(),
+                const SizedBox(height: 2),
+                Text(
+                  'Live activity near you right now.',
+                  style: FreezmeDesignSystem.small.copyWith(
+                    color: FreezmeDesignSystem.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -2290,11 +2355,16 @@ class _TonightProfileCardState extends State<_TonightProfileCard>
 // Level-Up nudge card — shown on feed until user completes the level-up flow
 // ─────────────────────────────────────────────────────────────────────────────
 class _LevelUpNudgeCard extends StatelessWidget {
-  const _LevelUpNudgeCard({required this.onTap});
+  const _LevelUpNudgeCard({required this.onTap, required this.percent});
   final VoidCallback onTap;
+
+  /// Profile completion 0..1 — drives the progress bar so the nudge shows how
+  /// close you are (and the payoff), not just an open-ended chore.
+  final double percent;
 
   @override
   Widget build(BuildContext context) {
+    final pct = (percent.clamp(0.0, 1.0) * 100).round();
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2311,25 +2381,49 @@ class _LevelUpNudgeCard extends StatelessWidget {
           children: [
             const Text('✨', style: TextStyle(fontSize: 22)),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Level up your profile',
+                  // Lead with the payoff, not the task.
+                  const Text(
+                    'Get better matches',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
                   ),
-                  SizedBox(height: 2),
-                  Text(
-                    'Set your preferences, safety controls & get verified',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Add your prefs & get verified to rank higher and match more',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  // Progress: shows how close to a complete profile.
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: percent.clamp(0.0, 1.0),
+                            minHeight: 5,
+                            backgroundColor: Colors.white24,
+                            valueColor: const AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$pct% complete',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
