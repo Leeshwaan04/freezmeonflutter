@@ -405,7 +405,7 @@ class _HomePageState extends State<HomePage> {
               // Hide the nudge once the user finishes Level-Up OR their profile
               // is 100% complete — no point nagging a complete profile. Prefs
               // remain editable anytime via Settings → Preferences / Edit Profile.
-              if (!flow.levelUpCompleted && flow.completionPercent < 1.0)
+              if (!flow.levelUpCompleted && flow.completionPercent < 100)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -2367,7 +2367,8 @@ class _LevelUpNudgeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct = (percent.clamp(0.0, 1.0) * 100).round();
+    // completionPercent is 0..100 (not 0..1).
+    final pct = percent.clamp(0.0, 100.0).round();
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2410,7 +2411,7 @@ class _LevelUpNudgeCard extends StatelessWidget {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(3),
                           child: LinearProgressIndicator(
-                            value: percent.clamp(0.0, 1.0),
+                            value: (percent / 100).clamp(0.0, 1.0),
                             minHeight: 5,
                             backgroundColor: Colors.white24,
                             valueColor: const AlwaysStoppedAnimation(Colors.white),
