@@ -1088,6 +1088,21 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    // Rebuild as the user types so the submit button enables/disables.
+    _emailCtrl.addListener(_onChanged);
+    _passCtrl.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _canSubmit =>
+      _emailCtrl.text.trim().isNotEmpty && _passCtrl.text.isNotEmpty;
+
+  @override
   void dispose() {
     _emailCtrl.dispose();
     _passCtrl.dispose();
@@ -1110,11 +1125,17 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
       return;
     }
     setState(() { _loading = true; _error = null; });
+    // Captured before onSuccess() navigates away so the cue can still show.
+    final messenger = ScaffoldMessenger.of(context);
     try {
       if (_isSignUp) {
         await AuthService.instance.signUpWithEmail(email: email, password: pass);
         // Send verification email in background — don't block the flow
         AuthService.instance.sendEmailVerification().catchError((_) {});
+        messenger.showSnackBar(const SnackBar(
+          content: Text("Account created — we've emailed you a link to verify your email."),
+          duration: Duration(seconds: 4),
+        ));
       } else {
         await AuthService.instance.signInWithEmail(email: email, password: pass);
       }
@@ -1287,8 +1308,20 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
             ),
           ),
 
-          // Forgot password link (sign-in mode only)
-          if (!_isSignUp) ...[
+          // Sign-up: proactive password requirement. Sign-in: forgot-password.
+          if (_isSignUp) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(
+                  'Use 8 or more characters.',
+                  style: FreezmeTypography.bodyMuted.copyWith(fontSize: 12),
+                ),
+              ),
+            ),
+          ] else ...[
             const SizedBox(height: 6),
             Align(
               alignment: Alignment.centerRight,
@@ -1323,9 +1356,13 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
           Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: _loading ? null : _submit,
+              // Disabled (greyed) until both fields are filled — no more
+              // tapping into a validation error.
+              onTap: (_loading || !_canSubmit) ? null : _submit,
               borderRadius: BorderRadius.circular(16),
-              child: Ink(
+              child: Opacity(
+                opacity: _canSubmit ? 1.0 : 0.5,
+                child: Ink(
                 decoration: BoxDecoration(
                   gradient: FreezmeGradients.primary,
                   // Rounded-rect (16) to match the primary CTAs in onboarding /
@@ -1345,8 +1382,18 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
                         ),
                 ),
               ),
+              ),
             ),
           ),
+          // Reassurance: signup completes auth — there's no separate sign-in.
+          if (_isSignUp) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Creating your account signs you in instantly — no separate step.',
+              textAlign: TextAlign.center,
+              style: FreezmeTypography.bodyMuted.copyWith(fontSize: 11.5),
+            ),
+          ],
         ],
       ),
     );
