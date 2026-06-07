@@ -196,10 +196,13 @@ class ProfilePreviewPage extends StatelessWidget {
                                       fit: BoxFit.cover,
                                       memCacheWidth: 360,
                                       placeholder: (context, url) =>
-                                          Container(
-                                              color: Colors.grey.shade200),
+                                          const ColoredBox(color: Color(0xFFEDE4FF)),
                                       errorWidget: (context, url, error) =>
-                                          const Icon(Icons.error),
+                                          const ColoredBox(
+                                            color: Color(0xFFEDE4FF),
+                                            child: Icon(Icons.person_rounded,
+                                                color: Color(0x594D2C91), size: 28),
+                                          ),
                                     ),
                                   ),
                               ],

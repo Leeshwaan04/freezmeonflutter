@@ -520,8 +520,16 @@ class _MatchAvatar extends StatelessWidget {
           child: CachedNetworkImage(
             imageUrl: imageUrl,
             fit: BoxFit.cover,
-            placeholder: (context, url) => Container(color: Colors.grey.shade200),
-            errorWidget: (context, url, error) => const Icon(Icons.error),
+            // Branded glyph (not a red error icon / cold grey) — this is the
+            // celebration moment; a missing photo shouldn't look broken.
+            placeholder: (context, url) => const ColoredBox(
+              color: Colors.white24,
+              child: Icon(Icons.person_rounded, color: Colors.white70, size: 48),
+            ),
+            errorWidget: (context, url, error) => const ColoredBox(
+              color: Colors.white24,
+              child: Icon(Icons.person_rounded, color: Colors.white70, size: 48),
+            ),
           ),
         ),
         const SizedBox(height: 12),
