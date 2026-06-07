@@ -474,26 +474,31 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: _locationLat != null ? _openInMaps : null,
+                    // Tap the city = change matching area/radius (the useful
+                    // action). Long-press still opens it in Maps. Replaces the
+                    // separate ↗ corner icon with an inline chevron affordance.
+                    onTap: _manualLocationSearch,
+                    onLongPress: _locationLat != null ? _openInMaps : null,
                     behavior: HitTestBehavior.opaque,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'TONIGHT IN',
-                                style: FreezmeDesignSystem.caption.copyWith(
-                                  letterSpacing: 1.2,
-                                  fontWeight: FontWeight.w800,
-                                  color: FreezmeDesignSystem.textSecondary,
-                                ),
-                              ),
-                              // FittedBox scales long city names down to fit
-                              // instead of truncating ("San Franci…").
-                              FittedBox(
+                        Text(
+                          'TONIGHT IN',
+                          style: FreezmeDesignSystem.caption.copyWith(
+                            letterSpacing: 1.2,
+                            fontWeight: FontWeight.w800,
+                            color: FreezmeDesignSystem.textSecondary,
+                          ),
+                        ),
+                        // City + inline chevron read as one tappable unit.
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: FittedBox(
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.centerLeft,
                                 child: Text(
@@ -502,18 +507,15 @@ class _HomePageState extends State<HomePage> {
                                   style: FreezmeDesignSystem.display,
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                        if (_locationLat != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Icon(
-                              Icons.open_in_new,
-                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 22,
                               color: FreezmeDesignSystem.textSecondary,
                             ),
-                          ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -914,10 +916,10 @@ class _LiveDotState extends State<_LiveDot>
         height: 8,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: const Color(0xFF4CAF50).withValues(alpha: _anim.value),
+          color: const Color(0xFF4ADE80).withValues(alpha: _anim.value),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF4CAF50).withValues(alpha: _anim.value * 0.6),
+              color: const Color(0xFF4ADE80).withValues(alpha: _anim.value * 0.6),
               blurRadius: 6,
               spreadRadius: 2,
             ),
@@ -1016,14 +1018,16 @@ class _PulseCardState extends State<_PulseCard>
   late Animation<double> _pulse;
   int? _pollVote;
 
-  // Per-type gradient palettes
+  // Per-type gradient palettes — kept within the purple/violet brand family
+  // (was an off-brand rainbow: teal, blue, brown, magenta). Each type still
+  // gets a subtle distinct hue, but all read as "Freezme purple".
   static const _gradients = <_PulseCardType, List<Color>>{
-    _PulseCardType.heat: [Color(0xFF6B21A8), Color(0xFF9333EA)],
-    _PulseCardType.mystery: [Color(0xFF1E1B4B), Color(0xFF4C1D95)],
-    _PulseCardType.spark: [Color(0xFFBE185D), Color(0xFFEC4899)],
-    _PulseCardType.clock: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-    _PulseCardType.poll: [Color(0xFF1D4ED8), Color(0xFF60A5FA)],
-    _PulseCardType.icebreaker: [Color(0xFF92400E), Color(0xFFF59E0B)],
+    _PulseCardType.heat: [Color(0xFF6D28D9), Color(0xFF9333EA)],       // vivid violet
+    _PulseCardType.mystery: [Color(0xFF2E1065), Color(0xFF5B21B6)],    // deep indigo-violet
+    _PulseCardType.spark: [Color(0xFF7C3AED), Color(0xFFDB2777)],      // purple → pink (Likes accent)
+    _PulseCardType.clock: [Color(0xFF5B21B6), Color(0xFF8B5CF6)],      // violet
+    _PulseCardType.poll: [Color(0xFF4F46E5), Color(0xFF7C3AED)],       // indigo → purple
+    _PulseCardType.icebreaker: [Color(0xFF7C3AED), Color(0xFFC026D3)], // purple → fuchsia
   };
 
   @override
@@ -1805,7 +1809,7 @@ class _SheetPrimaryButton extends StatelessWidget {
               colors: colors,
               begin: Alignment.centerLeft,
               end: Alignment.centerRight),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16), // match app CTA radius (was 14)
           boxShadow: [
             BoxShadow(
               color: colors[0].withValues(alpha: 0.3),
