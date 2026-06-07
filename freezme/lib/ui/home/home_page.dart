@@ -402,7 +402,10 @@ class _HomePageState extends State<HomePage> {
             // Key removed to prevent Duplicate GlobalKey collision during transitions
             slivers: [
               _buildHeader(),
-              if (!flow.levelUpCompleted)
+              // Hide the nudge once the user finishes Level-Up OR their profile
+              // is 100% complete — no point nagging a complete profile. Prefs
+              // remain editable anytime via Settings → Preferences / Edit Profile.
+              if (!flow.levelUpCompleted && flow.completionPercent < 1.0)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
