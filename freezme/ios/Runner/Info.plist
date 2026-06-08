@@ -48,8 +48,10 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Freezme uses the camera when you want to capture new photos for your vibe.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Freezme uses the microphone during Blinds sessions — anonymous audio conversations before photos are revealed.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Freezme uses your location to show nearby people on Paths.</string>
+	<string>Freezme uses your location to show you nearby people on Tonight and Paths.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>maps</string>
