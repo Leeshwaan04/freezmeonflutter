@@ -12,6 +12,7 @@ class PathsPresence {
     this.interestsSummary,
     this.displayName,
     this.imageUrl,
+    this.gender,
   });
 
   final String uid;
@@ -26,6 +27,7 @@ class PathsPresence {
   final String? interestsSummary;
   final String? displayName;
   final String? imageUrl;
+  final String? gender;
 
   Map<String, dynamic> toJson() {
     return {
@@ -41,6 +43,7 @@ class PathsPresence {
       if (interestsSummary != null) 'interests': interestsSummary,
       if (displayName != null) 'display_name': displayName,
       if (imageUrl != null) 'image_url': imageUrl,
+      if (gender != null) 'gender': gender,
     };
   }
 
@@ -68,6 +71,8 @@ class PathsPresence {
       imageUrl: profile?['imageUrl'] as String?
           ?? json['imageUrl'] as String?
           ?? json['image_url'] as String?,
+      gender: profile?['gender'] as String?
+          ?? json['gender'] as String?,
     );
   }
 

@@ -2014,10 +2014,10 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
                       child: child,
                     );
                   },
-                  child: UserAvatar(
-                    size: 44,
-                    // Use a mock image or initials if not provided
-                    initials: widget.presence.uid.substring(0, 2).toUpperCase(),
+                  child: _LiveAvatar(
+                    imageUrl: widget.presence.imageUrl,
+                    displayName: widget.presence.displayName,
+                    gender: widget.presence.gender,
                   ),
                 ),
                 Positioned(
@@ -2071,6 +2071,50 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Avatar for the LIVE NOW cards: real photo when available, else a
+/// gender-appropriate silhouette (never a raw UID fragment).
+class _LiveAvatar extends StatelessWidget {
+  const _LiveAvatar({this.imageUrl, this.displayName, this.gender});
+
+  final String? imageUrl;
+  final String? displayName;
+  final String? gender;
+
+  @override
+  Widget build(BuildContext context) {
+    const double size = 44;
+
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      return UserAvatar(size: size, imageUrl: imageUrl);
+    }
+
+    // No photo → gender-appropriate silhouette.
+    final g = (gender ?? '').toLowerCase();
+    final IconData icon;
+    final Color tint;
+    if (g == 'woman' || g == 'female') {
+      icon = Icons.woman_rounded;
+      tint = const Color(0xFFBE185D); // rose
+    } else if (g == 'man' || g == 'male') {
+      icon = Icons.man_rounded;
+      tint = const Color(0xFF1D4ED8); // blue
+    } else {
+      icon = Icons.person_rounded;
+      tint = FreezmeDesignSystem.primary;
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: tint.withValues(alpha: 0.12),
+      ),
+      child: Icon(icon, color: tint, size: size * 0.6),
     );
   }
 }
