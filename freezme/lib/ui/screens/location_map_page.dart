@@ -47,7 +47,7 @@ class LocationMapPage extends StatelessWidget {
                 TileLayer(
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   // OSM tile-usage policy requires a real UA identifier.
-                  userAgentPackageName: 'com.freezme.app',
+                  userAgentPackageName: 'com.sumitbagewadi.freezme',
                 ),
                 MarkerLayer(
                   markers: [
