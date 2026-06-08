@@ -222,7 +222,7 @@ class _AuthGatePageState extends State<AuthGatePage>
                             MediaQuery.of(context).padding.bottom,
                       ),
                       child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisSize: MainAxisSize.max,
                           children: [
                             const SizedBox(height: 56),
 
@@ -380,14 +380,10 @@ class _AuthGatePageState extends State<AuthGatePage>
                               ),
                             ],
 
-                            const SizedBox(height: 24),
+                            const Spacer(),
 
-                            // Legal — EULA checkbox kept at the BOTTOM. The
-                            // sign-in buttons above stay dimmed-but-tappable until
-                            // it's ticked (a tap surfaces the "agree to Terms"
-                            // hint), and the label flips to "Agree to the Terms
-                            // below to continue" — so it's discoverable without
-                            // sitting above the buttons.
+                            // Legal — EULA checkbox pinned to the bottom.
+                            // Buttons above stay dimmed-but-tappable until ticked.
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
