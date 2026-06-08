@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
@@ -779,7 +778,10 @@ class _NearbyPersonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = person.displayName?.isNotEmpty == true ? person.displayName! : 'Nearby person';
+    // PRIVACY: nearby people are anonymous until both sides connect — we never
+    // reveal their real name or photo here, only a gender silhouette + what
+    // they're up for. Showing identity + "100m away" would be a stalking risk.
+    const name = 'Someone nearby';
     final timeLeft = person.visibleUntil.difference(DateTime.now());
     final expiryLabel = timeLeft.inMinutes > 0
         ? '${timeLeft.inMinutes}m left'
@@ -789,18 +791,8 @@ class _NearbyPersonCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: person.imageUrl != null && person.imageUrl!.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: person.imageUrl!,
-                    width: 60, height: 60,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) => _defaultAvatar(),
-                  )
-                : _defaultAvatar(),
-          ),
+          // Anonymous gender avatar (no photo until connected)
+          GenderAvatar(gender: person.gender, size: 60),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -872,19 +864,6 @@ class _NearbyPersonCard extends StatelessWidget {
       ),
     );
   }
-
-  Widget _defaultAvatar() => Container(
-    width: 60, height: 60,
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [FreezmeDesignSystem.primary, Color(0xFF7C3AED)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: const Icon(Icons.person, color: Colors.white, size: 30),
-  );
 
   Color _buttonColor(String? status) {
     switch (status) {
