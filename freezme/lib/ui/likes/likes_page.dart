@@ -182,8 +182,8 @@ class _LikesPageState extends State<LikesPage> {
                           ),
                           if (!_isPremium) ...[
                             BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                              child: Container(color: Colors.black.withValues(alpha: 0.2)),
+                              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                              child: Container(color: Colors.black.withValues(alpha: 0.12)),
                             ),
                             const Center(
                               child: Icon(Icons.lock_outline, color: Colors.white, size: 48),
