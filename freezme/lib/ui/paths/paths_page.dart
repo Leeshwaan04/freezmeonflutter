@@ -792,7 +792,7 @@ class _NearbyPersonCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Anonymous gender avatar (no photo until connected)
-          GenderAvatar(gender: person.gender, size: 60),
+          GenderAvatar(gender: person.gender, seed: person.uid, size: 60),
           const SizedBox(width: 16),
           Expanded(
             child: Column(

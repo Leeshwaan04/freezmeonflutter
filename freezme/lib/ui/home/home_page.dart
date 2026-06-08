@@ -2016,6 +2016,7 @@ class _LivePathCardState extends State<_LivePathCard> with SingleTickerProviderS
                   },
                   child: GenderAvatar(
                     gender: widget.presence.gender,
+                    seed: widget.presence.uid,
                     size: 44,
                   ),
                 ),

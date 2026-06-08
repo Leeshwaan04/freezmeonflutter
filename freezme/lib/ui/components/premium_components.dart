@@ -952,54 +952,69 @@ class UserAvatar extends StatelessWidget {
 }
 
 /// Privacy-preserving avatar for proximity surfaces (LIVE NOW, Paths nearby).
-/// We intentionally never show the real photo here — nearby people are only
-/// represented by a gender-appropriate silhouette until both sides connect.
+/// We never show the real photo here — nearby people are represented by a fun,
+/// gender-appropriate cartoon "bitmoji" avatar until both sides connect.
 /// (Showing a face + "they're 100m away" would be a stalking/safety risk.)
+///
+/// Avatars are bundled (assets/avatars/) — no runtime network/3rd-party call.
+/// One of the set is chosen deterministically from [seed] so a given person
+/// always keeps the same avatar.
 class GenderAvatar extends StatelessWidget {
-  const GenderAvatar({super.key, this.gender, this.size = 44});
+  const GenderAvatar({super.key, this.gender, this.seed, this.size = 44});
 
   final String? gender;
+  final String? seed;
   final double size;
+
+  static const int _countPerGender = 8;
 
   @override
   Widget build(BuildContext context) {
     final g = (gender ?? '').toLowerCase();
-    final List<Color> grad;
-    final IconData icon;
-    if (g == 'woman' || g == 'female') {
-      // Vibrant hot-pink → coral sunset (Gen-Z energy)
-      grad = const [Color(0xFFFF5FA2), Color(0xFFFF9966)];
-      icon = Icons.woman_rounded;
-    } else if (g == 'man' || g == 'male') {
-      // Electric blue → cyan
-      grad = const [Color(0xFF5B8DEF), Color(0xFF2BD9C7)];
-      icon = Icons.man_rounded;
-    } else {
-      // Lavender → mint for non-binary / unspecified
-      grad = const [Color(0xFFA98BFF), Color(0xFF5BE7C4)];
-      icon = Icons.person_rounded;
+    final bool isWoman = g == 'woman' || g == 'female';
+    final String prefix = isWoman ? 'f' : 'm';
+
+    // Deterministic index from the seed so the same user keeps one avatar.
+    final s = seed ?? gender ?? 'x';
+    int hash = 0;
+    for (final unit in s.codeUnits) {
+      hash = (hash * 31 + unit) & 0x7fffffff;
     }
+    final idx = hash % _countPerGender;
+
+    // Gendered ring color for a polished finish.
+    final ring = isWoman ? const Color(0xFFFF5FA2) : const Color(0xFF5B8DEF);
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: grad,
-        ),
+        border: Border.all(color: ring.withValues(alpha: 0.55), width: size * 0.05),
         boxShadow: [
           BoxShadow(
-            color: grad.last.withValues(alpha: 0.45),
-            blurRadius: size * 0.28,
-            spreadRadius: size * 0.02,
+            color: ring.withValues(alpha: 0.30),
+            blurRadius: size * 0.22,
+            spreadRadius: size * 0.01,
           ),
         ],
-        border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: size * 0.045),
       ),
-      child: Icon(icon, color: Colors.white, size: size * 0.6),
+      child: ClipOval(
+        child: Image.asset(
+          'assets/avatars/$prefix$idx.png',
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            color: ring.withValues(alpha: 0.15),
+            child: Icon(
+              isWoman ? Icons.woman_rounded : Icons.man_rounded,
+              color: ring,
+              size: size * 0.6,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
