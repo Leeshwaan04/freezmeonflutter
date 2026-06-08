@@ -87,7 +87,33 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 
   // ── Step 4: Who you are ───────────────────────────────────────────────────
   final TextEditingController _nameController = TextEditingController();
-  int _age = 22;
+  // DOB-derived age — null until user picks a date (Apple Guideline 1.3).
+  DateTime? _dob;
+  int? get _age {
+    if (_dob == null) return null;
+    final today = DateTime.now();
+    int age = today.year - _dob!.year;
+    if (today.month < _dob!.month ||
+        (today.month == _dob!.month && today.day < _dob!.day)) age--;
+    return age;
+  }
+
+  bool get _dobOk => _age != null && _age! >= 18;
+
+  Future<void> _pickDob(BuildContext context) async {
+    final now = DateTime.now();
+    final latest18 = DateTime(now.year - 18, now.month, now.day);
+    final initial = _dob ?? latest18;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial.isAfter(latest18) ? latest18 : initial,
+      firstDate: DateTime(now.year - 100),
+      lastDate: latest18,
+      helpText: 'Your date of birth',
+      fieldLabelText: 'Date of birth',
+    );
+    if (picked != null) setState(() => _dob = picked);
+  }
   String? _gender;
   static const _genderPrefOptions = {
     'Man':               ['Women', 'Men', 'Everyone'],
@@ -145,7 +171,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
       case 1: return _calibrationChoices.length == kCalibrationPairs.length;
       case 2: return _promptAnswerController.text.trim().length >= 40;
       case 3: return _paceChoice != null;
-      case 4: return _nameController.text.trim().length >= 2 && _gender != null;
+      case 4: return _nameController.text.trim().length >= 2 && _dobOk && _gender != null;
       case 5: return _photo != null;
       case 6: return _selectedInterests.length >= _minInterests;
       case 7: return _selectedIntent != null;
@@ -193,7 +219,7 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
       try {
         await flow.updateOnboardingData(
           name:              _nameController.text.trim(),
-          age:               _age,
+          age:               _age ?? 18,
           gender:            _normalizeGender(_gender),
           genderPrefs:       resolvedGenderPrefs,
           intent:            _selectedIntent,
@@ -669,35 +695,63 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
             ),
           ),
           const SizedBox(height: 24),
-          Row(children: [
-            const Text('Age', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FreezmeColors.muted)),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(color: FreezmeColors.primary, borderRadius: BorderRadius.circular(99)),
-              child: Text('$_age', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
-            ),
-          ]),
+          const Text('Date of birth', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FreezmeColors.muted)),
           const SizedBox(height: 8),
-          SliderTheme(
-            data: SliderThemeData(
-              activeTrackColor: FreezmeColors.primary,
-              inactiveTrackColor: const Color(0xFFE4DFF5),
-              thumbColor: Colors.white,
-              overlayColor: FreezmeColors.primary.withValues(alpha: 0.1),
-              trackHeight: 4,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
+          GestureDetector(
+            onTap: () => _pickDob(context),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _hasAttemptedNext && !_dobOk
+                      ? FreezmeColors.error
+                      : _dob != null
+                          ? FreezmeColors.primary.withValues(alpha: 0.5)
+                          : Colors.transparent,
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.cake_outlined,
+                      color: _dob != null ? FreezmeColors.primary : FreezmeColors.muted,
+                      size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _dob != null
+                          ? '${_dob!.day.toString().padLeft(2, '0')} / '
+                            '${_dob!.month.toString().padLeft(2, '0')} / '
+                            '${_dob!.year}  •  Age ${_age!}'
+                          : 'Select your date of birth',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: _dob != null ? FreezmeColors.neutral : FreezmeColors.muted.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded,
+                      color: FreezmeColors.muted.withValues(alpha: 0.5), size: 20),
+                ],
+              ),
             ),
-            child: Slider(value: _age.toDouble(), min: 18, max: 60, divisions: 42,
-                onChanged: (v) => setState(() => _age = v.round())),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('18', style: TextStyle(fontSize: 11, color: FreezmeColors.muted.withValues(alpha: 0.6))),
-              Text('60+', style: TextStyle(fontSize: 11, color: FreezmeColors.muted.withValues(alpha: 0.6))),
-            ]),
-          ),
+          if (_hasAttemptedNext && _dob == null)
+            const Padding(
+              padding: EdgeInsets.only(top: 6, left: 4),
+              child: Text('Please enter your date of birth',
+                  style: TextStyle(fontSize: 12, color: FreezmeColors.error)),
+            ),
+          if (_hasAttemptedNext && _dob != null && !_dobOk)
+            const Padding(
+              padding: EdgeInsets.only(top: 6, left: 4),
+              child: Text('You must be 18 or older to use Freezme',
+                  style: TextStyle(fontSize: 12, color: FreezmeColors.error)),
+            ),
           const SizedBox(height: 24),
           const Text('I identify as', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: FreezmeColors.muted)),
           const SizedBox(height: 12),

@@ -51,46 +51,6 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
     }
   }
 
-  bool _deletingAccount = false;
-
-  Future<void> _confirmDeleteAccount(AppFlowController flow) async {
-    if (_deletingAccount) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete account?'),
-        content: const Text(
-          'This will permanently delete your profile, matches, and all data. This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete Forever'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    setState(() => _deletingAccount = true);
-    try {
-      await ApiClient.instance.dio.delete<Map<String, dynamic>>('/users/me');
-      await flow.signOut();
-    } catch (e) {
-      debugPrint('[Account] delete failed: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't delete your account. Please check your connection and try again.")),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _deletingAccount = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -297,13 +257,34 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
                          fullWidth: true,
                          loading: _signingOut,
                        ),
-                        const SizedBox(height: 12),
-                        TextButton.icon(
-                          onPressed: () => _confirmDeleteAccount(flow),
-                          icon: const Icon(Icons.delete_forever_outlined, color: Colors.red, size: 18),
-                          label: Text(
-                            'Delete Account',
-                            style: TextStyle(color: Colors.red.shade600),
+                        const SizedBox(height: 8),
+                        // Prominent delete-account entry — Apple Guideline 5.1.1
+                        // requires account deletion to be easy to find.
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).push(
+                            SmoothPageRoute(page: DeleteAccountPage(flow: flow)),
+                          ),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withAlpha(12),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.red.withAlpha(40)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.delete_forever_outlined, color: Colors.red.shade600, size: 20),
+                                const SizedBox(width: 8),
+                                Text('Delete Account',
+                                    style: TextStyle(
+                                      color: Colors.red.shade600,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    )),
+                              ],
+                            ),
                           ),
                         ),
                     ],
@@ -408,6 +389,167 @@ class _ProfileSettingsPageState extends State<ProfileSettingsPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Delete Account dedicated page (Apple Guideline 5.1.1) ────────────────────
+class DeleteAccountPage extends StatefulWidget {
+  const DeleteAccountPage({super.key, required this.flow});
+  final AppFlowController flow;
+
+  @override
+  State<DeleteAccountPage> createState() => _DeleteAccountPageState();
+}
+
+class _DeleteAccountPageState extends State<DeleteAccountPage> {
+  bool _deleting = false;
+  bool _confirmed = false;
+
+  Future<void> _delete() async {
+    if (!_confirmed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please check the confirmation box first.')),
+      );
+      return;
+    }
+    setState(() => _deleting = true);
+    try {
+      await ApiClient.instance.dio.delete<Map<String, dynamic>>('/users/me');
+      await widget.flow.signOut();
+    } catch (e) {
+      debugPrint('[Account] delete failed: $e');
+      if (mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Couldn't delete your account. Please check your connection and try again."),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: FreezmeDesignSystem.background,
+      appBar: AppBar(
+        backgroundColor: FreezmeDesignSystem.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text('Delete Account', style: FreezmeDesignSystem.h3),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.red.withAlpha(12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.red.withAlpha(40)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.red.shade600, size: 22),
+                      const SizedBox(width: 8),
+                      Text('This cannot be undone',
+                          style: TextStyle(
+                            color: Colors.red.shade700,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          )),
+                    ]),
+                    const SizedBox(height: 12),
+                    const _BulletPoint(text: 'Your profile and photos will be permanently deleted'),
+                    const _BulletPoint(text: 'All matches and conversations will be lost'),
+                    const _BulletPoint(text: 'Any active Freezme+ subscription will not be refunded'),
+                    const _BulletPoint(text: 'You will not be able to recover your account'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Want a break instead?',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Freeze Mode pauses your profile — your matches and data stay safe until you return.',
+                style: TextStyle(fontSize: 14, color: FreezmeDesignSystem.textSecondary),
+              ),
+              const Spacer(),
+              CheckboxListTile(
+                value: _confirmed,
+                onChanged: (v) => setState(() => _confirmed = v ?? false),
+                activeColor: Colors.red.shade600,
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'I understand this will permanently delete my account and all data.',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: (_deleting || !_confirmed) ? null : _delete,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.red.shade600,
+                    disabledBackgroundColor: Colors.red.withAlpha(80),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: _deleting
+                      ? const SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Delete My Account Forever',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel — Keep My Account'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BulletPoint extends StatelessWidget {
+  const _BulletPoint({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('• ', style: TextStyle(color: Colors.red.shade600, fontWeight: FontWeight.bold)),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 13, color: FreezmeDesignSystem.textSecondary))),
+        ],
       ),
     );
   }
