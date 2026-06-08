@@ -1,1 +1,8 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
+
+// Simulator runs don't enforce code signing. Disabling it here avoids the
+// "Command CodeSign failed" error from stale/ad-hoc signing on the simulator.
+// This ONLY affects Debug (simulator) builds — Release archives for TestFlight
+// use Release.xcconfig and are unaffected.
+CODE_SIGNING_ALLOWED = NO
+CODE_SIGNING_REQUIRED = NO

@@ -221,7 +221,12 @@ class _AuthGatePageState extends State<AuthGatePage>
                             MediaQuery.of(context).padding.top -
                             MediaQuery.of(context).padding.bottom,
                       ),
-                      child: Column(
+                      // IntrinsicHeight gives the Column a bounded height inside
+                      // the scroll view so the Spacer() before the EULA row can
+                      // expand to pin it to the bottom (without this, Spacer in an
+                      // unbounded Column throws "RenderBox was not laid out").
+                      child: IntrinsicHeight(
+                        child: Column(
                           mainAxisSize: MainAxisSize.max,
                           children: [
                             const SizedBox(height: 56),
@@ -431,6 +436,7 @@ class _AuthGatePageState extends State<AuthGatePage>
 
                             const SizedBox(height: 24),
                           ],
+                        ),
                       ),
                     ),
                   ),
