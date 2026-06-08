@@ -212,23 +212,18 @@ class _AuthGatePageState extends State<AuthGatePage>
                   ),
                 ),
                 SafeArea(
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: MediaQuery.of(context).size.height -
-                            MediaQuery.of(context).padding.top -
-                            MediaQuery.of(context).padding.bottom,
-                      ),
-                      // IntrinsicHeight gives the Column a bounded height inside
-                      // the scroll view so the Spacer() before the EULA row can
-                      // expand to pin it to the bottom (without this, Spacer in an
-                      // unbounded Column throws "RenderBox was not laid out").
-                      child: IntrinsicHeight(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.max,
-                          children: [
+                  // Pinned-footer layout: the logo / buttons scroll in the
+                  // Expanded area, and the EULA row is fixed flush at the very
+                  // bottom of the screen (robust across all device heights).
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const ClampingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 28),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                             const SizedBox(height: 56),
 
                             // Logo — same as splash
@@ -385,60 +380,63 @@ class _AuthGatePageState extends State<AuthGatePage>
                               ),
                             ],
 
-                            const Spacer(),
-
-                            // Legal — EULA checkbox pinned to the bottom.
-                            // Buttons above stay dimmed-but-tappable until ticked.
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: Checkbox(
-                                    value: _acceptedEula,
-                                    activeColor: FreezmeColors.primary,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                    onChanged: (val) {
-                                      final accepted = val ?? false;
-                                      setState(() => _acceptedEula = accepted);
-                                      _saveEulaState(accepted);
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Flexible(
-                                  child: Text.rich(
-                                    TextSpan(
-                                      text: 'I agree to the ',
-                                      style: FreezmeTypography.bodyMuted.copyWith(fontSize: 12),
-                                      children: [
-                                        TextSpan(
-                                          text: 'Terms of Service',
-                                          style: const TextStyle(color: FreezmeColors.primary, fontWeight: FontWeight.w600),
-                                          recognizer: TapGestureRecognizer()..onTap = () => _openUrl(_kTermsUrl),
-                                        ),
-                                        const TextSpan(text: ' and '),
-                                        TextSpan(
-                                          text: 'Privacy Policy',
-                                          style: const TextStyle(color: FreezmeColors.primary, fontWeight: FontWeight.w600),
-                                          recognizer: TapGestureRecognizer()..onTap = () => _openUrl(_kPrivacyUrl),
-                                        ),
-                                        const TextSpan(text: ' (Required).'),
-                                      ],
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ],
-                            ),
-
                             const SizedBox(height: 24),
+                          ],
+                          ),
+                        ),
+                      ),
+
+                      // Legal — EULA checkbox pinned flush to the BOTTOM of the
+                      // screen (fixed footer, outside the scroll area). Buttons
+                      // above stay dimmed-but-tappable until ticked.
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(28, 8, 28, 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: Checkbox(
+                                value: _acceptedEula,
+                                activeColor: FreezmeColors.primary,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                onChanged: (val) {
+                                  final accepted = val ?? false;
+                                  setState(() => _acceptedEula = accepted);
+                                  _saveEulaState(accepted);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Text.rich(
+                                TextSpan(
+                                  text: 'I agree to the ',
+                                  style: FreezmeTypography.bodyMuted.copyWith(fontSize: 12),
+                                  children: [
+                                    TextSpan(
+                                      text: 'Terms of Service',
+                                      style: const TextStyle(color: FreezmeColors.primary, fontWeight: FontWeight.w600),
+                                      recognizer: TapGestureRecognizer()..onTap = () => _openUrl(_kTermsUrl),
+                                    ),
+                                    const TextSpan(text: ' and '),
+                                    TextSpan(
+                                      text: 'Privacy Policy',
+                                      style: const TextStyle(color: FreezmeColors.primary, fontWeight: FontWeight.w600),
+                                      recognizer: TapGestureRecognizer()..onTap = () => _openUrl(_kPrivacyUrl),
+                                    ),
+                                    const TextSpan(text: ' (Required).'),
+                                  ],
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
                           ],
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],
