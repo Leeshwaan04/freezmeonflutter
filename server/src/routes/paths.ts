@@ -97,9 +97,24 @@ router.get('/nearby', async (req: Request, res: Response) => {
     const blockedSet = new Set(blocks.map((b) => b.blockerUid === req.uid ? b.blockedUid : b.blockerUid));
     const unblocked = filtered.filter((p) => !blockedSet.has(p.uid));
 
-    // Batch-fetch all profiles in one query (avoids N+1)
+    // Batch-fetch all profiles in one query (avoids N+1).
+    // PRIVACY: select ONLY display-safe fields. We must never load (let alone
+    // return) another nearby user's home lat/lng/geohash — proximity is conveyed
+    // solely via the rounded `distanceKm` computed below. Returning raw coords
+    // here would let a client triangulate someone's exact home/whereabouts.
     const uids = unblocked.map((p) => p.uid);
-    const profiles = await prisma.profile.findMany({ where: { userId: { in: uids } } });
+    const profiles = await prisma.profile.findMany({
+      where: { userId: { in: uids } },
+      select: {
+        userId: true,
+        name: true,
+        age: true,
+        gender: true,
+        imageUrl: true,
+        isVerified: true,
+        intent: true,
+      },
+    });
     const profileByUid = Object.fromEntries(profiles.map((pr) => [pr.userId, pr]));
 
     // PRIVACY: never expose raw lat/lng/geohash of other users. Return only the
