@@ -76,13 +76,15 @@ router.delete('/me', async (req: Request, res: Response) => {
       // 5. Delete all chats and messages for this user
       const userChats = await tx.chat.findMany({ where: { members: { has: uid } } });
       for (const chat of userChats) {
-        await tx.chatMessage.deleteMany({ where: { chatId: chat.id } });
+        await tx.message.deleteMany({ where: { chatId: chat.id } });
         await tx.chat.delete({ where: { id: chat.id } });
       }
 
-      // 6. Delete blocks and melt invites
+      // 6. Delete blocks, path invites, melt sessions, and blinds sessions
       await tx.block.deleteMany({ where: { OR: [{ blockerUid: uid }, { blockedUid: uid }] } });
-      await tx.meltInvite.deleteMany({ where: { OR: [{ senderUid: uid }, { receiverUid: uid }] } });
+      await tx.pathInvite.deleteMany({ where: { OR: [{ senderUid: uid }, { receiverUid: uid }] } });
+      await tx.meltSession.deleteMany({ where: { OR: [{ hostUid: uid }, { targetUid: uid }] } });
+      await tx.blindsSession.deleteMany({ where: { OR: [{ userA: uid }, { userB: uid }] } });
 
       // 7. Delete profile
       await tx.profile.deleteMany({ where: { userId: uid } });
