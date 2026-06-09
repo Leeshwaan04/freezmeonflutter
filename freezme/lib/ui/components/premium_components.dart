@@ -971,8 +971,6 @@ class GenderAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final g = (gender ?? '').toLowerCase();
-    final bool isWoman = g == 'woman' || g == 'female';
-    final String prefix = isWoman ? 'f' : 'm';
 
     // Deterministic index from the seed so the same user keeps one avatar.
     final s = seed ?? gender ?? 'x';
@@ -980,6 +978,15 @@ class GenderAvatar extends StatelessWidget {
     for (final unit in s.codeUnits) {
       hash = (hash * 31 + unit) & 0x7fffffff;
     }
+
+    // Honor an explicit gender when the API provides one. When it's missing,
+    // fall back to a deterministic per-seed coin flip instead of always
+    // defaulting to male — keeps proximity surfaces a natural m/f mix.
+    final bool explicitWoman = g == 'woman' || g == 'female';
+    final bool explicitMan = g == 'man' || g == 'male';
+    final bool isWoman = explicitWoman || (!explicitMan && hash.isEven);
+    final String prefix = isWoman ? 'f' : 'm';
+
     final idx = hash % _countPerGender;
 
     // Gendered ring color for a polished finish.
