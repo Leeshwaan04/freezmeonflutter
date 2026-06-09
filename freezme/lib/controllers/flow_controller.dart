@@ -419,20 +419,12 @@ class AppFlowController extends ChangeNotifier {
           if (current == AppStage.authGate || current == AppStage.splash) {
             // Use server profile completeness as source of truth — local pref is
             // only a fallback for speed on app restart when profile is already known.
-            // gender is never auto-populated (unlike name/age which Google may seed),
-            // so it's a reliable signal that the user completed onboarding.
-            final serverProfileComplete = user.displayName != null &&
-                user.displayName!.isNotEmpty &&
-                user.age != null &&
-                user.gender != null &&
-                user.gender!.isNotEmpty;
+            // ALWAYS require users to complete onboarding (even if Apple/Google pre-fills
+            // name/age/gender), since onboarding also captures intent, interests, photos,
+            // and prompt answer. Use the local pref to track completion.
             final localCompleted = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
-            final completed = serverProfileComplete || localCompleted;
-            if (serverProfileComplete && !localCompleted) {
-              _prefs?.setBool(_kOnboardingCompleteKey, true);
-            }
             // replaceStack already calls notifyListeners
-            replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
+            replaceStack([localCompleted ? AppStage.dailyPool : AppStage.onboarding]);
           } else if (slotsChanged) {
             // Slots updated but no navigation change — still notify listeners
             notifyListeners();

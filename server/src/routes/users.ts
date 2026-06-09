@@ -49,37 +49,49 @@ router.delete('/fcm-token', async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /users/me — delete account (soft delete)
+// DELETE /users/me — delete account (hard delete)
 router.delete('/me', async (req: Request, res: Response) => {
   try {
     const uid = req.uid;
 
     await prisma.$transaction(async (tx) => {
-      // 1. Mark user as deleted and clear FCM token
-      await tx.user.update({
-        where: { id: uid },
-        data: { status: 'deleted', fcmToken: null, lastActiveAt: new Date() },
-      });
-
-      // 2. Clear all refresh tokens so they are logged out
+      // 1. Clear all refresh tokens so they are logged out
       await tx.refreshToken.deleteMany({ where: { userId: uid } });
 
-      // 3. Mark matches as inactive so they disappear from other users' inboxes immediately
+      // 2. Mark matches as inactive so they disappear from other users' inboxes immediately
       const matches = await tx.match.findMany({ where: { members: { has: uid } } });
       for (const m of matches) {
         await tx.match.update({ where: { id: m.id }, data: { status: 'inactive' } });
       }
 
-      // 4. Remove them from active pools, presences, or queues to hide their profile
+      // 3. Remove them from active pools, presences, or queues to hide their profile
       await tx.blindsQueue.deleteMany({ where: { uid } });
       await tx.pathsPresence.deleteMany({ where: { uid } });
 
-      // 5. Delete their feed posts and outbound likes so they are immediately removed from discovery
+      // 4. Delete their feed posts, likes, and reports
       await tx.feedPost.deleteMany({ where: { authorUid: uid } });
       await tx.like.deleteMany({ where: { senderUid: uid } });
-      
-      // We do NOT delete the User, Profile, or Chats yet.
-      // A cron job will permanently clean up users who have been 'deleted' for 30 days.
+      await tx.report.deleteMany({ where: { reporterUid: uid } });
+
+      // 5. Delete all chats and messages for this user
+      const userChats = await tx.chat.findMany({ where: { members: { has: uid } } });
+      for (const chat of userChats) {
+        await tx.chatMessage.deleteMany({ where: { chatId: chat.id } });
+        await tx.chat.delete({ where: { id: chat.id } });
+      }
+
+      // 6. Delete blocks and melt invites
+      await tx.block.deleteMany({ where: { OR: [{ blockerUid: uid }, { blockedUid: uid }] } });
+      await tx.meltInvite.deleteMany({ where: { OR: [{ senderUid: uid }, { receiverUid: uid }] } });
+
+      // 7. Delete profile
+      await tx.profile.deleteMany({ where: { userId: uid } });
+
+      // 8. Delete membership
+      await tx.membership.deleteMany({ where: { userId: uid } });
+
+      // 9. Delete the user completely
+      await tx.user.delete({ where: { id: uid } });
     });
 
     res.json({ success: true });

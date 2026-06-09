@@ -9,14 +9,13 @@ import '../../core/app_stage.dart';
 import '../../services/auth_service.dart';
 import '../../models/blueprint.dart';
 
-// ── Onboarding: 7-step modern flow ───────────────────────────────────────────
-// Step 1 — The Pull    (A/B energy calibration)
-// Step 2 — The Value   (prompt answer)
-// Step 3 — The Pace    (scenario choice)
-// Step 4 — Who you are (name, age, gender, interested in)
-// Step 5 — Your photo
-// Step 6 — Your world  (interests)
-// Step 7 — Your intent
+// ── Onboarding: 6-step modern flow ───────────────────────────────────────────
+// Step 1 — The Value   (prompt answer)
+// Step 2 — The Pace    (scenario choice)
+// Step 3 — Who you are (name, age, gender, interested in)
+// Step 4 — Your photo
+// Step 5 — Your world  (interests)
+// Step 6 — Your intent
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _kPrompts = [
@@ -37,41 +36,11 @@ class OnboardingFlowPage extends StatefulWidget {
 class _OnboardingFlowPageState extends State<OnboardingFlowPage>
     with SingleTickerProviderStateMixin {
   int _step = 1;
-  static const int _totalSteps = 7;
+  static const int _totalSteps = 6;
   bool _submitting = false;
   bool _hasAttemptedNext = false;
 
-  // ── Step 1: The Pull ──────────────────────────────────────────────────────
-  final List<int> _calibrationChoices = [];
-
-  List<PersonalityTrait> get _derivedTraits {
-    if (_calibrationChoices.length < 4) return [];
-    return [
-      _calibrationChoices[2] == 0 ? PersonalityTrait.introvert : PersonalityTrait.extrovert,
-      _calibrationChoices[1] == 0 ? PersonalityTrait.planner : PersonalityTrait.spontaneous,
-      _calibrationChoices[3] == 0 ? PersonalityTrait.logical : PersonalityTrait.emotional,
-      _calibrationChoices[0] == 0 ? PersonalityTrait.cautious : PersonalityTrait.adventurous,
-    ];
-  }
-
-  /// Derive the energy type from "The Pull" calibration so it actually feeds
-  /// matching (the algorithm weights energy compatibility 20pts; it was null
-  /// for every user because onboarding never set it).
-  ///   introvert × planner    → deepDiver  (reflective, depth)
-  ///   introvert × spontaneous → quietStorm (calm exterior, inner world)
-  ///   extrovert × planner    → roomIgniter (social, high energy)
-  ///   extrovert × spontaneous → openRoad   (spontaneous, always moving)
-  EnergyType? get _derivedEnergyType {
-    if (_calibrationChoices.length < 4) return null;
-    final extrovert = _calibrationChoices[2] == 1;
-    final spontaneous = _calibrationChoices[1] == 1;
-    if (!extrovert && !spontaneous) return EnergyType.deepDiver;
-    if (!extrovert && spontaneous) return EnergyType.quietStorm;
-    if (extrovert && !spontaneous) return EnergyType.roomIgniter;
-    return EnergyType.openRoad;
-  }
-
-  // ── Step 2: The Value ─────────────────────────────────────────────────────
+  // ── Step 1: The Value ──────────────────────────────────────────────────────
   String _selectedPrompt = _kPrompts[0];
   final TextEditingController _promptAnswerController = TextEditingController();
 
@@ -168,13 +137,12 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 
   bool _canProceed() {
     switch (_step) {
-      case 1: return _calibrationChoices.length == kCalibrationPairs.length;
-      case 2: return _promptAnswerController.text.trim().length >= 40;
-      case 3: return _paceChoice != null;
-      case 4: return _nameController.text.trim().length >= 2 && _dobOk && _gender != null;
-      case 5: return _photo != null;
-      case 6: return _selectedInterests.length >= _minInterests;
-      case 7: return _selectedIntent != null;
+      case 1: return _promptAnswerController.text.trim().length >= 40;
+      case 2: return _paceChoice != null;
+      case 3: return _nameController.text.trim().length >= 2 && _dobOk && _gender != null;
+      case 4: return _photo != null;
+      case 5: return _selectedInterests.length >= _minInterests;
+      case 6: return _selectedIntent != null;
       default: return false;
     }
   }
@@ -224,8 +192,8 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
           genderPrefs:       resolvedGenderPrefs,
           intent:            _selectedIntent,
           interests:         _selectedInterests.toList(),
-          personalityTraits: _derivedTraits,
-          energyType:        _derivedEnergyType,
+          personalityTraits: const [],
+          energyType:        null,
           lifestyleFactors:  const [],
           imageUrl:          imageUrl,
           bio:               _promptAnswerController.text.trim(),
@@ -267,13 +235,12 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 
   String _stepLabel(int step) {
     switch (step) {
-      case 1: return 'The Pull';
-      case 2: return 'The Value';
-      case 3: return 'The Pace';
-      case 4: return 'Who you are';
-      case 5: return 'Your photo';
-      case 6: return 'Your world';
-      case 7: return 'Your intent';
+      case 1: return 'The Value';
+      case 2: return 'The Pace';
+      case 3: return 'Who you are';
+      case 4: return 'Your photo';
+      case 5: return 'Your world';
+      case 6: return 'Your intent';
       default: return '';
     }
   }
@@ -393,53 +360,14 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 
   Widget _buildStep(AppFlowController flow) {
     switch (_step) {
-      case 1: return _buildPull();
-      case 2: return _buildValue();
-      case 3: return _buildPace();
-      case 4: return _buildWhoYouAre();
-      case 5: return _buildPhoto();
-      case 6: return _buildInterests();
-      case 7: return _buildIntent();
+      case 1: return _buildValue();
+      case 2: return _buildPace();
+      case 3: return _buildWhoYouAre();
+      case 4: return _buildPhoto();
+      case 5: return _buildInterests();
+      case 6: return _buildIntent();
       default: return const SizedBox();
     }
-  }
-
-  Widget _buildPull() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Which pulls\nyou more?',
-              style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800,
-                  color: FreezmeColors.neutral, height: 1.15)),
-          const SizedBox(height: 6),
-          const Text('No right answer. Pick what you actually feel.',
-              style: TextStyle(fontSize: 15, color: FreezmeColors.muted)),
-          const SizedBox(height: 28),
-          ...kCalibrationPairs.asMap().entries.map((entry) {
-            final i    = entry.key;
-            final pair = entry.value;
-            final chosen = _calibrationChoices.length > i ? _calibrationChoices[i] : -1;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: _CalibrationPairCard(
-                optionA: pair.optionA, optionB: pair.optionB, chosen: chosen,
-                onChoose: (choice) => setState(() {
-                  if (_calibrationChoices.length <= i) _calibrationChoices.add(choice);
-                  else _calibrationChoices[i] = choice;
-                }),
-              ),
-            );
-          }),
-          if (_hasAttemptedNext && _calibrationChoices.length < kCalibrationPairs.length)
-            _ValidationHint(
-              text: 'Choose one from each pair (${_calibrationChoices.length}/${kCalibrationPairs.length} done)',
-            ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
   }
 
   Widget _buildValue() {
@@ -1045,58 +973,6 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 }
 
 // ── Calibration pair card ─────────────────────────────────────────────────────
-
-class _CalibrationPairCard extends StatelessWidget {
-  const _CalibrationPairCard({
-    required this.optionA, required this.optionB,
-    required this.chosen, required this.onChoose,
-  });
-  final String optionA, optionB;
-  final int chosen;
-  final ValueChanged<int> onChoose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      Expanded(child: _OptionTile(label: optionA, selected: chosen == 0, onTap: () => onChoose(0))),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Text('or', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-            color: FreezmeColors.muted.withValues(alpha: 0.6))),
-      ),
-      Expanded(child: _OptionTile(label: optionB, selected: chosen == 1, onTap: () => onChoose(1))),
-    ]);
-  }
-}
-
-class _OptionTile extends StatelessWidget {
-  const _OptionTile({required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? FreezmeColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: selected
-              ? [BoxShadow(color: FreezmeColors.primary.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))]
-              : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1))],
-        ),
-        child: Text(label, style: TextStyle(fontSize: 12, height: 1.45,
-            color: selected ? Colors.white : FreezmeColors.neutral,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400),
-            maxLines: 5, overflow: TextOverflow.ellipsis),
-      ),
-    );
-  }
-}
 
 // ── Validation hint ───────────────────────────────────────────────────────────
 
