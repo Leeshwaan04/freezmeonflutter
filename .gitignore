@@ -31,3 +31,4 @@ server/dist_tmp/
 *service-account*.json
 firebase-service-account.json
 service-account.json
+levelup/
