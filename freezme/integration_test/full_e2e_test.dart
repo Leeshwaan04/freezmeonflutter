@@ -20,12 +20,50 @@ void main() {
 
     setUp(() async {
       prefs = await SharedPreferences.getInstance();
-      // Clear any stale session so each test starts fresh
+      // Clear any stale session so each test starts fresh.
       await prefs.clear();
+      // Mark the welcome carousel as already seen so auth-gate tests aren't
+      // blocked by it. The carousel itself is covered by TEST 0.
+      await prefs.setBool('welcome_seen', true);
       await AuthService.instance.signOut();
     });
 
-    // ── TEST 1: Splash → Auth Gate ──────────────────────────────────────────
+    // ── TEST 0: Welcome carousel (first launch) ─────────────────────────────
+    testWidgets('0. First launch shows 3-slide welcome carousel → sign-in',
+        (tester) async {
+      await prefs.setBool('welcome_seen', false); // force first-launch state
+      await tester.pumpWidget(const FreezmeApp());
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+
+      // Slide 1 + a Next CTA should be present.
+      expect(find.text('Next').evaluate().isNotEmpty, isTrue,
+          reason: 'Welcome carousel slide should show a Next button');
+      expect(find.textContaining('match').evaluate().isNotEmpty, isTrue,
+          reason: 'Slide 1 sells the curated-match value prop');
+
+      // Advance through the slides to the final Get Started CTA.
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(find.text('Next').first);
+        await tester.pumpAndSettle(const Duration(milliseconds: 600));
+      }
+      expect(find.text('Get Started').evaluate().isNotEmpty, isTrue,
+          reason: 'Final slide should show Get Started');
+
+      await tester.tap(find.text('Get Started').first);
+      await tester.pumpAndSettle(const Duration(seconds: 2));
+      // Should now be on the sign-in gate.
+      expect(
+        find.textContaining('Apple').evaluate().isNotEmpty ||
+            find.textContaining('Google').evaluate().isNotEmpty ||
+            find.textContaining('Email').evaluate().isNotEmpty,
+        isTrue,
+        reason: 'Get Started should lead to the sign-in gate',
+      );
+      print('✅ TEST 0 PASS: Welcome carousel → sign-in');
+    });
+
+    // ── TEST 1: Splash → Auth Gate (returning, welcome already seen) ────────
     testWidgets('1. Splash screen loads and shows auth gate', (tester) async {
       await tester.pumpWidget(const FreezmeApp());
       await tester.pump(const Duration(seconds: 2));
