@@ -810,6 +810,11 @@ class AppFlowController extends ChangeNotifier {
       presenceWindows: presenceWindows,
     );
 
+    // Re-fetch the saved profile so the in-memory currentUser reflects the
+    // just-uploaded photo + fields immediately. Without this, Profile / Edit
+    // screens read a stale (pre-onboarding) user and show no photo.
+    await AuthService.instance.refreshProfile();
+
     if (archetype != null) {
       selectedArchetype = archetype;
     }

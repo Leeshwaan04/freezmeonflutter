@@ -206,7 +206,9 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
       }
       if (mounted) {
         flow.isVerified = true;
-        flow.replaceStack([AppStage.dailyPool]);
+        // completeOnboarding sets the onboarding_complete flag (so returning
+        // users skip onboarding) and fires the contextual notification prompt.
+        await flow.completeOnboarding();
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
