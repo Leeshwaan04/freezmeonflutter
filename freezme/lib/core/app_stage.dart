@@ -1,5 +1,6 @@
 enum AppStage {
   splash,
+  welcome,
   authGate,
   onboarding,
   dailyPool,

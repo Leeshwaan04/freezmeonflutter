@@ -24,6 +24,7 @@ export 'models/photo_slot.dart';
 
 // Screen Imports
 import 'ui/screens/splash_screen.dart';
+import 'ui/screens/welcome_screen.dart';
 import 'ui/screens/auth_gate.dart';
 import 'ui/screens/onboarding_flow.dart';
 import 'ui/home/home_page.dart';
@@ -287,6 +288,8 @@ class FlowNavigator extends StatelessWidget {
     switch (stage) {
       case AppStage.splash:
         return const SplashScreen();
+      case AppStage.welcome:
+        return const WelcomeScreen();
       case AppStage.authGate:
         return const AuthGatePage();
       case AppStage.onboarding:

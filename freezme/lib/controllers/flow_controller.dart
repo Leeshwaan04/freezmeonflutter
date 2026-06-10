@@ -26,6 +26,7 @@ import '../services/photo_upload_service.dart';
 class AppFlowController extends ChangeNotifier {
   static const _kOnboardingCompleteKey = 'onboarding_complete';
   static const _kLevelUpCompleteKey = 'level_up_complete';
+  static const _kWelcomeSeenKey = 'welcome_seen';
 
   AppFlowController._(
     this._prefs,
@@ -566,11 +567,21 @@ class AppFlowController extends ChangeNotifier {
     if (current != AppStage.splash) return; // auth listener already routed us
     final user = AuthService.instance.currentUser;
     if (user == null) {
-      replaceStack(<AppStage>[AppStage.authGate]);
+      // Logged-out: show the welcome carousel on first launch, then the sign-in
+      // gate on subsequent launches (welcome_seen pref tracks first view).
+      final welcomeSeen = _prefs?.getBool(_kWelcomeSeenKey) ?? false;
+      replaceStack(<AppStage>[welcomeSeen ? AppStage.authGate : AppStage.welcome]);
     } else {
       final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
       replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
     }
+  }
+
+  /// Welcome carousel → sign-in gate. Marks the carousel as seen so it doesn't
+  /// reappear on later launches.
+  void completeWelcome() {
+    _prefs?.setBool(_kWelcomeSeenKey, true);
+    replaceStack(<AppStage>[AppStage.authGate]);
   }
 
   void startOnboarding() {

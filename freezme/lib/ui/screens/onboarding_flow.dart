@@ -9,22 +9,13 @@ import '../../core/app_stage.dart';
 import '../../services/auth_service.dart';
 import '../../models/blueprint.dart';
 
-// ── Onboarding: 6-step modern flow ───────────────────────────────────────────
-// Step 1 — The Value   (prompt answer)
-// Step 2 — The Pace    (scenario choice)
-// Step 3 — Who you are (name, age, gender, interested in)
-// Step 4 — Your photo
-// Step 5 — Your world  (interests)
-// Step 6 — Your intent
+// ── Onboarding: 5-step modern flow ───────────────────────────────────────────
+// Step 1 — The Pace    (scenario choice)
+// Step 2 — Who you are (name, age, gender, interested in)
+// Step 3 — Your photo
+// Step 4 — Your world  (interests)
+// Step 5 — Your intent
 // ─────────────────────────────────────────────────────────────────────────────
-
-const _kPrompts = [
-  'The last time you genuinely helped someone — what did you do?',
-  'The most spontaneous thing you\'ve ever done.',
-  'I\'ll know it\'s going well if...',
-  'My friends would describe me as...',
-  'The thing I\'m most proud of that nobody gave me an award for.',
-];
 
 class OnboardingFlowPage extends StatefulWidget {
   const OnboardingFlowPage({super.key});
@@ -36,13 +27,9 @@ class OnboardingFlowPage extends StatefulWidget {
 class _OnboardingFlowPageState extends State<OnboardingFlowPage>
     with SingleTickerProviderStateMixin {
   int _step = 1;
-  static const int _totalSteps = 6;
+  static const int _totalSteps = 5;
   bool _submitting = false;
   bool _hasAttemptedNext = false;
-
-  // ── Step 1: The Value ──────────────────────────────────────────────────────
-  String _selectedPrompt = _kPrompts[0];
-  final TextEditingController _promptAnswerController = TextEditingController();
 
   // ── Step 3: The Pace ──────────────────────────────────────────────────────
   int? _paceChoice;
@@ -131,18 +118,16 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
   @override
   void dispose() {
     _nameController.dispose();
-    _promptAnswerController.dispose();
     super.dispose();
   }
 
   bool _canProceed() {
     switch (_step) {
-      case 1: return _promptAnswerController.text.trim().length >= 40;
-      case 2: return _paceChoice != null;
-      case 3: return _nameController.text.trim().length >= 2 && _dobOk && _gender != null;
-      case 4: return _photo != null;
-      case 5: return _selectedInterests.length >= _minInterests;
-      case 6: return _selectedIntent != null;
+      case 1: return _paceChoice != null;
+      case 2: return _nameController.text.trim().length >= 2 && _dobOk && _gender != null;
+      case 3: return _photo != null;
+      case 4: return _selectedInterests.length >= _minInterests;
+      case 5: return _selectedIntent != null;
       default: return false;
     }
   }
@@ -196,11 +181,6 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
           energyType:        null,
           lifestyleFactors:  const [],
           imageUrl:          imageUrl,
-          bio:               _promptAnswerController.text.trim(),
-          promptAnswer:      PromptAnswer(
-            prompt: _selectedPrompt,
-            answer: _promptAnswerController.text.trim(),
-          ),
           paceSignal:        _paceChoice == 0 ? PaceSignal.takesTheirTime
                              : _paceChoice == 3 ? PaceSignal.quickConnector
                              : PaceSignal.movesWithInterest,
@@ -235,12 +215,11 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 
   String _stepLabel(int step) {
     switch (step) {
-      case 1: return 'The Value';
-      case 2: return 'The Pace';
-      case 3: return 'Who you are';
-      case 4: return 'Your photo';
-      case 5: return 'Your world';
-      case 6: return 'Your intent';
+      case 1: return 'The Pace';
+      case 2: return 'Who you are';
+      case 3: return 'Your photo';
+      case 4: return 'Your world';
+      case 5: return 'Your intent';
       default: return '';
     }
   }
@@ -360,170 +339,13 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 
   Widget _buildStep(AppFlowController flow) {
     switch (_step) {
-      case 1: return _buildValue();
-      case 2: return _buildPace();
-      case 3: return _buildWhoYouAre();
-      case 4: return _buildPhoto();
-      case 5: return _buildInterests();
-      case 6: return _buildIntent();
+      case 1: return _buildPace();
+      case 2: return _buildWhoYouAre();
+      case 3: return _buildPhoto();
+      case 4: return _buildInterests();
+      case 5: return _buildIntent();
       default: return const SizedBox();
     }
-  }
-
-  Widget _buildValue() {
-    final charCount = _promptAnswerController.text.trim().length;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('One thing\nabout you.',
-              style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800,
-                  color: FreezmeColors.neutral, height: 1.15)),
-          const SizedBox(height: 6),
-          const Text('Pick a prompt. This is the first thing people see.',
-              style: TextStyle(fontSize: 15, color: FreezmeColors.muted)),
-          const SizedBox(height: 20),
-
-          // Vertical prompt list — every prompt visible at once (no hidden
-          // "Prompt N" chips). The selected prompt expands inline to reveal the
-          // answer field. Switching prompts does NOT clear what's been typed.
-          ...List.generate(_kPrompts.length, (i) {
-            final prompt = _kPrompts[i];
-            final sel = prompt == _selectedPrompt;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOut,
-                decoration: BoxDecoration(
-                  color: sel
-                      ? FreezmeColors.primary.withValues(alpha: 0.07)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: sel
-                        ? FreezmeColors.primary.withValues(alpha: 0.45)
-                        : FreezmeColors.border,
-                    width: sel ? 1.5 : 1,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Tappable prompt row
-                    InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: sel
-                          ? null
-                          : () => setState(() => _selectedPrompt = prompt),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Radio indicator
-                            Container(
-                              margin: const EdgeInsets.only(top: 2),
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: sel
-                                      ? FreezmeColors.primary
-                                      : FreezmeColors.muted.withValues(alpha: 0.4),
-                                  width: 2,
-                                ),
-                                color: sel ? FreezmeColors.primary : Colors.transparent,
-                              ),
-                              child: sel
-                                  ? const Icon(Icons.check, size: 13, color: Colors.white)
-                                  : null,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                prompt,
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  height: 1.4,
-                                  fontStyle: FontStyle.italic,
-                                  fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
-                                  color: sel
-                                      ? FreezmeColors.neutral
-                                      : FreezmeColors.neutral.withValues(alpha: 0.7),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Inline answer field — only under the selected prompt
-                    if (sel)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextField(
-                              controller: _promptAnswerController,
-                              maxLines: 5,
-                              maxLength: 280,
-                              autofocus: false,
-                              onChanged: (_) => setState(() {}),
-                              decoration: InputDecoration(
-                                hintText: 'Your answer...',
-                                hintStyle: TextStyle(
-                                    color: FreezmeColors.muted.withValues(alpha: 0.6)),
-                                filled: true,
-                                fillColor: Colors.white,
-                                contentPadding: const EdgeInsets.all(16),
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(color: FreezmeColors.border)),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(
-                                    color: charCount >= 40
-                                        ? FreezmeColors.primary.withValues(alpha: 0.4)
-                                        : FreezmeColors.border,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                    borderSide: const BorderSide(
-                                        color: FreezmeColors.primary, width: 2)),
-                                counterStyle: const TextStyle(
-                                    fontSize: 11, color: FreezmeColors.muted),
-                              ),
-                            ),
-                            if (charCount >= 40)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 10),
-                                child: _InsightBanner(
-                                    text: 'This shows on your profile exactly as written.',
-                                    icon: Icons.visibility_outlined))
-                            else if (_hasAttemptedNext)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: _ValidationHint(
-                                    text: '$charCount/40 characters minimum')),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          }),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
   }
 
   Widget _buildPace() {
