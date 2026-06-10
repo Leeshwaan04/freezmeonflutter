@@ -25,13 +25,20 @@ class PushNotificationService {
   /// from a tapped notification). Consumed once on registration.
   Map<String, dynamic>? _pendingPayload;
 
-  Future<void> initialize() async {
+  /// Initialise push notifications.
+  ///
+  /// [requestPermission] controls WHEN the iOS permission prompt appears:
+  ///   - false (default, called at app launch): never prompts. Only wires up
+  ///     the token + handlers IF the user already granted permission before.
+  ///     Keeps the welcome/onboarding flow free of an out-of-context system
+  ///     dialog (asking on first launch tanks opt-in rates & first impression).
+  ///   - true (called once onboarding completes): prompts contextually, after
+  ///     the user understands what the app is.
+  Future<void> initialize({bool requestPermission = false}) async {
     try {
-      final settings = await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      final settings = requestPermission
+          ? await _messaging.requestPermission(alert: true, badge: true, sound: true)
+          : await _messaging.getNotificationSettings();
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
         debugPrint('[Push] notifications authorized');

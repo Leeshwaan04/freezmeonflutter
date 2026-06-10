@@ -74,7 +74,9 @@ void main() async {
       AuthService.initGoogleSignIn().timeout(const Duration(seconds: 3)),
       Firebase.initializeApp().timeout(const Duration(seconds: 3)).then((_) {
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-        unawaited(PushNotificationService().initialize());
+        // No prompt at launch — only sets up if already authorized. The prompt
+        // is requested contextually after onboarding (see completeOnboarding).
+        unawaited(PushNotificationService().initialize(requestPermission: false));
       }),
     ]).timeout(const Duration(seconds: 5), onTimeout: () {
       debugPrint('[Init] Warning: Initialization timed out. Booting UI anyway.');
@@ -89,7 +91,7 @@ void main() async {
     final loggedIn = await ApiClient.instance.isLoggedIn.timeout(const Duration(seconds: 2));
     if (loggedIn) {
       unawaited(WebSocketService.instance.connect());
-      unawaited(PushNotificationService().initialize());
+      unawaited(PushNotificationService().initialize(requestPermission: false));
     }
   } catch (_) {}
 

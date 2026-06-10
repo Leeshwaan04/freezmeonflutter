@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/auth_service.dart';
 import '../services/api_client.dart';
+import '../services/push_notification_service.dart';
 
 import '../core/app_stage.dart';
 import '../models/vibe_profile.dart';
@@ -598,6 +599,9 @@ class AppFlowController extends ChangeNotifier {
     await _prefs?.setBool(_kOnboardingCompleteKey, true);
     _stack.add(AppStage.dailyPool);
     notifyListeners();
+    // Ask for notification permission NOW (contextually, post-onboarding) rather
+    // than cold on first launch — much higher opt-in and a cleaner first run.
+    unawaited(PushNotificationService().initialize(requestPermission: true));
   }
 
   void openProfileSettings() => pushIfMissing(AppStage.profileSettings);
