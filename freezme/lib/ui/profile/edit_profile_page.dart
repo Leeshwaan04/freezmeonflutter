@@ -24,8 +24,57 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   late TextEditingController _nameController;
   late TextEditingController _bioController;
-  late TextEditingController _ageController;
   late TextEditingController _locationController;
+
+  // Age is set via date of birth (same as onboarding). The server stores only
+  // `age`, so we keep the loaded age and only recompute it if the user picks a
+  // new DOB here.
+  int? _currentAge;
+  DateTime? _dob;
+  int? get _age {
+    if (_dob == null) return _currentAge;
+    final today = DateTime.now();
+    int age = today.year - _dob!.year;
+    if (today.month < _dob!.month ||
+        (today.month == _dob!.month && today.day < _dob!.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  bool get _ageValid => _age != null && _age! >= 18 && _age! <= 99;
+
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final latest18 = DateTime(now.year - 18, now.month, now.day);
+    final seed = _dob ??
+        (_currentAge != null
+            ? DateTime(now.year - _currentAge!, now.month, now.day)
+            : DateTime(now.year - 25, now.month, now.day));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: seed.isAfter(latest18) ? latest18 : seed,
+      firstDate: DateTime(now.year - 100),
+      lastDate: latest18,
+      initialEntryMode: DatePickerEntryMode.input,
+      initialDatePickerMode: DatePickerMode.year,
+      helpText: 'Enter your date of birth',
+      fieldLabelText: 'Date of birth',
+      fieldHintText: 'MM/DD/YYYY',
+      errorInvalidText: 'You must be 18 or older to use Freezme',
+    );
+    if (picked != null) {
+      setState(() {
+        _dob = picked;
+        _hasUnsavedChanges = true;
+      });
+    }
+  }
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
 
   String? _gender;
   String? _intent;
@@ -57,7 +106,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.initState();
     _nameController = TextEditingController();
     _bioController = TextEditingController();
-    _ageController = TextEditingController();
     _locationController = TextEditingController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -68,7 +116,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         _nameController.text = user?.displayName ?? flow.profileName ?? '';
         _bioController.text = user?.bio ?? flow.profileBio ?? '';
         final age = user?.age ?? flow.profileAge;
-        if (age != null && age > 0) _ageController.text = age.toString();
+        if (age != null && age > 0) _currentAge = age;
         _existingPhotoUrls = user?.photoUrls.isNotEmpty == true
             ? user!.photoUrls
             : (user?.photoUrl != null ? [user!.photoUrl!] : []);
@@ -125,7 +173,6 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void dispose() {
     _nameController.dispose();
     _bioController.dispose();
-    _ageController.dispose();
     _locationController.dispose();
     super.dispose();
   }
@@ -158,6 +205,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_ageValid) {
+      PremiumSnackBar.show(context, 'You must be 18 or older to use Freezme',
+          type: SnackBarType.warning);
+      return;
+    }
 
     setState(() => _saving = true);
     try {
@@ -195,7 +247,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           uid: uid,
           displayName: _nameController.text.trim(),
           bio: _bioController.text.trim(),
-          age: int.tryParse(_ageController.text),
+          age: _age,
           location: _locationController.text.trim().isEmpty
               ? null
               : _locationController.text.trim(),
@@ -209,7 +261,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         await flow.updateOnboardingData(
           name: _nameController.text.trim(),
           bio: _bioController.text.trim(),
-          age: int.tryParse(_ageController.text),
+          age: _age,
           interests: _selectedInterests,
           gender: _gender,
           imageUrl: imageUrl,
@@ -335,21 +387,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 const SizedBox(height: FreezmeDesignSystem.spaceLg),
 
-                // ── Age + Location ────────────────────────────────────────
+                // ── Age (via Date of birth) + Location ────────────────────
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: PremiumTextField(
-                        controller: _ageController,
-                        labelText: 'Age',
-                        keyboardType: TextInputType.number,
-                        validator: (v) {
-                          final age = int.tryParse(v ?? '');
-                          if (age != null && (age < 18 || age > 99)) {
-                            return 'Must be 18–99';
-                          }
-                          return null;
-                        },
+                      child: GestureDetector(
+                        onTap: _pickDob,
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Age (date of birth)',
+                            border: OutlineInputBorder(),
+                            suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                          ),
+                          child: Text(
+                            _dob != null
+                                ? '${_months[_dob!.month - 1]} ${_dob!.day}, ${_dob!.year}  ·  ${_age ?? ''}'
+                                : (_currentAge != null ? '$_currentAge' : 'Set date of birth'),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: (_dob != null || _currentAge != null)
+                                  ? FreezmeDesignSystem.textPrimary
+                                  : FreezmeDesignSystem.textSecondary,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -361,6 +423,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     ),
                   ],
                 ),
+                if (!_ageValid && (_dob != null || _currentAge != null)) ...[
+                  const SizedBox(height: 6),
+                  const Text('You must be 18 or older.',
+                      style: TextStyle(fontSize: 12, color: FreezmeDesignSystem.error)),
+                ],
                 const SizedBox(height: FreezmeDesignSystem.spaceXl),
 
                 // ── Gender ────────────────────────────────────────────────
