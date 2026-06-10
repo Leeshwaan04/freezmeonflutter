@@ -8,6 +8,7 @@ import 'ui/theme.dart';
 import 'core/database.dart';
 import 'controllers/flow_controller.dart';
 import 'core/app_stage.dart';
+import 'core/app_messenger.dart';
 import 'data/ec2_freezme_repository.dart';
 import 'data/mock_freezme_repository.dart';
 import 'services/auth_service.dart';
@@ -216,6 +217,7 @@ class _FreezmeAppState extends State<FreezmeApp> {
       child: MaterialApp(
         title: 'Freezme',
         debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: rootScaffoldMessengerKey,
         theme: FreezmeTheme.build(),
         home: const FlowNavigator(),
       ),

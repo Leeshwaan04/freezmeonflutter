@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../controllers/flow_controller.dart';
 import '../../core/app_stage.dart';
+import '../../core/app_messenger.dart';
 import '../../services/auth_service.dart';
 import '../theme.dart';
 import '../widgets/freezme_logo.dart';
@@ -74,6 +75,7 @@ class _AuthGatePageState extends State<AuthGatePage>
     setState(() => _loadingMethod = _AuthMethod.google);
     try {
       await AuthService.instance.signInWithGoogle();
+      showAppToast('Signed in — welcome to Freezme');
       // Navigation handled by _listenToAuth in flow_controller:
       //   new user  → onboarding
       //   returning → dailyPool
@@ -94,6 +96,7 @@ class _AuthGatePageState extends State<AuthGatePage>
     setState(() => _loadingMethod = _AuthMethod.apple);
     try {
       await AuthService.instance.signInWithApple();
+      showAppToast('Signed in — welcome to Freezme');
       // Navigation handled by _listenToAuth in flow_controller
     } catch (e) {
       if (!mounted) return;
@@ -117,6 +120,7 @@ class _AuthGatePageState extends State<AuthGatePage>
       builder: (ctx) => _EmailAuthSheet(
         onSuccess: () {
           Navigator.of(ctx).pop();
+          showAppToast('Signed in — welcome to Freezme');
           // Navigation handled by _listenToAuth in flow_controller
         },
       ),
