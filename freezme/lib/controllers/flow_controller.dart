@@ -557,7 +557,21 @@ class AppFlowController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void completeSplash() => replaceStack(<AppStage>[AppStage.authGate]);
+  /// Splash → next stage. Routes by ACTUAL auth state instead of always going
+  /// to authGate: AuthService.init() emits the restored user before this
+  /// controller subscribes (broadcast streams don't buffer), so a signed-in
+  /// user would otherwise land on the sign-in page, then get yanked to a
+  /// different screen by the next auth emission ("random screens" post-login).
+  void completeSplash() {
+    if (current != AppStage.splash) return; // auth listener already routed us
+    final user = AuthService.instance.currentUser;
+    if (user == null) {
+      replaceStack(<AppStage>[AppStage.authGate]);
+    } else {
+      final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+      replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
+    }
+  }
 
   void startOnboarding() {
     _prefs?.remove(_kOnboardingCompleteKey);
