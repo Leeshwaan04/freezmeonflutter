@@ -9,12 +9,13 @@ import '../../core/app_stage.dart';
 import '../../services/auth_service.dart';
 import '../../models/blueprint.dart';
 
-// ── Onboarding: 5-step modern flow ───────────────────────────────────────────
-// Step 1 — The Pace    (scenario choice)
-// Step 2 — Who you are (name, age, gender, interested in)
-// Step 3 — Your photo
-// Step 4 — Your world  (interests)
-// Step 5 — Your intent
+// ── Onboarding: 6-step modern flow ───────────────────────────────────────────
+// Step 1 — The Pull    (A/B energy calibration)
+// Step 2 — The Pace    (scenario choice)
+// Step 3 — Who you are (name, DOB 18+, gender, interested in)
+// Step 4 — Your photo
+// Step 5 — Your world  (interests)
+// Step 6 — Your intent
 // ─────────────────────────────────────────────────────────────────────────────
 
 class OnboardingFlowPage extends StatefulWidget {
@@ -27,7 +28,32 @@ class OnboardingFlowPage extends StatefulWidget {
 class _OnboardingFlowPageState extends State<OnboardingFlowPage>
     with SingleTickerProviderStateMixin {
   int _step = 1;
-  static const int _totalSteps = 5;
+  static const int _totalSteps = 6;
+
+  // ── Step 1: The Pull (A/B energy calibration) ──────────────────────────────
+  final List<int> _calibrationChoices = [];
+
+  List<PersonalityTrait> get _derivedTraits {
+    if (_calibrationChoices.length < 4) return [];
+    return [
+      _calibrationChoices[2] == 0 ? PersonalityTrait.introvert : PersonalityTrait.extrovert,
+      _calibrationChoices[1] == 0 ? PersonalityTrait.planner : PersonalityTrait.spontaneous,
+      _calibrationChoices[3] == 0 ? PersonalityTrait.logical : PersonalityTrait.emotional,
+      _calibrationChoices[0] == 0 ? PersonalityTrait.cautious : PersonalityTrait.adventurous,
+    ];
+  }
+
+  /// Derive the energy type from "The Pull" calibration so it feeds matching
+  /// (the algorithm weights energy compatibility 20pts).
+  EnergyType? get _derivedEnergyType {
+    if (_calibrationChoices.length < 4) return null;
+    final extrovert = _calibrationChoices[2] == 1;
+    final spontaneous = _calibrationChoices[1] == 1;
+    if (!extrovert && !spontaneous) return EnergyType.deepDiver;
+    if (!extrovert && spontaneous) return EnergyType.quietStorm;
+    if (extrovert && !spontaneous) return EnergyType.roomIgniter;
+    return EnergyType.openRoad;
+  }
   bool _submitting = false;
   bool _hasAttemptedNext = false;
 
@@ -59,14 +85,23 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
   Future<void> _pickDob(BuildContext context) async {
     final now = DateTime.now();
     final latest18 = DateTime(now.year - 18, now.month, now.day);
-    final initial = _dob ?? latest18;
+    // Default the wheel to a realistic adult age (~25) instead of "exactly 18
+    // today", so users aren't forced to scroll/page back two decades.
+    final initial = _dob ?? DateTime(now.year - 25, now.month, now.day);
     final picked = await showDatePicker(
       context: context,
       initialDate: initial.isAfter(latest18) ? latest18 : initial,
       firstDate: DateTime(now.year - 100),
       lastDate: latest18,
-      helpText: 'Your date of birth',
+      // Open in TYPE mode (fastest for a known DOB) and, if the user switches
+      // to the calendar, start on year selection so they jump straight to their
+      // birth year rather than paging month-by-month.
+      initialEntryMode: DatePickerEntryMode.input,
+      initialDatePickerMode: DatePickerMode.year,
+      helpText: 'Enter your date of birth',
       fieldLabelText: 'Date of birth',
+      fieldHintText: 'MM/DD/YYYY',
+      errorInvalidText: 'You must be 18 or older to use Freezme',
     );
     if (picked != null) setState(() => _dob = picked);
   }
@@ -123,11 +158,12 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 
   bool _canProceed() {
     switch (_step) {
-      case 1: return _paceChoice != null;
-      case 2: return _nameController.text.trim().length >= 2 && _dobOk && _gender != null;
-      case 3: return _photo != null;
-      case 4: return _selectedInterests.length >= _minInterests;
-      case 5: return _selectedIntent != null;
+      case 1: return _calibrationChoices.length == kCalibrationPairs.length;
+      case 2: return _paceChoice != null;
+      case 3: return _nameController.text.trim().length >= 2 && _dobOk && _gender != null;
+      case 4: return _photo != null;
+      case 5: return _selectedInterests.length >= _minInterests;
+      case 6: return _selectedIntent != null;
       default: return false;
     }
   }
@@ -177,8 +213,8 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
           genderPrefs:       resolvedGenderPrefs,
           intent:            _selectedIntent,
           interests:         _selectedInterests.toList(),
-          personalityTraits: const [],
-          energyType:        null,
+          personalityTraits: _derivedTraits,
+          energyType:        _derivedEnergyType,
           lifestyleFactors:  const [],
           imageUrl:          imageUrl,
           paceSignal:        _paceChoice == 0 ? PaceSignal.takesTheirTime
@@ -217,11 +253,12 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 
   String _stepLabel(int step) {
     switch (step) {
-      case 1: return 'The Pace';
-      case 2: return 'Who you are';
-      case 3: return 'Your photo';
-      case 4: return 'Your world';
-      case 5: return 'Your intent';
+      case 1: return 'The Pull';
+      case 2: return 'The Pace';
+      case 3: return 'Who you are';
+      case 4: return 'Your photo';
+      case 5: return 'Your world';
+      case 6: return 'Your intent';
       default: return '';
     }
   }
@@ -341,13 +378,52 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 
   Widget _buildStep(AppFlowController flow) {
     switch (_step) {
-      case 1: return _buildPace();
-      case 2: return _buildWhoYouAre();
-      case 3: return _buildPhoto();
-      case 4: return _buildInterests();
-      case 5: return _buildIntent();
+      case 1: return _buildPull();
+      case 2: return _buildPace();
+      case 3: return _buildWhoYouAre();
+      case 4: return _buildPhoto();
+      case 5: return _buildInterests();
+      case 6: return _buildIntent();
       default: return const SizedBox();
     }
+  }
+
+  Widget _buildPull() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Which pulls\nyou more?',
+              style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800,
+                  color: FreezmeColors.neutral, height: 1.15)),
+          const SizedBox(height: 6),
+          const Text('No right answer. Pick what you actually feel.',
+              style: TextStyle(fontSize: 15, color: FreezmeColors.muted)),
+          const SizedBox(height: 28),
+          ...kCalibrationPairs.asMap().entries.map((entry) {
+            final i    = entry.key;
+            final pair = entry.value;
+            final chosen = _calibrationChoices.length > i ? _calibrationChoices[i] : -1;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: _CalibrationPairCard(
+                optionA: pair.optionA, optionB: pair.optionB, chosen: chosen,
+                onChoose: (choice) => setState(() {
+                  if (_calibrationChoices.length <= i) _calibrationChoices.add(choice);
+                  else _calibrationChoices[i] = choice;
+                }),
+              ),
+            );
+          }),
+          if (_hasAttemptedNext && _calibrationChoices.length < kCalibrationPairs.length)
+            _ValidationHint(
+              text: 'Choose one from each pair (${_calibrationChoices.length}/${kCalibrationPairs.length} done)',
+            ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
   }
 
   Widget _buildPace() {
@@ -797,6 +873,58 @@ class _OnboardingFlowPageState extends State<OnboardingFlowPage>
 }
 
 // ── Calibration pair card ─────────────────────────────────────────────────────
+
+class _CalibrationPairCard extends StatelessWidget {
+  const _CalibrationPairCard({
+    required this.optionA, required this.optionB,
+    required this.chosen, required this.onChoose,
+  });
+  final String optionA, optionB;
+  final int chosen;
+  final ValueChanged<int> onChoose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Expanded(child: _OptionTile(label: optionA, selected: chosen == 0, onTap: () => onChoose(0))),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Text('or', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+            color: FreezmeColors.muted.withValues(alpha: 0.6))),
+      ),
+      Expanded(child: _OptionTile(label: optionB, selected: chosen == 1, onTap: () => onChoose(1))),
+    ]);
+  }
+}
+
+class _OptionTile extends StatelessWidget {
+  const _OptionTile({required this.label, required this.selected, required this.onTap});
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected ? FreezmeColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: selected
+              ? [BoxShadow(color: FreezmeColors.primary.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 4))]
+              : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 1))],
+        ),
+        child: Text(label, style: TextStyle(fontSize: 12, height: 1.45,
+            color: selected ? Colors.white : FreezmeColors.neutral,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400),
+            maxLines: 5, overflow: TextOverflow.ellipsis),
+      ),
+    );
+  }
+}
 
 // ── Validation hint ───────────────────────────────────────────────────────────
 
