@@ -419,14 +419,7 @@ class AppFlowController extends ChangeNotifier {
             slotsChanged = true;
           }
           if (current == AppStage.authGate || current == AppStage.splash) {
-            // Use server profile completeness as source of truth — local pref is
-            // only a fallback for speed on app restart when profile is already known.
-            // ALWAYS require users to complete onboarding (even if Apple/Google pre-fills
-            // name/age/gender), since onboarding also captures intent, interests, photos,
-            // and prompt answer. Use the local pref to track completion.
-            final localCompleted = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
-            // replaceStack already calls notifyListeners
-            replaceStack([localCompleted ? AppStage.dailyPool : AppStage.onboarding]);
+            replaceStack([_hasCompletedOnboarding(user) ? AppStage.dailyPool : AppStage.onboarding]);
           } else if (slotsChanged) {
             // Slots updated but no navigation change — still notify listeners
             notifyListeners();
@@ -564,6 +557,22 @@ class AppFlowController extends ChangeNotifier {
   /// controller subscribes (broadcast streams don't buffer), so a signed-in
   /// user would otherwise land on the sign-in page, then get yanked to a
   /// different screen by the next auth emission ("random screens" post-login).
+  /// Whether a user has finished onboarding. The SERVER profile is the durable
+  /// source of truth — `gender` is only ever set during onboarding (Apple/Google
+  /// never auto-fill it), so a complete server profile means onboarding is done
+  /// even if local prefs were wiped (reinstall / new device). The local flag is
+  /// a fast-path cache, back-filled here when the server says complete.
+  bool _hasCompletedOnboarding(AuthUser user) {
+    final serverComplete = (user.displayName?.isNotEmpty ?? false) &&
+        user.age != null &&
+        (user.gender?.isNotEmpty ?? false);
+    final localCompleted = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
+    if (serverComplete && !localCompleted) {
+      _prefs?.setBool(_kOnboardingCompleteKey, true);
+    }
+    return serverComplete || localCompleted;
+  }
+
   void completeSplash() {
     if (current != AppStage.splash) return; // auth listener already routed us
     final user = AuthService.instance.currentUser;
@@ -573,8 +582,7 @@ class AppFlowController extends ChangeNotifier {
       final welcomeSeen = _prefs?.getBool(_kWelcomeSeenKey) ?? false;
       replaceStack(<AppStage>[welcomeSeen ? AppStage.authGate : AppStage.welcome]);
     } else {
-      final completed = _prefs?.getBool(_kOnboardingCompleteKey) ?? false;
-      replaceStack([completed ? AppStage.dailyPool : AppStage.onboarding]);
+      replaceStack([_hasCompletedOnboarding(user) ? AppStage.dailyPool : AppStage.onboarding]);
     }
   }
 
