@@ -219,7 +219,16 @@ class AuthService {
 
   Future<AuthUser> signInWithGoogle() async {
     await initGoogleSignIn();
-    final googleUser = await GoogleSignIn.instance.authenticate();
+    // The native flow can hang indefinitely if iOS cancels the
+    // ASWebAuthenticationSession while the app is backgrounded for an
+    // out-of-band 2-Step Verification (number-match) challenge. Cap it so the
+    // UI surfaces a retry instead of an infinite spinner.
+    final googleUser = await GoogleSignIn.instance.authenticate().timeout(
+      const Duration(seconds: 90),
+      onTimeout: () => throw TimeoutException(
+          'Google sign-in did not complete. If you use 2-Step Verification, '
+          'approve it without leaving the app, or use Apple/Email.'),
+    );
     final idToken = googleUser.authentication.idToken;
     if (idToken == null) throw Exception('Google auth: no idToken');
 
@@ -230,7 +239,7 @@ class AuthService {
         'displayName': googleUser.displayName ?? '',
         'photoUrl': googleUser.photoUrl ?? '',
       },
-    );
+    ).timeout(const Duration(seconds: 20));
 
     return _handleAuthResponse(response.data as Map<String, dynamic>);
   }
